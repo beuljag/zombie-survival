@@ -1163,6 +1163,7 @@ def run_match(lockstep, seed, roster, local_pid):
     Bullet.__init__ = _bullet_init_with_owner
     ui = {"cards": [], "waiting": 0, "menu": False, "desync": False}
     next_send = 0
+    pace_start = REAL_GET_TICKS()     # 게임 속도 기준 시각 (실제 시간)
     clicks = {"l": 0, "r": 0, "e": 0, "u": -1}
     try:
         while True:
@@ -1205,12 +1206,20 @@ def run_match(lockstep, seed, roster, local_pid):
                 clicks = {"l": 0, "r": 0, "e": 0, "u": -1}
                 next_send += 1
 
-            # 받은 입력으로 게임 진행 (밀린 프레임은 최대 4개까지 따라잡기)
+            # 받은 입력으로 게임 진행 - 실제 시간 기준 초당 60프레임에 맞춤
+            # (예전에는 입력이 도착하는 대로 한 화면에 최대 4프레임씩 진행해서 1인용보다 1.6~1.8배 빨랐음)
+            # 밀렸을 때만 따라잡고, 너무 많이 밀리면(네트워크 지연 등) 밀린 만큼은 버려서 갑자기 빨라지지 않게 함
+            target = int((REAL_GET_TICKS() - pace_start) * FPS / 1000)
+            if target - state.sim_frame > 8:
+                pace_start = REAL_GET_TICKS() - (state.sim_frame + 1) * 1000 / FPS
+                target = state.sim_frame + 1
             lockstep.poll()
             advanced = 0
-            while advanced < 4:
+            stalled = False
+            while advanced < 3 and state.sim_frame < target:
                 tick = lockstep.take(state.sim_frame)
                 if tick is None:
+                    stalled = True
                     break
                 inputs, dropped = tick
                 state.step(inputs, dropped)
@@ -1218,7 +1227,7 @@ def run_match(lockstep, seed, roster, local_pid):
                 if state.sim_frame % HASH_INTERVAL == 0:
                     lockstep.report_hash(state.sim_frame, state.state_hash())
                     lockstep.poll()
-            ui["waiting"] = 0 if advanced else ui["waiting"] + 1
+            ui["waiting"] = ui["waiting"] + 1 if stalled and not advanced else 0
             ui["desync"] = lockstep.desync
             if lockstep.host_lost:
                 message_screen("호스트와 연결이 끊겼습니다", "아무 키나 누르면 멀티 메뉴로")
