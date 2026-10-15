@@ -139,6 +139,7 @@
 - 카타나: 일섬 - 마우스 방향으로 순간 돌진하며 지나간 길을 벰, 끝난 뒤 0.2초 무적 (6초)
   적을 처치하면 쿨타임 초기화 + 다음 일섬 데미지 +5% (연참, 중첩), 처치에 실패하거나 1초 안에 다시 쓰지 않으면 원래대로
   일섬으로 처치한 좀비 1마리당 체력 1 회복
+  기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발)가 일섬에도 적용됨
   "연참 데미지 +3%" 업그레이드로 스택당 보너스 증가
   일섬으로 처치한 좀비는 경험치 75%
 - 도끼: 회전 베기 - 2초 동안 빙글빙글 돌며 주변 연속 공격, 아주 강한 넉백 + 준 피해의 5% 흡혈 (12초)
@@ -2278,6 +2279,33 @@ def roll_crit_damage(player, damage, target=None):
     return damage
 
 
+def apply_hit_elements(player, zombie, zombies, base_damage, chain_range=150):
+    """속성탄 업그레이드 효과 (화염: 불붙임 / 얼음: 둔화 / 전기: 주변 2마리에게 연쇄 피해) - 일섬 등 스킬에도 적용"""
+    if player.skills.get("skill_fire_bullets", False):
+        zombie.burn_time = max(zombie.burn_time, 180)
+        zombie.burn_damage_cooldown = 0
+        fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "fire")
+    if player.skills.get("skill_ice_bullets", False):
+        zombie.slow_time = max(zombie.slow_time, 120)
+        zombie.slow_multiplier = min(zombie.slow_multiplier, 0.6)
+        fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "ice")
+    if player.skills.get("skill_electric_bullets", False):
+        zombie.electric_fx = 30
+        chain = []
+        for other in list(zombies):
+            if other is zombie:
+                continue
+            d = math.hypot(other.rect.centerx - zombie.rect.centerx, other.rect.centery - zombie.rect.centery)
+            if d < chain_range:
+                chain.append((d, other))
+        chain.sort(key=lambda entry: entry[0])
+        for _, target in chain[:2]:
+            target.health -= base_damage * 0.4 * get_damage_multiplier(target)
+            fx.lightning(zombie.rect.centerx, zombie.rect.centery, target.rect.centerx, target.rect.centery)
+            fx.element_hit(target.rect.centerx, target.rect.centery, "electric")
+            target.electric_fx = 30
+
+
 def get_knockback_multiplier(player):
     """넉백 강화 업그레이드 반영 (1회당 +10%)"""
     return 1.0 + 0.1 * player.levels.get("knockback", 0)
@@ -2757,13 +2785,28 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         # 연속 일섬 보너스: 처치로 쿨타임이 초기화될 때마다 +25% (실패하면 원래대로)
         chain_mult = 1 + get_katana_chain_bonus(player) * player.katana_chain
         dash_kills = 0
+        first_hit = None
         for zombie in zombies_near_line(zombies, cx, cy, end_x, end_y, 45):
-            skill_damage(zombie, base * 4 * (1 + 0.3 * up["damage"]) * chain_mult)
+            # 기본 공격 업그레이드도 적용: 치명타 + 속성탄 (화염/얼음/전기)
+            skill_damage(zombie, roll_crit_damage(player, base * 4 * (1 + 0.3 * up["damage"]) * chain_mult, zombie))
+            apply_hit_elements(player, zombie, zombies, base)
             fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (210, 230, 255))
+            if first_hit is None:
+                first_hit = zombie
             if zombie.health <= 0:
                 reset_cooldown = True  # 처치 → 쿨타임 초기화
                 zombie.dash_kill = True  # 일섬 처치는 경험치가 적음
                 dash_kills += 1
+        # 폭발 업그레이드: 처음 벤 좀비 위치에서 폭발 (기본 공격과 쿨타임 공유)
+        if first_hit is not None and player.skills.get("skill_explosion", False) and player.explosion_cooldown <= 0:
+            player.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN
+            boom_x, boom_y = first_hit.rect.center
+            boom = Explosion(boom_x, boom_y, 80)
+            explosions.add(boom)
+            all_sprites.add(boom)
+            for other in list(zombies):
+                if other is not first_hit and math.hypot(other.rect.centerx - boom_x, other.rect.centery - boom_y) < 80:
+                    other.health -= base * EXPLOSION_SKILL_RATIO * get_damage_multiplier(other)
         all_sprites.add(LineFlash(cx, cy, end_x, end_y, (150, 200, 255), width=22, duration=16))
         for i in range(10):  # 잔상
             t = i / 9
