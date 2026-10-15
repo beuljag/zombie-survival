@@ -140,6 +140,7 @@
   적을 처치하면 쿨타임 초기화 + 다음 일섬 데미지 +5% (연참, 중첩), 처치에 실패하거나 1초 안에 다시 쓰지 않으면 원래대로
   일섬으로 처치한 좀비 1마리당 체력 1 회복
   기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발)가 일섬에도 적용됨
+  "카타나 데미지 +3" 강화 1회당 일섬 데미지 +10% 추가
   "연참 데미지 +3%" 업그레이드로 스택당 보너스 증가
   일섬으로 처치한 좀비는 경험치 75%
 - 도끼: 회전 베기 - 2초 동안 빙글빙글 돌며 주변 연속 공격, 아주 강한 넉백 + 준 피해의 5% 흡혈 (12초)
@@ -295,6 +296,7 @@ KATANA_DASH_EXP_RATIO = 0.75     # 일섬으로 처치한 좀비의 경험치 �
 KATANA_CHAIN_WINDOW = 60         # 연참: 쿨타임 초기화 후 1초 안에 다시 쓰지 않으면 스택 초기화
 KATANA_KILL_HEAL = 1             # 일섬으로 처치한 좀비 1마리당 체력 회복
 KATANA_CHAIN_UPGRADE = 0.03      # "연참 데미지" 업그레이드 1회당 스택당 보너스 +3%
+KATANA_DASH_UPGRADE_BONUS = 0.10 # "카타나 데미지 +3" 강화 1회당 일섬 데미지 추가 +10% (공격력 증가와 별도로)
 
 # 도끼 회전 베기: 피흡 (준 피해의 5%, 한 번 휘두를 때(0.2초) 최대 6 회복) / 넉백 (기본 5 → 20, 멀리 날려 버림)
 AXE_SKILL_LIFESTEAL = 0.05
@@ -2784,11 +2786,13 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         end_x, end_y = cx + direction_x * dash, cy + direction_y * dash
         # 연속 일섬 보너스: 처치로 쿨타임이 초기화될 때마다 +25% (실패하면 원래대로)
         chain_mult = 1 + get_katana_chain_bonus(player) * player.katana_chain
+        # 카타나 강화(데미지 +3)는 공격력에 더해지는 것에 더해 일섬에 1회당 +10% 더 반영
+        katana_mult = 1 + KATANA_DASH_UPGRADE_BONUS * player.weapon_upgrades["katana"]["damage"]
         dash_kills = 0
         first_hit = None
         for zombie in zombies_near_line(zombies, cx, cy, end_x, end_y, 45):
             # 기본 공격 업그레이드도 적용: 치명타 + 속성탄 (화염/얼음/전기)
-            skill_damage(zombie, roll_crit_damage(player, base * 4 * (1 + 0.3 * up["damage"]) * chain_mult, zombie))
+            skill_damage(zombie, roll_crit_damage(player, base * 4 * (1 + 0.3 * up["damage"]) * katana_mult * chain_mult, zombie))
             apply_hit_elements(player, zombie, zombies, base)
             fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (210, 230, 255))
             if first_hit is None:
@@ -4333,6 +4337,8 @@ def build_cumulative_upgrade_lines(player):
 
     if counts.get("katana_skill_strikes", 0) > 0:
         lines.append(f"일섬 거리: +{counts['katana_skill_strikes'] * 40}px")
+    if counts.get("melee_damage_katana", 0) > 0:
+        lines.append(f"일섬 추가 데미지 (카타나 강화): +{counts['melee_damage_katana'] * 10}%")
     if counts.get("katana_skill_chain", 0) > 0:
         lines.append(f"연참 스택당 데미지: +{5 + counts['katana_skill_chain'] * 3}%")
     if counts.get("gloves_skill_strikes", 0) > 0:
@@ -4566,7 +4572,7 @@ def build_upgrade_choices(player):
         weapon_upgrades = [
             {"name": "일섬 거리 +40px", "desc": "더 멀리 돌진", "type": "katana_skill_strikes", "color": (255, 200, 100)},
             {"name": "연참 데미지 +3%", "desc": "연참 스택당 데미지 증가", "type": "katana_skill_chain", "color": (150, 230, 255)},
-            {"name": f"{player.weapon.name} 데미지 +3", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 3},
+            {"name": f"{player.weapon.name} 데미지 +3", "desc": "공격력 증가 + 일섬 데미지 +10%", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 3},
             {"name": "공격 속도 +12%", "desc": "더 빠른 공격", "type": f"melee_skill_speed_{weapon_type}", "color": (200, 150, 150)},
         ]
     elif weapon_type == "axe":
