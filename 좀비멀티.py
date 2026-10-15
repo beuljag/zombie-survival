@@ -28,7 +28,7 @@ from ZZ1 import *  # noqa: F401,F403 - 1인 모드의 클래스/함수/상수를
 
 PORT = 50007
 MAX_PLAYERS = 4
-INPUT_DELAY = 3          # 입력이 반영되기까지의 프레임 (네트워크 지연을 감추는 버퍼)
+INPUT_DELAY = 2          # 입력이 반영되기까지의 프레임 (네트워크 지연을 감추는 버퍼, LAN 기준 2프레임 = 0.033초)
 MOB_FACTOR = 1.1         # 멀티 좀비 수 배율 (× 인원수 × 1.1)
 REVIVE_WAVES = 3         # 죽은 뒤 이 웨이브 수가 지나면 부활
 HASH_INTERVAL = 300      # 동기화 확인 간격 (프레임)
@@ -838,7 +838,7 @@ class MatchState:
         self.zombie_spawn_counter += 1
         self.max_zombies = self.scaled(get_max_zombies(self.wave))
         if len(zombies) < self.max_zombies and self.zombie_spawn_counter > get_spawn_interval(self.wave):
-            anchor = random.choice(alive)
+            anchor = alive[0] if len(alive) == 1 else random.choice(alive)
             angle = random.uniform(0, 2 * math.pi)
             zombie = Zombie(anchor.rect.centerx + math.cos(angle) * 600, anchor.rect.centery + math.sin(angle) * 600,
                             zombie_type=get_zombie_type_by_wave(self.wave), wave=self.wave)
@@ -851,7 +851,7 @@ class MatchState:
             self.wave_timer_start = pygame.time.get_ticks()
             boss_spawned = False
             for _ in range(self.scaled(3 + self.wave * 2)):
-                anchor = random.choice(alive)
+                anchor = alive[0] if len(alive) == 1 else random.choice(alive)
                 angle = random.uniform(0, 2 * math.pi)
                 distance = random.uniform(300, 800)
                 if self.wave >= 3 and not boss_spawned:
@@ -1163,7 +1163,6 @@ def run_match(lockstep, seed, roster, local_pid):
     Bullet.__init__ = _bullet_init_with_owner
     ui = {"cards": [], "waiting": 0, "menu": False, "desync": False}
     next_send = 0
-    pace_start = REAL_GET_TICKS()     # 게임 속도 기준 시각 (실제 시간)
     clicks = {"l": 0, "r": 0, "e": 0, "u": -1}
     try:
         while True:
@@ -1206,17 +1205,14 @@ def run_match(lockstep, seed, roster, local_pid):
                 clicks = {"l": 0, "r": 0, "e": 0, "u": -1}
                 next_send += 1
 
-            # 받은 입력으로 게임 진행 - 실제 시간 기준 초당 60프레임에 맞춤
-            # (예전에는 입력이 도착하는 대로 한 화면에 최대 4프레임씩 진행해서 1인용보다 1.6~1.8배 빨랐음)
-            # 밀렸을 때만 따라잡고, 너무 많이 밀리면(네트워크 지연 등) 밀린 만큼은 버려서 갑자기 빨라지지 않게 함
-            target = int((REAL_GET_TICKS() - pace_start) * FPS / 1000)
-            if target - state.sim_frame > 8:
-                pace_start = REAL_GET_TICKS() - (state.sim_frame + 1) * 1000 / FPS
-                target = state.sim_frame + 1
+            # 받은 입력으로 게임 진행 - 1인용과 똑같이 화면 1번 그릴 때 게임 1프레임 진행
+            # (예전에는 입력이 도착하는 대로 한 화면에 최대 4프레임씩 진행해서 1인용보다 빨랐고,
+            #  실제 시간에 맞추는 방식은 화면과 게임 프레임이 어긋나 툭툭 끊기거나 빨라지는 느낌이 났음)
+            # PC가 느려서 60fps가 안 나오면 1인용처럼 다 같이 조금 느려짐 (락스텝이라 모두 같은 속도)
             lockstep.poll()
             advanced = 0
             stalled = False
-            while advanced < 3 and state.sim_frame < target:
+            while advanced < 1:
                 tick = lockstep.take(state.sim_frame)
                 if tick is None:
                     stalled = True

@@ -374,12 +374,26 @@ def ui_bright(color, minimum=170):
 def ui_text(surface, text, font, color, pos, anchor="topleft", shadow=True):
     """글자 그리기 (그림자 포함) → 그려진 영역"""
     text = str(text)
-    surf = font.render(text, True, color)
+    surf = _render_cached(font, text, color)
     rect = surf.get_rect(**{anchor: (int(pos[0]), int(pos[1]))})
     if shadow:
-        surface.blit(font.render(text, True, (0, 0, 0)), rect.move(2, 2))
+        surface.blit(_render_cached(font, text, (0, 0, 0)), rect.move(2, 2))
     surface.blit(surf, rect)
     return rect
+
+
+_text_cache = {}
+
+
+def _render_cached(font, text, color):
+    """같은 글자는 다시 그리지 않고 재사용 (좀비 이름표/HUD 글자가 매 프레임 수백 개라 느려지는 것 방지)"""
+    key = (id(font), text, tuple(color))
+    surf = _text_cache.get(key)
+    if surf is None:
+        if len(_text_cache) > 3000:
+            _text_cache.clear()
+        surf = _text_cache[key] = font.render(text, True, color)
+    return surf
 
 
 def ui_wrap(text, font, width):
