@@ -31,6 +31,7 @@ MAX_PLAYERS = 4
 INPUT_DELAY = 3          # 입력이 반영되기까지의 프레임 (네트워크 지연을 감추는 버퍼). 내 이동은 예측해서 바로 보여주므로 지연이 느껴지지 않음
 MOB_FACTOR = 1.1         # 멀티 좀비 수 배율 (× 인원수 × 1.1)
 REVIVE_WAVES = 3         # 죽은 뒤 이 웨이브 수가 지나면 부활
+REVIVE_INVULN_FRAMES = 300   # 부활 직후 무적 시간 (5초)
 HASH_INTERVAL = 300      # 동기화 확인 간격 (프레임)
 PLAYER_COLORS = [(0, 255, 0), (80, 170, 255), (255, 170, 60), (230, 90, 255)]
 REAL_GET_TICKS = pygame.time.get_ticks
@@ -898,7 +899,7 @@ class MatchState:
                     p.pos_x, p.pos_y = buddy.pos_x + 40, buddy.pos_y
                     p.rect.center = (round(p.pos_x), round(p.pos_y))
                     p._synced_center = p.rect.center
-                    p.invuln_time = 120
+                    p.invuln_time = REVIVE_INVULN_FRAMES
                     p.poison_time = p.slow_time = p.shock_time = p.corrode_time = 0
                     p.slow_multiplier = 1.0
                     fx.ring(p.rect.centerx, p.rect.centery, (120, 255, 160), 120, count=32, size=4)
@@ -1104,6 +1105,11 @@ def draw_match(state, camera, ui):
         if p is local and (pred_x or pred_y):
             p.rect = p.rect.move(round(pred_x), round(pred_y))   # 내 캐릭터는 예측 위치에 그림 (화면 표시만)
         draw_player_sprite(screen, camera, p)
+        if p.invuln_time > 20:     # 부활 무적: 깜빡이는 보호막 (일섬 직후 0.2초 무적에는 안 보임)
+            cx, cy = camera.apply(p.rect.centerx, p.rect.centery)
+            pulse = 4 * math.sin(state.sim_frame * 0.25)
+            ring_alpha_color = (150, 230, 255) if p.invuln_time > 60 or p.invuln_time % 10 < 5 else (90, 140, 170)
+            pygame.draw.circle(screen, ring_alpha_color, (int(cx), int(cy)), int(32 + pulse), 3)
         sx, sy = camera.apply(p.rect.centerx, p.rect.top)
         p.rect = real_rect
         tag = font_desc.render(p.name + (" (나)" if p.pid == state.local_pid else ""), True, p.color)

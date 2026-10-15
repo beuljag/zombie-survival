@@ -3891,6 +3891,8 @@ def get_player_buffs(player):
         buffs.append((f"연참 x{player.katana_chain} (다음 일섬 +{bonus}%)", "chain", player.katana_chain_timer, (150, 230, 255)))
     if player.rush_time > 0:
         buffs.append(("러시 (공격 속도 3배)", "rush", player.rush_time, (255, 160, 200)))
+    if player.invuln_time > 20:   # 부활 무적 등 (일섬 직후 0.2초 무적은 너무 짧아서 표시 안 함)
+        buffs.append(("무적", "invuln", player.invuln_time, (150, 230, 255)))
     if player.shock_time > 0:
         buffs.append(("감전 - 공격 불가", "shock", player.shock_time, (255, 240, 90)))
     if player.corrode_time > 0:
