@@ -3942,6 +3942,7 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
             ui_text(surface, f"(최근 {max_items}개 · 전체는 ESC → 능력 확인)", font_tiny, UI_ACCENT, (box.x + 16, box.bottom - 26), shadow=False)
 
     draw_controls_bar(surface, "WASD 이동 · 좌클릭 공격 · 우클릭 스킬 · TAB 업그레이드 목록 · ESC 일시정지")
+    ui_text(surface, f"FPS {clock.get_fps():.0f}", font_tiny, UI_SUB, (width - 14, height - 52), "topright")
 
 
 def draw_game_over(surface, title, stats, hint):

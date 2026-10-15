@@ -28,7 +28,7 @@ from ZZ1 import *  # noqa: F401,F403 - 1인 모드의 클래스/함수/상수를
 
 PORT = 50007
 MAX_PLAYERS = 4
-INPUT_DELAY = 2          # 입력이 반영되기까지의 프레임 (네트워크 지연을 감추는 버퍼, LAN 기준 2프레임 = 0.033초)
+INPUT_DELAY = 3          # 입력이 반영되기까지의 프레임 (네트워크 지연을 감추는 버퍼). 내 이동은 예측해서 바로 보여주므로 지연이 느껴지지 않음
 MOB_FACTOR = 1.1         # 멀티 좀비 수 배율 (× 인원수 × 1.1)
 REVIVE_WAVES = 3         # 죽은 뒤 이 웨이브 수가 지나면 부활
 HASH_INTERVAL = 300      # 동기화 확인 간격 (프레임)
@@ -127,6 +127,17 @@ class Lockstep:
         self.desync = False
         self.my_hashes = {}
         self.peer_hashes = {}
+        self.rtt_ms = None               # 참가자: 호스트까지 왕복 시간 (입력 버퍼 자동 조절용)
+
+    def ping(self):
+        if self.role == "client":
+            self.host_conn.send({"t": "ping", "s": time.time()})
+
+    def input_delay(self):
+        """입력 버퍼(프레임): 기본 INPUT_DELAY, 참가자는 핑이 크면 그만큼 늘림 (와이파이에서 멈칫 방지)"""
+        if self.role != "client" or self.rtt_ms is None:
+            return INPUT_DELAY
+        return max(INPUT_DELAY, min(12, int(self.rtt_ms * 1.25 / (1000 / FPS)) + 2))
 
     def submit(self, frame, inp):
         if self.role == "client":
@@ -157,6 +168,10 @@ class Lockstep:
                     self.ticks[msg["f"]] = (inputs, msg.get("drop", []))
                 elif msg["t"] == "desync":
                     self.desync = True
+                elif msg["t"] == "pong":
+                    rtt = (time.time() - msg["s"]) * 1000
+                    # 커질 때는 바로, 작아질 때는 천천히 따라감 (흔들리는 와이파이 대비)
+                    self.rtt_ms = rtt if self.rtt_ms is None or rtt > self.rtt_ms else self.rtt_ms * 0.95 + rtt * 0.05
             if self.host_conn.closed:
                 self.host_lost = True
             return
@@ -168,6 +183,8 @@ class Lockstep:
                 elif msg["t"] == "hash":
                     self.peer_hashes.setdefault(msg["f"], {})[pid] = msg["h"]
                     self._check_hash(msg["f"])
+                elif msg["t"] == "ping":
+                    conn.send({"t": "pong", "s": msg["s"]})
             if conn.closed and pid in self.active:
                 self.active.discard(pid)
                 self.dropped_queue.append(pid)
@@ -1045,7 +1062,8 @@ def draw_match(state, camera, ui):
     fx.elements = [el for el, sk in (("fire", "skill_fire_bullets"), ("ice", "skill_ice_bullets"),
                                      ("electric", "skill_electric_bullets")) if local.skills.get(sk, False)]
     fx.update()
-    camera.update(view.rect.centerx, view.rect.centery)
+    pred_x, pred_y = ui.get("pred", (0, 0)) if view is local else (0, 0)
+    camera.update(view.rect.centerx + pred_x, view.rect.centery + pred_y)
     camera.shake_x, camera.shake_y = fx.shake_offset()
     screen.fill(BLACK)
     camera.draw_background(screen)
@@ -1067,9 +1085,15 @@ def draw_match(state, camera, ui):
         if p.dead or p.left:
             continue
         ax, ay = camera.apply(*p.aim)
+        if p is local:
+            ax, ay = real_get_pos() if not FRAME_HOOK else (ax, ay)   # 내 총구는 지금 마우스 방향 (입력 지연 없이)
         pygame.mouse.get_pos = lambda ax=ax, ay=ay: (int(ax), int(ay))
+        real_rect = p.rect
+        if p is local and (pred_x or pred_y):
+            p.rect = p.rect.move(round(pred_x), round(pred_y))   # 내 캐릭터는 예측 위치에 그림 (화면 표시만)
         draw_player_sprite(screen, camera, p)
         sx, sy = camera.apply(p.rect.centerx, p.rect.top)
+        p.rect = real_rect
         tag = font_desc.render(p.name + (" (나)" if p.pid == state.local_pid else ""), True, p.color)
         screen.blit(tag, (sx - tag.get_width() // 2, sy - 30))
         bar = pygame.Rect(0, 0, 40, 5)
@@ -1077,6 +1101,9 @@ def draw_match(state, camera, ui):
         pygame.draw.rect(screen, (60, 0, 0), bar)
         pygame.draw.rect(screen, p.color, (bar.x, bar.y, int(40 * max(0, p.health) / p.max_health), 5))
     pygame.mouse.get_pos = real_get_pos
+    if ui.get("show_fps", True):
+        ping = f" · 핑 {ui['ping']:.0f}ms" if ui.get("ping") is not None else ""
+        ui_text(screen, f"FPS {clock.get_fps():.0f}{ping}", font_tiny, UI_SUB, (SCREEN_WIDTH - 14, SCREEN_HEIGHT - 52), "topright")
     fx.draw(screen, camera)
 
     draw_zombie_labels(screen, camera, state.zombies)
@@ -1164,6 +1191,9 @@ def run_match(lockstep, seed, roster, local_pid):
     ui = {"cards": [], "waiting": 0, "menu": False, "desync": False}
     next_send = 0
     clicks = {"l": 0, "r": 0, "e": 0, "u": -1}
+    my_moves = {}                     # 보냈지만 아직 게임에 반영되지 않은 내 이동 입력 (예측 표시용)
+    loops = 0
+    pace_start = REAL_GET_TICKS()     # 멈칫한 뒤 따라잡기용 기준 시각
     try:
         while True:
             clock.tick(FPS)
@@ -1193,7 +1223,10 @@ def run_match(lockstep, seed, roster, local_pid):
                         clicks["r"] = 1
 
             # 내 입력 보내기 (INPUT_DELAY 프레임 뒤에 반영)
-            while next_send <= state.sim_frame + INPUT_DELAY:
+            loops += 1
+            if loops % 20 == 1:
+                lockstep.ping()
+            while next_send <= state.sim_frame + lockstep.input_delay():
                 keys = REAL_GET_PRESSED()
                 mx, my = pygame.mouse.get_pos()
                 held = pygame.mouse.get_pressed()[0] and not ui["menu"]
@@ -1202,6 +1235,7 @@ def run_match(lockstep, seed, roster, local_pid):
                        "r": clicks["r"], "e": clicks["e"], "u": clicks["u"]}
                 inp.update(INPUT_HOOK(state, local) if INPUT_HOOK else {})
                 lockstep.submit(next_send, inp)
+                my_moves[next_send] = inp["k"]
                 clicks = {"l": 0, "r": 0, "e": 0, "u": -1}
                 next_send += 1
 
@@ -1209,10 +1243,17 @@ def run_match(lockstep, seed, roster, local_pid):
             # (예전에는 입력이 도착하는 대로 한 화면에 최대 4프레임씩 진행해서 1인용보다 빨랐고,
             #  실제 시간에 맞추는 방식은 화면과 게임 프레임이 어긋나 툭툭 끊기거나 빨라지는 느낌이 났음)
             # PC가 느려서 60fps가 안 나오면 1인용처럼 다 같이 조금 느려짐 (락스텝이라 모두 같은 속도)
+            # 네트워크로 잠깐 멈칫했으면(실제 시간보다 3프레임 이상 늦음) 한 화면에 2프레임씩 조금씩 따라잡음
+            # 평소에는 항상 1프레임 (화면과 게임이 어긋나지 않게 여유 범위를 둠)
+            behind = int((REAL_GET_TICKS() - pace_start) * FPS / 1000) - state.sim_frame
+            if behind > 20 or behind < -20:      # 크게 밀리면(창 이동/긴 끊김) 그냥 지금부터 다시 맞춤
+                pace_start = REAL_GET_TICKS() - state.sim_frame * 1000 / FPS
+                behind = 0
+            max_steps = 2 if behind >= 3 else (0 if behind <= -3 else 1)
             lockstep.poll()
             advanced = 0
             stalled = False
-            while advanced < 1:
+            while advanced < max_steps:
                 tick = lockstep.take(state.sim_frame)
                 if tick is None:
                     stalled = True
@@ -1224,7 +1265,20 @@ def run_match(lockstep, seed, roster, local_pid):
                     lockstep.report_hash(state.sim_frame, state.state_hash())
                     lockstep.poll()
             ui["waiting"] = ui["waiting"] + 1 if stalled and not advanced else 0
+            # 내 이동 예측: 아직 반영 안 된 이동 입력만큼 앞서 그림
+            for f in [f for f in my_moves if f < state.sim_frame]:
+                del my_moves[f]
+            if local.dead or local.left:
+                ui["pred"] = (0, 0)
+            else:
+                speed = local.speed * local.slow_multiplier * (ITEM_BUFF_MULTIPLIER if local.speed_buff_time > 0 else 1)
+                px = py = 0.0
+                for bits in my_moves.values():
+                    px += speed * (((bits >> 3) & 1) - ((bits >> 1) & 1))
+                    py += speed * (((bits >> 2) & 1) - (bits & 1))
+                ui["pred"] = (px, py)
             ui["desync"] = lockstep.desync
+            ui["ping"] = lockstep.rtt_ms
             if lockstep.host_lost:
                 message_screen("호스트와 연결이 끊겼습니다", "아무 키나 누르면 멀티 메뉴로")
                 return
@@ -1292,6 +1346,59 @@ def button_menu(title, options, info_lines=()):
         clock.tick(30)
 
 
+def _windows_clipboard():
+    """윈도우 클립보드의 글자를 직접 읽음 (추가 설치 없이 동작)"""
+    import ctypes
+    from ctypes import wintypes
+    user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+    user32.OpenClipboard.argtypes = [wintypes.HWND]
+    user32.GetClipboardData.restype = wintypes.HANDLE
+    kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+    kernel32.GlobalLock.restype = wintypes.LPVOID
+    kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+    if not user32.OpenClipboard(None):
+        return ""
+    try:
+        handle = user32.GetClipboardData(13)      # CF_UNICODETEXT
+        if not handle:
+            return ""
+        pointer = kernel32.GlobalLock(handle)
+        if not pointer:
+            return ""
+        try:
+            return ctypes.wstring_at(pointer)
+        finally:
+            kernel32.GlobalUnlock(handle)
+    finally:
+        user32.CloseClipboard()
+
+
+def read_clipboard():
+    """클립보드 글자 (붙여넣기용) - 윈도우 기본 기능으로 먼저, 안 되면 pygame으로"""
+    try:
+        if sys.platform == "win32":
+            text = _windows_clipboard()
+            if text:
+                return text
+    except Exception:
+        pass
+    try:
+        if not pygame.scrap.get_init():
+            pygame.scrap.init()
+        return pygame.scrap.get_text() or ""
+    except Exception:
+        return ""
+
+
+def clean_address(text):
+    """붙여넣은 글자에서 IP에 쓰는 글자(숫자와 점)만 남김 - "192.168.0.5:50007" 같은 것도 처리"""
+    import re
+    found = re.search(r"\d{1,3}(?:\.\d{1,3}){3}", text)
+    if found:
+        return found.group(0)
+    return "".join(ch for ch in text.strip() if ch.isdigit() or ch == ".")[:40]
+
+
 def text_input(title, initial=""):
     text = initial
     while True:
@@ -1301,7 +1408,7 @@ def text_input(title, initial=""):
         ui_panel(screen, box, alpha=235, border=UI_ACCENT, width=2)
         caret = "|" if pygame.time.get_ticks() // 500 % 2 else ""
         ui_text(screen, text + caret, font_medium, UI_TEXT, (box.x + 18, box.centery), "midleft", shadow=False)
-        ui_text(screen, "호스트 화면에 보이는 IP를 입력하고 Enter (ESC: 취소)", font_desc, UI_SUB,
+        ui_text(screen, "호스트 화면에 보이는 IP를 입력하고 Enter · Ctrl+V/우클릭: 붙여넣기 · ESC: 취소", font_desc, UI_SUB,
                 (SCREEN_WIDTH // 2, box.bottom + 20), "midtop", shadow=False)
         for event in REAL_EVENT_GET():
             ui_quit_event(event)
@@ -1312,8 +1419,17 @@ def text_input(title, initial=""):
                     return None
                 if event.key == pygame.K_BACKSPACE:
                     text = text[:-1]
+                elif (event.key == pygame.K_v and event.mod & pygame.KMOD_CTRL) or \
+                        (event.key == pygame.K_INSERT and event.mod & pygame.KMOD_SHIFT):
+                    pasted = clean_address(read_clipboard())
+                    if pasted:
+                        text = pasted        # 붙여넣기: 입력칸 내용을 붙여넣은 IP로 바꿈
                 elif event.unicode and (event.unicode.isdigit() or event.unicode == ".") and len(text) < 40:
                     text += event.unicode
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+                pasted = clean_address(read_clipboard())
+                if pasted:
+                    text = pasted            # 우클릭으로도 붙여넣기
         pygame.display.flip()
         clock.tick(30)
 
