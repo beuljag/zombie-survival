@@ -141,7 +141,7 @@
   일섬으로 처치한 좀비 1마리당 체력 1 회복
   "연참 데미지 +3%" 업그레이드로 스택당 보너스 증가
   일섬으로 처치한 좀비는 경험치 75%
-- 도끼: 회전 베기 - 2초 동안 빙글빙글 돌며 주변 연속 공격 (12초)
+- 도끼: 회전 베기 - 2초 동안 빙글빙글 돌며 주변 연속 공격, 아주 강한 넉백 + 준 피해의 5% 흡혈 (12초)
 - 창: 투창 - 거대한 창을 던져 일직선의 좀비를 모두 관통 (8초)
 - 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
 - 글로브: 러시 - 3초 동안 공격 속도 3배 (15초)
@@ -294,6 +294,11 @@ KATANA_DASH_EXP_RATIO = 0.75     # 일섬으로 처치한 좀비의 경험치 �
 KATANA_CHAIN_WINDOW = 60         # 연참: 쿨타임 초기화 후 1초 안에 다시 쓰지 않으면 스택 초기화
 KATANA_KILL_HEAL = 1             # 일섬으로 처치한 좀비 1마리당 체력 회복
 KATANA_CHAIN_UPGRADE = 0.03      # "연참 데미지" 업그레이드 1회당 스택당 보너스 +3%
+
+# 도끼 회전 베기: 피흡 (준 피해의 5%, 한 번 휘두를 때(0.2초) 최대 6 회복) / 넉백 (기본 5 → 20, 멀리 날려 버림)
+AXE_SKILL_LIFESTEAL = 0.05
+AXE_SKILL_LIFESTEAL_CAP = 6
+AXE_SKILL_KNOCKBACK = 20
 
 
 def tick_katana_chain(player):
@@ -805,14 +810,20 @@ def draw_eyes(surface, cx, cy, width, height, look_x, look_y, color=WHITE):
         pygame.draw.circle(surface, BLACK, (int(ex + px), int(ey + py)), max(1, eye_r // 2))
 
 
-def _zombie_body(zombie, image, angle, frozen, flicker, sparking, stealth):
-    """좀비 몸 이미지 (회전 + 얼음/불/전기 색 + 은신 투명도) - 같은 조합은 캐시해서 재사용"""
-    cache = zombie.__dict__.setdefault("_body_cache", {})
-    key = (id(image), angle, frozen, flicker, sparking, stealth)
-    surf = cache.get(key)
+_zombie_body_cache = {}
+EYE_DIRECTIONS = 16      # (눈을 몸 이미지에 같이 그릴 때의 방향 수 - 지금은 눈을 따로 그림)
+
+
+def _zombie_body(zombie, image, angle, frozen, flicker, sparking, stealth, eye_dir=None):
+    """좀비 몸 이미지 (회전 + 얼음/불/전기 색 + 은신 투명도)
+    같은 종류·크기·색의 좀비끼리 같이 쓰고, 같은 조합은 한 번만 만듦 (예전: 좀비마다 매 프레임 회전/색칠)"""
+    w, h = zombie.rect.size
+    key = (zombie.zombie_type, image.get_size(), zombie._alpha_key[3], image is zombie._flash_image,
+           angle, frozen, flicker, sparking, stealth, eye_dir, w, h)
+    surf = _zombie_body_cache.get(key)
     if surf is None:
-        if len(cache) > 160:
-            cache.clear()
+        if len(_zombie_body_cache) > 6000:
+            _zombie_body_cache.clear()
         surf = pygame.transform.rotate(image, angle)
         if frozen:
             surf.fill((130, 190, 255), special_flags=pygame.BLEND_RGB_MULT)
@@ -821,9 +832,12 @@ def _zombie_body(zombie, image, angle, frozen, flicker, sparking, stealth):
             surf.fill((110 + flicker, 45, 0), special_flags=pygame.BLEND_RGB_ADD)
         if sparking:
             surf.fill((120, 120, 40), special_flags=pygame.BLEND_RGB_ADD)
+        if eye_dir is not None:
+            a = eye_dir / EYE_DIRECTIONS * 2 * math.pi
+            draw_eyes(surf, surf.get_width() / 2, surf.get_height() / 2, w, h, math.cos(a), math.sin(a))
         if stealth:
             surf.set_alpha(40)
-        cache[key] = surf
+        _zombie_body_cache[key] = surf
     return surf
 
 
@@ -2191,6 +2205,9 @@ class Laser(pygame.sprite.Sprite):
             self.kill()
 
 
+_explosion_frames = {}
+
+
 # 폭발 클래스 (로켓/스킬/폭탄좀비 폭발 공용) - 판정과는 무관한 연출
 class Explosion(pygame.sprite.Sprite):
     def __init__(self, x, y, radius=100):
@@ -2210,17 +2227,25 @@ class Explosion(pygame.sprite.Sprite):
             fx.add_shake(min(12, self.radius / 18))
 
     def _draw_frame(self):
-        progress = self.frames / self.duration
-        c = self.image.get_width() // 2
-        self.image.fill((0, 0, 0, 0))
-        grow = min(1.0, 0.35 + progress * 2.4)   # 처음에 빠르게 커짐
-        r = max(2, int(self.radius * grow))
-        fade = max(0.0, 1 - progress)
-        pygame.draw.circle(self.image, (255, 110, 0, int(160 * fade)), (c, c), r)
-        pygame.draw.circle(self.image, (255, 200, 70, int(190 * fade)), (c, c), max(1, int(r * 0.62)))
-        if progress < 0.35:  # 중심 섬광
-            pygame.draw.circle(self.image, (255, 255, 230, int(255 * (1 - progress / 0.35))), (c, c), max(1, int(r * 0.33)))
-        pygame.draw.circle(self.image, (255, 235, 160, int(230 * fade)), (c, c), r, 3)  # 충격파 테두리
+        # 같은 크기 폭발의 같은 프레임은 한 번만 그려 두고 같이 씀 (예전에는 폭발마다 매 프레임 새로 그렸음)
+        key = (self.radius, self.frames, self.duration)
+        image = _explosion_frames.get(key)
+        if image is None:
+            if len(_explosion_frames) > 2000:
+                _explosion_frames.clear()
+            image = pygame.Surface(self.image.get_size(), pygame.SRCALPHA)
+            progress = self.frames / self.duration
+            c = image.get_width() // 2
+            grow = min(1.0, 0.35 + progress * 2.4)   # 처음에 빠르게 커짐
+            r = max(2, int(self.radius * grow))
+            fade = max(0.0, 1 - progress)
+            pygame.draw.circle(image, (255, 110, 0, int(160 * fade)), (c, c), r)
+            pygame.draw.circle(image, (255, 200, 70, int(190 * fade)), (c, c), max(1, int(r * 0.62)))
+            if progress < 0.35:  # 중심 섬광
+                pygame.draw.circle(image, (255, 255, 230, int(255 * (1 - progress / 0.35))), (c, c), max(1, int(r * 0.33)))
+            pygame.draw.circle(image, (255, 235, 160, int(230 * fade)), (c, c), r, 3)  # 충격파 테두리
+            _explosion_frames[key] = image
+        self.image = image
 
     def update(self):
         self.frames += 1
@@ -2502,11 +2527,20 @@ class WhirlwindSkill(ActiveSkill):
     def tick(self, player, zombies, bullets, all_sprites, explosions):
         cx, cy = player.rect.center
         if self.frames % 12 == 0:
+            dealt = 0.0
             for zombie in list(zombies):
                 if zombie.health > 0 and math.hypot(zombie.rect.centerx - cx, zombie.rect.centery - cy) < self.radius:
+                    before = zombie.health
                     skill_damage(zombie, self.damage)
+                    dealt += before - max(0.0, zombie.health)
                     push_zombie(zombie, cx, cy, self.knockback)
                     fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS["axe"])
+            # 피흡: 준 피해의 일부만큼 체력 회복
+            if dealt > 0 and player.health < player.max_health:
+                heal = min(AXE_SKILL_LIFESTEAL_CAP, dealt * AXE_SKILL_LIFESTEAL, player.max_health - player.health)
+                player.health += heal
+                if heal >= 1:
+                    fx.add_text(player.rect.centerx, player.rect.top - 22, f"+{heal:.0f}", (120, 255, 140))
         size = self.visual.image.get_width()
         c = size // 2
         image = pygame.Surface((size, size), pygame.SRCALPHA)
@@ -2758,7 +2792,7 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
     elif weapon_type == "axe":
         # 회전 베기: 2초 동안 주변을 빙글빙글 돌며 연속 공격
         radius = 130 + up["range"]
-        knockback = 5 * (1 + 0.12 * up["knockback"]) * get_knockback_multiplier(player)
+        knockback = AXE_SKILL_KNOCKBACK * (1 + 0.12 * up["knockback"]) * get_knockback_multiplier(player)
         player.active_skills.append(WhirlwindSkill(player, all_sprites, base * 1.0, radius, knockback))
 
     elif weapon_type == "spear":
@@ -3437,6 +3471,9 @@ class MeleePoundEffect(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(self.x, self.y))
 
 
+_resurrection_frames = {}
+
+
 # 부활 이펙트 (기사/방패/갑옷/철/기사단장 좀비가 부활할 때)
 class ResurrectionEffect(pygame.sprite.Sprite):
     def __init__(self, x, y, color=(100, 150, 200)):
@@ -3459,36 +3496,43 @@ class ResurrectionEffect(pygame.sprite.Sprite):
             self.kill()
             return
 
-        # 현재 반경 계산
-        current_radius = self.max_radius * progress
-        alpha = int(255 * (1 - progress))  # 페이드 아웃
+        # 30단계로 나눠 한 번만 그려 두고 같이 씀 (예전에는 300x300 이미지를 매 프레임 새로 그렸음)
+        step = int(progress * 30)
+        key = (tuple(self.color), step)
+        image = _resurrection_frames.get(key)
+        if image is None:
+            progress = step / 30
+            # 현재 반경 계산
+            current_radius = self.max_radius * progress
+            alpha = int(255 * (1 - progress))  # 페이드 아웃
 
-        size = 300
-        self.image = pygame.Surface((size, size), pygame.SRCALPHA)
-        center = size // 2
+            size = 300
+            image = pygame.Surface((size, size), pygame.SRCALPHA)
+            center = size // 2
 
-        # 밝은 파란 빛 방사형 효과
-        r, g, b = self.color
-        # 색상값이 255를 넘으면 pygame이 "invalid color argument"로 크래시하므로 범위 제한
-        light = lambda value, add: min(255, value + add)
+            # 밝은 파란 빛 방사형 효과
+            r, g, b = self.color
+            # 색상값이 255를 넘으면 pygame이 "invalid color argument"로 크래시하므로 범위 제한
+            light = lambda value, add: min(255, value + add)
 
-        # 동심원 (여러 원 겹치기)
-        pygame.draw.circle(self.image, (r, g, b, alpha), (center, center), int(current_radius), 4)
-        pygame.draw.circle(self.image, (light(r, 50), light(g, 50), light(b, 50), alpha//2), (center, center), int(current_radius * 0.7), 2)
-        pygame.draw.circle(self.image, (255, 255, 255, alpha), (center, center), int(current_radius * 0.4), 2)
+            # 동심원 (여러 원 겹치기)
+            pygame.draw.circle(image, (r, g, b, alpha), (center, center), int(current_radius), 4)
+            pygame.draw.circle(image, (light(r, 50), light(g, 50), light(b, 50), alpha//2), (center, center), int(current_radius * 0.7), 2)
+            pygame.draw.circle(image, (255, 255, 255, alpha), (center, center), int(current_radius * 0.4), 2)
 
-        # 중심 빛
-        pygame.draw.circle(self.image, (255, 255, 255, alpha), (center, center), 8)
+            # 중심 빛
+            pygame.draw.circle(image, (255, 255, 255, alpha), (center, center), 8)
 
-        # 방사형 빛줄기 (8개)
-        for angle in range(0, 360, 45):
-            rad = math.radians(angle)
-            x1 = center
-            y1 = center
-            x2 = center + math.cos(rad) * current_radius
-            y2 = center + math.sin(rad) * current_radius
-            pygame.draw.line(self.image, (light(r, 100), light(g, 100), light(b, 100), alpha), (x1, y1), (x2, y2), 3)
-
+            # 방사형 빛줄기 (8개)
+            for angle in range(0, 360, 45):
+                rad = math.radians(angle)
+                x1 = center
+                y1 = center
+                x2 = center + math.cos(rad) * current_radius
+                y2 = center + math.sin(rad) * current_radius
+                pygame.draw.line(image, (light(r, 100), light(g, 100), light(b, 100), alpha), (x1, y1), (x2, y2), 3)
+            _resurrection_frames[key] = image
+        self.image = image
         self.rect = self.image.get_rect(center=(self.x, self.y))
 
 
@@ -3814,14 +3858,25 @@ def draw_zombie_labels(surface, camera, zombies):
         sx, sy = camera.apply(zombie.rect.centerx, zombie.rect.centery)
         if sx < -120 or sx > width + 120 or sy < -120 or sy > height + 120:
             continue
-        color = ui_bright(ZOMBIE_BAR_COLORS.get(zombie.zombie_type, RED), 150)
         bar_w = max(30, zombie.size)
         top = sy - zombie.size // 2 - 15
         ratio = max(0, min(1, zombie.health / max(zombie.max_health, 1)))
-        pygame.draw.rect(surface, (12, 12, 16), (sx - bar_w // 2 - 1, top - 1, bar_w + 2, 8), border_radius=3)
-        if ratio > 0:
-            pygame.draw.rect(surface, color, (sx - bar_w // 2, top, max(2, int(bar_w * ratio)), 6), border_radius=3)
-        ui_text(surface, f"{zombie_display_name(zombie)} {int(max(0, zombie.health))}", font_tiny, color, (sx, top - 2), "midbottom")
+        hp = int(max(0, zombie.health))
+        key = (zombie_display_name(zombie), hp, int(bar_w * ratio), bar_w, zombie.zombie_type)
+        cached = zombie.__dict__.get("_label_cache")
+        if cached is None or cached[0] != key:
+            color = ui_bright(ZOMBIE_BAR_COLORS.get(zombie.zombie_type, RED), 150)
+            text, tw, th = _render_cached(font_tiny, f"{key[0]} {hp}", color, True)
+            lw = max(tw + 2, bar_w + 2)
+            label = pygame.Surface((lw, th + 9), pygame.SRCALPHA)
+            bar_x = lw // 2 - bar_w // 2
+            pygame.draw.rect(label, (12, 12, 16), (bar_x - 1, th + 1, bar_w + 2, 8), border_radius=3)
+            if ratio > 0:
+                pygame.draw.rect(label, color, (bar_x, th + 2, max(2, int(bar_w * ratio)), 6), border_radius=3)
+            label.blit(text, (lw // 2 - tw // 2, 0))
+            cached = zombie._label_cache = (key, label)
+        label = cached[1]
+        surface.blit(label, (int(sx) - label.get_width() // 2, int(top) - 2 - (label.get_height() - 9)))
 
 
 def get_player_buffs(player):
@@ -4054,7 +4109,7 @@ def select_weapon():
         {"name": "로켓", "desc": "느리지만 큰 폭발", "skill": "미사일 폭격", "type": "rocket", "color": (255, 80, 60)},
         {"name": "나무 방망이", "desc": "기본 근접", "skill": "홈런", "type": "melee", "color": (210, 140, 70)},
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
-        {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "회전 베기", "type": "axe", "color": (230, 90, 120)},
+        {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
         {"name": "창", "desc": "가장 긴 근접 사거리", "skill": "투창", "type": "spear", "color": (200, 200, 70)},
         {"name": "해머", "desc": "묵직한 한 방, 최강 넉백", "skill": "대지 강타 (기절)", "type": "hammer", "color": (205, 205, 215)},
         {"name": "글로브", "desc": "초고속, 짧은 사거리", "skill": "러시 (공속 3배)", "type": "gloves", "color": (255, 170, 200)},
