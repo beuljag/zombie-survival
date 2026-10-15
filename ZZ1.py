@@ -374,26 +374,33 @@ def ui_bright(color, minimum=170):
 def ui_text(surface, text, font, color, pos, anchor="topleft", shadow=True):
     """글자 그리기 (그림자 포함) → 그려진 영역"""
     text = str(text)
-    surf = _render_cached(font, text, color)
-    rect = surf.get_rect(**{anchor: (int(pos[0]), int(pos[1]))})
-    if shadow:
-        surface.blit(_render_cached(font, text, (0, 0, 0)), rect.move(2, 2))
-    surface.blit(surf, rect)
+    surf, w, h = _render_cached(font, text, color, shadow)
+    rect = pygame.Rect(0, 0, w, h)
+    setattr(rect, anchor, (int(pos[0]), int(pos[1])))
+    surface.blit(surf, rect.topleft)
     return rect
 
 
 _text_cache = {}
 
 
-def _render_cached(font, text, color):
-    """같은 글자는 다시 그리지 않고 재사용 (좀비 이름표/HUD 글자가 매 프레임 수백 개라 느려지는 것 방지)"""
-    key = (id(font), text, tuple(color))
-    surf = _text_cache.get(key)
-    if surf is None:
+def _render_cached(font, text, color, shadow=False):
+    """같은 글자는 다시 그리지 않고 재사용 (좀비 이름표/HUD 글자가 매 프레임 수백 개라 느려지는 것 방지)
+    그림자가 있으면 글자+그림자를 한 장으로 합쳐 둠 → (이미지, 글자 폭, 글자 높이)"""
+    key = (id(font), text, tuple(color), shadow)
+    entry = _text_cache.get(key)
+    if entry is None:
         if len(_text_cache) > 3000:
             _text_cache.clear()
-        surf = _text_cache[key] = font.render(text, True, color)
-    return surf
+        base = font.render(text, True, color)
+        w, h = base.get_size()
+        if shadow:
+            merged = pygame.Surface((w + 2, h + 2), pygame.SRCALPHA)
+            merged.blit(font.render(text, True, (0, 0, 0)), (2, 2))
+            merged.blit(base, (0, 0))
+            base = merged
+        entry = _text_cache[key] = (base, w, h)
+    return entry
 
 
 def ui_wrap(text, font, width):
@@ -798,6 +805,28 @@ def draw_eyes(surface, cx, cy, width, height, look_x, look_y, color=WHITE):
         pygame.draw.circle(surface, BLACK, (int(ex + px), int(ey + py)), max(1, eye_r // 2))
 
 
+def _zombie_body(zombie, image, angle, frozen, flicker, sparking, stealth):
+    """좀비 몸 이미지 (회전 + 얼음/불/전기 색 + 은신 투명도) - 같은 조합은 캐시해서 재사용"""
+    cache = zombie.__dict__.setdefault("_body_cache", {})
+    key = (id(image), angle, frozen, flicker, sparking, stealth)
+    surf = cache.get(key)
+    if surf is None:
+        if len(cache) > 160:
+            cache.clear()
+        surf = pygame.transform.rotate(image, angle)
+        if frozen:
+            surf.fill((130, 190, 255), special_flags=pygame.BLEND_RGB_MULT)
+            surf.fill((50, 80, 120), special_flags=pygame.BLEND_RGB_ADD)
+        if flicker is not None:
+            surf.fill((110 + flicker, 45, 0), special_flags=pygame.BLEND_RGB_ADD)
+        if sparking:
+            surf.fill((120, 120, 40), special_flags=pygame.BLEND_RGB_ADD)
+        if stealth:
+            surf.set_alpha(40)
+        cache[key] = surf
+    return surf
+
+
 def draw_zombie_sprite(surface, camera, zombie, player):
     """좀비: 걸을 때 위아래로 흔들리고 몸을 기울이며, 눈은 플레이어를 바라봄 (그리기 전용, 판정은 그대로)"""
     sx, sy = camera.apply(zombie.rect.centerx, zombie.rect.centery)
@@ -810,8 +839,7 @@ def draw_zombie_sprite(surface, camera, zombie, player):
     tilt = math.sin(walk) * 5
     if getattr(zombie, "is_charging", False) or getattr(zombie, "dragon_charging", False):
         tilt *= 2.5  # 돌진 중에는 더 크게 흔들림
-    image = flash if zombie.hit_flash > 0 else base
-    rotated = pygame.transform.rotate(image, tilt)
+    flashing = zombie.hit_flash > 0
     look_x = player.rect.centerx - zombie.rect.centerx
     look_y = player.rect.centery - zombie.rect.centery
     # 그림자좀비: 플레이어와 멀리 있으면 거의 보이지 않음 (눈만 희미하게)
@@ -819,29 +847,21 @@ def draw_zombie_sprite(surface, camera, zombie, player):
     # 상태이상 표시: 불타는 중(주황빛 + 불꽃), 느려진 중(푸른빛 + 서리)
     burning = zombie.burn_time > 0
     frozen = zombie.slow_time > 0 and zombie.slow_multiplier < 1.0
+    flicker = (25 if fx.frame % 6 < 3 else 0) if burning else None
+    electrified = zombie.electric_fx > 0
+    if electrified:
+        zombie.electric_fx -= 1
+    sparking = electrified and fx.frame % 4 < 2  # 번쩍번쩍
+    rotated = _zombie_body(zombie, flash if flashing else base, int(round(tilt)), frozen, flicker, sparking, stealth)
     if frozen:
-        rotated = rotated.copy()
-        rotated.fill((130, 190, 255), special_flags=pygame.BLEND_RGB_MULT)
-        rotated.fill((50, 80, 120), special_flags=pygame.BLEND_RGB_ADD)
         if fx.frame % 3 == 0:
             fx.burst(zombie.rect.centerx + fx_random.uniform(-w / 2, w / 2), zombie.rect.centery + fx_random.uniform(-h / 2, h / 2),
                      fx_random.choice(ELEMENT_COLORS["ice"]), 1, speed=(0.1, 0.5), size=(1.5, 2.5), life=(14, 22), drag=0.95)
     if burning:
-        rotated = rotated.copy()
-        flicker = 25 if fx.frame % 6 < 3 else 0
-        rotated.fill((110 + flicker, 45, 0), special_flags=pygame.BLEND_RGB_ADD)
         fx.burst(zombie.rect.centerx + fx_random.uniform(-w / 2.5, w / 2.5), zombie.rect.top + h * fx_random.uniform(0.2, 0.7),
                  fx_random.choice(ELEMENT_COLORS["fire"]), 1, speed=(0.3, 1.2), size=(2, 5), life=(10, 20),
                  drag=0.95, gravity=-0.18)
-    electrified = zombie.electric_fx > 0
-    if electrified:
-        zombie.electric_fx -= 1
-        if fx.frame % 4 < 2:  # 번쩍번쩍
-            rotated = rotated.copy()
-            rotated.fill((120, 120, 40), special_flags=pygame.BLEND_RGB_ADD)
-    if stealth:
-        rotated.set_alpha(40)
-    else:
+    if not stealth:
         draw_shadow(surface, sx, sy, w, h)
     center = (int(sx), int(sy - bob))
     surface.blit(rotated, rotated.get_rect(center=center))
@@ -2966,6 +2986,31 @@ class SpikeProjectile(pygame.sprite.Sprite):
 
 
 # 독좀비 독 장판
+_pool_images = {}
+POOL_FADE_STEPS = 16
+
+
+def _poison_pool_image(radius, level):
+    """독 장판 이미지 (원래 디자인 그대로) - 사라지는 투명도를 16단계로 미리 구워 둔 것을 같이 씀
+    (예전: 장판마다 매 프레임 이미지 복사 + 전체 투명도 적용 → 독 좀비가 많아 장판이 100개 넘게 겹치면 프레임이 크게 떨어졌음)"""
+    key = (radius, level)
+    image = _pool_images.get(key)
+    if image is None:
+        base = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(base, (50, 180, 50, 120), (radius, radius), radius)                 # 외부 진한 초록
+        pygame.draw.circle(base, (100, 230, 100, 160), (radius, radius), max(1, radius - 15))  # 중간 밝은 초록
+        pygame.draw.circle(base, (150, 255, 150, 200), (radius, radius), max(1, radius - 30))  # 내부 가장 밝은 초록
+        for i in range(8):                                                                       # 독액 방울
+            angle = i * math.pi / 4
+            px = int(radius + math.cos(angle) * (radius - 20))
+            py = int(radius + math.sin(angle) * (radius - 20))
+            pygame.draw.circle(base, (100, 250, 100, 150), (px, py), 5)
+        fade = int(150 * level / (POOL_FADE_STEPS - 1))       # 원래 set_alpha(150 × 남은 비율)과 같은 효과
+        base.fill((255, 255, 255, fade), special_flags=pygame.BLEND_RGBA_MULT)
+        image = _pool_images[key] = base.convert_alpha()
+    return image
+
+
 class PoisonPool(pygame.sprite.Sprite):
     def __init__(self, x, y, radius=80, duration=5000):
         super().__init__()
@@ -2977,20 +3022,11 @@ class PoisonPool(pygame.sprite.Sprite):
         self.created_time = pygame.time.get_ticks()
         self.duration = duration  # 5초
 
-        # 독 장판 시각화 (더 예쁜 디자인)
-        self.base_image = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-        # 외부 진한 초록
-        pygame.draw.circle(self.base_image, (50, 180, 50, 120), (radius, radius), radius)
-        # 중간 밝은 초록
-        pygame.draw.circle(self.base_image, (100, 230, 100, 160), (radius, radius), radius - 15)
-        # 내부 가장 밝은 초록
-        pygame.draw.circle(self.base_image, (150, 255, 150, 200), (radius, radius), radius - 30)
-        # 독액 효과 (작은 원들)
-        for i in range(8):
-            angle = i * math.pi / 4
-            px = int(radius + math.cos(angle) * (radius - 20))
-            py = int(radius + math.sin(angle) * (radius - 20))
-            pygame.draw.circle(self.base_image, (100, 250, 100, 150), (px, py), 5)
+        # 독 장판 시각화 - 같은 크기는 한 장을 같이 씀
+        # (픽셀마다 투명도가 다른 큰 이미지는 그리기가 매우 느려서, 단색 + 전체 투명도 방식으로 바꿈.
+        #  독 좀비가 많으면 장판이 100개 넘게 겹쳐 프레임이 크게 떨어졌음)
+        self.radius_px = radius
+        self.base_image = _poison_pool_image(radius, POOL_FADE_STEPS - 1)
 
         self.image = self.base_image.copy()
         self.rect = self.image.get_rect()
@@ -3003,9 +3039,8 @@ class PoisonPool(pygame.sprite.Sprite):
         progress = 1 - (remaining / self.duration)  # 0 ~ 1
 
         # 투명도 적용 (서서히 사라짐)
-        alpha = int(150 * (1 - progress))
-        self.image = self.base_image.copy()
-        self.image.set_alpha(alpha)
+        level = max(0, min(POOL_FADE_STEPS - 1, round((1 - progress) * (POOL_FADE_STEPS - 1))))
+        self.image = _poison_pool_image(self.radius_px, level)   # 미리 만든 이미지를 같이 씀 (복사 없음)
 
         if elapsed > self.duration:
             self.kill()
@@ -6084,8 +6119,10 @@ def main():
                 continue
             screen_x, screen_y = camera.apply(sprite.rect.centerx, sprite.rect.centery)
             screen_y += getattr(sprite, "draw_offset_y", 0)  # 아이템 둥실 모션
-            draw_rect = sprite.image.get_rect(center=(int(screen_x), int(screen_y)))
-            screen.blit(sprite.image, draw_rect)
+            iw, ih = sprite.image.get_size()
+            if screen_x + iw / 2 < 0 or screen_x - iw / 2 > SCREEN_WIDTH or screen_y + ih / 2 < 0 or screen_y - ih / 2 > SCREEN_HEIGHT:
+                continue  # 화면 밖은 그리지 않음
+            screen.blit(sprite.image, (int(screen_x - iw / 2), int(screen_y - ih / 2)))
         draw_player_sprite(screen, camera, player)
         fx.draw(screen, camera)
 

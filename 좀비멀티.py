@@ -303,9 +303,12 @@ class MatchState:
         return [p for p in self.players if not p.dead and not p.left]
 
     def nearest_player(self, x, y):
-        best, best_dist = None, None
-        for p in self.alive_players():
-            d = (p.rect.centerx - x) ** 2 + (p.rect.centery - y) ** 2
+        best, best_dist = None, 0
+        for p in self.players:
+            if p.dead or p.left:
+                continue
+            center = p.rect.center
+            d = (center[0] - x) ** 2 + (center[1] - y) ** 2
             if best is None or d < best_dist:
                 best, best_dist = p, d
         return best
@@ -437,10 +440,11 @@ class MatchState:
         bullets.update()
         items.update()
         explosions.update()
-        for sprite in all_sprites:
-            if isinstance(sprite, (Player, Zombie)):
-                continue
-            if sprite in bullets or sprite in items or sprite in explosions:
+        handled = set(bullets.sprites())
+        handled.update(items.sprites())
+        handled.update(explosions.sprites())
+        for sprite in all_sprites.sprites():
+            if sprite in handled or isinstance(sprite, (Player, Zombie)):
                 continue
             sprite.update()
 
@@ -713,13 +717,18 @@ class MatchState:
     # ----- 총알 충돌 -----
     def bullet_hits(self):
         zombies, bullets, explosions, all_sprites = self.zombies, self.bullets, self.explosions, self.all_sprites
+        candidates = [b for b in bullets.sprites() if isinstance(b, Bullet) and not b.is_enemy]
+        if not candidates:
+            return
+        rects = [b.rect for b in candidates]
         for zombie in list(zombies):
             if zombie not in zombies or zombie.health <= 0 or zombie.burrowed > 0:
                 continue
-            for bullet in pygame.sprite.spritecollide(zombie, bullets, False):
+            for index in zombie.rect.collidelistall(rects):
+                bullet = candidates[index]
                 if zombie.health <= 0:
                     break
-                if not isinstance(bullet, Bullet) or bullet.is_enemy:
+                if not bullet.alive():
                     continue
                 if zombie in bullet.hit_targets or zombie in bullet.dodged:
                     continue
@@ -1077,7 +1086,10 @@ def draw_match(state, camera, ui):
             continue
         sx, sy = camera.apply(sprite.rect.centerx, sprite.rect.centery)
         sy += getattr(sprite, "draw_offset_y", 0)
-        screen.blit(sprite.image, sprite.image.get_rect(center=(int(sx), int(sy))))
+        iw, ih = sprite.image.get_size()
+        if sx + iw / 2 < 0 or sx - iw / 2 > SCREEN_WIDTH or sy + ih / 2 < 0 or sy - ih / 2 > SCREEN_HEIGHT:
+            continue    # 화면 밖은 그리지 않음
+        screen.blit(sprite.image, (int(sx - iw / 2), int(sy - ih / 2)))
 
     # 플레이어들 (각자 조준 방향으로 총구가 향하도록 마우스 위치를 잠깐 바꿔서 그림)
     real_get_pos = pygame.mouse.get_pos
