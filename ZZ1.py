@@ -141,13 +141,14 @@
   일섬으로 처치한 좀비 1마리당 체력 1 회복
   기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발)가 일섬에도 적용됨
   "카타나 데미지 +3" 강화 1회당 일섬 데미지 +10% 추가
+  오의 연섬 (패시브, 레벨 6부터 업그레이드로 획득): 일섬 피해 25%가 고정 피해로 (최소 대상 최대 체력 6%, 방어 무시)
   "연참 데미지 +3%" 업그레이드로 스택당 보너스 증가
   일섬으로 처치한 좀비는 경험치 75%
-- 도끼: 회전 베기 - 2초 동안 빙글빙글 돌며 주변 연속 공격, 아주 강한 넉백 + 준 피해의 5% 흡혈 (12초)
+- 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (최대 30) (12초)
 - 창: 투창 - 거대한 창을 던져 일직선의 좀비를 모두 관통 (8초)
 - 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
 - 글로브: 러시 - 3초 동안 공격 속도 3배 (15초)
-- 글록: 탄창 비우기 - 1초 동안 가까운 좀비에게 자동 속사 12발 (10초)
+- 글록: 항공 폭격 - 비행기가 날아와 조준 방향 직선(약 1000px)에 폭탄을 줄줄이 떨어뜨림 (10초)
 - 기관총: 포탑 설치 - 6초 동안 자동으로 쏘는 포탑 (18초)
 - 샷건: 용의 숨결 - 앞쪽 부채꼴 화염 방사 + 불붙임 (10초)
 - 저격총: 레일건 - 화면을 가로지르는 관통 광선 (12초)
@@ -297,11 +298,21 @@ KATANA_CHAIN_WINDOW = 60         # 연참: 쿨타임 초기화 후 1초 안에 �
 KATANA_KILL_HEAL = 1             # 일섬으로 처치한 좀비 1마리당 체력 회복
 KATANA_CHAIN_UPGRADE = 0.03      # "연참 데미지" 업그레이드 1회당 스택당 보너스 +3%
 KATANA_DASH_UPGRADE_BONUS = 0.10 # "카타나 데미지 +3" 강화 1회당 일섬 데미지 추가 +10% (공격력 증가와 별도로)
+# 오의 연섬 (카타나 패시브, 레벨 6부터 업그레이드로 1회 획득): 일섬 피해의 25%를 고정 피해로 바꿈
+#  고정 피해 = max(떼어낸 25%, 대상 최대 체력의 6%) - 갑옷/방패/수호 오라 감소를 무시
+KATANA_OUGI_RATIO = 0.25
+KATANA_OUGI_HP_RATIO = 0.06
+KATANA_OUGI_MIN_LEVEL = 6
 
-# 도끼 회전 베기: 피흡 (준 피해의 5%, 한 번 휘두를 때(0.2초) 최대 6 회복) / 넉백 (기본 5 → 20, 멀리 날려 버림)
-AXE_SKILL_LIFESTEAL = 0.05
-AXE_SKILL_LIFESTEAL_CAP = 6
+# 도끼 대회전 베기: 크게 한 바퀴 휘두름 (반경 190, 데미지 3.5배) / 흡혈 (준 피해의 10%, 한 번에 최대 30) / 넉백 20
+AXE_SKILL_RADIUS = 190
+AXE_SKILL_DAMAGE_MULT = 3.5
+AXE_SKILL_LIFESTEAL = 0.10
+AXE_SKILL_LIFESTEAL_CAP = 30
 AXE_SKILL_KNOCKBACK = 20
+# 글록 항공 폭격: 폭탄 1발 데미지 배율 / 폭격 길이 (업그레이드 1회당 +100px)
+GLOCK_STRIKE_DAMAGE_MULT = 4.0
+GLOCK_STRIKE_LENGTH = 850
 
 
 def tick_katana_chain(player):
@@ -1156,7 +1167,7 @@ class Player(pygame.sprite.Sprite):
 
         self.infinity_ammo_time = 0
         self.explosion_cooldown = 0  # "폭발 공격" 최소 간격
-        self.active_skills = []  # 여러 프레임 유지되는 스킬 (회전 베기, 포탑, 블랙홀 등)
+        self.active_skills = []  # 여러 프레임 유지되는 스킬 (대회전 베기, 항공 폭격, 포탑, 블랙홀 등)
         self.rush_time = 0       # 글로브 러시: 남은 시간 동안 공격 속도 3배
         self.invuln_time = 0     # 무적 남은 시간 (카타나 일섬 직후)
         self.katana_chain = 0    # 일섬 연속 처치 횟수 (처치 실패 시 0으로)
@@ -1190,7 +1201,7 @@ class Player(pygame.sprite.Sprite):
         self.skill_upgrades = {
             # 근접 무기
             "melee": {"range": 0, "speed": 0, "damage": 0, "area": 0},  # 범위 확대, 공격속도, 데미지, 광역 범위
-            "katana": {"strikes": 0, "speed": 0, "damage": 0, "cooldown": 0, "chain": 0},  # 연격 수, 공격속도, 데미지, 쿨타임 감소
+            "katana": {"strikes": 0, "speed": 0, "damage": 0, "cooldown": 0, "chain": 0, "ougi": 0},  # 연격 수, 공격속도, 데미지, 쿨타임 감소
             "axe": {"range": 0, "knockback": 0, "damage": 0, "area": 0},  # 범위, 넉백 강화, 데미지, 지진파 범위
             "spear": {"pierces": 0, "speed": 0, "range": 0, "damage": 0},  # 관통 수, 공격속도, 사거리, 데미지
             "hammer": {"range": 0, "damage": 0, "cooldown": 0, "stun": 0},  # 범위, 데미지, 쿨타임, 스턴 효과
@@ -2392,8 +2403,8 @@ def get_auto_aim_target(player, zombies, max_range=600):
 
 
 # ===== 무기별 우클릭 스킬 =====
-# 나무 방망이: 홈런 / 카타나: 일섬 / 도끼: 회전 베기 / 창: 투창 / 해머: 대지 강타 / 글로브: 러시
-# 글록: 탄창 비우기 / 기관총: 포탑 설치 / 샷건: 용의 숨결 / 저격총: 레일건 / 플라즈마: 블랙홀 / 로켓: 미사일 폭격
+# 나무 방망이: 홈런 / 카타나: 일섬 / 도끼: 대회전 베기 / 창: 투창 / 해머: 대지 강타 / 글로브: 러시
+# 글록: 항공 폭격 / 기관총: 포탑 설치 / 샷건: 용의 숨결 / 저격총: 레일건 / 플라즈마: 블랙홀 / 로켓: 미사일 폭격
 
 def skill_damage(zombie, amount):
     """스킬 피해 (갑옷/방패/수호 오라 감소 적용)"""
@@ -2544,65 +2555,155 @@ class ActiveSkill:
         return True
 
 
-class WhirlwindSkill(ActiveSkill):
-    """도끼 회전 베기: 플레이어 주변을 빙글빙글 돌며 연속 공격"""
-    def __init__(self, player, all_sprites, damage, radius, knockback):
-        super().__init__(120)
-        self.damage, self.radius, self.knockback = damage, radius, knockback
-        self.axe_image = Melee(0, 0, 1, 0, 1, "axe").base_image
-        size = int(radius * 2 + 20)
+class GreatSwingSkill(ActiveSkill):
+    """도끼 대회전 베기: 도끼를 크게 한 바퀴 휘둘러 날이 지나가는 좀비를 베고, 준 피해만큼 흡혈"""
+    SWING_FRAMES = 18    # 한 바퀴 0.3초
+
+    def __init__(self, player, all_sprites, damage, radius, knockback, aim):
+        super().__init__(self.SWING_FRAMES + 10)   # 끝난 뒤 잔상 0.17초
+        self.damage, self.radius, self.knockback, self.aim = damage, radius, knockback, aim
+        self.axe_image = pygame.transform.scale_by(Melee(0, 0, 1, 0, 1, "axe").base_image, 1.6)
+        self.hit = set()
+        self.healed = 0.0
+        size = int(radius * 2 + 80)
         self.visual = SkillVisual(pygame.Surface((size, size), pygame.SRCALPHA), player.rect.center)
         all_sprites.add(self.visual)
+        fx.add_shake(5)
+
+    def blade_angle(self, frame):
+        return self.aim + 2 * math.pi * min(1.0, frame / self.SWING_FRAMES)
 
     def tick(self, player, zombies, bullets, all_sprites, explosions):
         cx, cy = player.rect.center
-        if self.frames % 12 == 0:
+        if self.frames <= self.SWING_FRAMES:
+            prev, now = self.blade_angle(self.frames - 1), self.blade_angle(self.frames)
             dealt = 0.0
             for zombie in list(zombies):
-                if zombie.health > 0 and math.hypot(zombie.rect.centerx - cx, zombie.rect.centery - cy) < self.radius:
-                    before = zombie.health
-                    skill_damage(zombie, self.damage)
-                    dealt += before - max(0.0, zombie.health)
-                    push_zombie(zombie, cx, cy, self.knockback)
-                    fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS["axe"])
-            # 피흡: 준 피해의 일부만큼 체력 회복
-            if dealt > 0 and player.health < player.max_health:
-                heal = min(AXE_SKILL_LIFESTEAL_CAP, dealt * AXE_SKILL_LIFESTEAL, player.max_health - player.health)
+                if zombie.health <= 0 or id(zombie) in self.hit:
+                    continue
+                dx, dy = zombie.rect.centerx - cx, zombie.rect.centery - cy
+                dist = math.hypot(dx, dy)
+                if dist > self.radius + max(zombie.rect.width, zombie.rect.height) / 2:
+                    continue
+                # 날이 이번 프레임에 지나간 각도 안에 있으면 맞음 (몸에 붙은 좀비는 바로 맞음)
+                rel = (math.atan2(dy, dx) - prev) % (2 * math.pi)
+                if dist > 40 and rel > now - prev:
+                    continue
+                self.hit.add(id(zombie))
+                before = zombie.health
+                skill_damage(zombie, self.damage)
+                dealt += before - max(0.0, zombie.health)
+                push_zombie(zombie, cx, cy, self.knockback)
+                fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS["axe"])
+            # 흡혈: 준 피해의 10% (한 번 휘두를 때 최대 30)
+            if dealt > 0 and player.health < player.max_health and self.healed < AXE_SKILL_LIFESTEAL_CAP:
+                heal = min(AXE_SKILL_LIFESTEAL_CAP - self.healed, dealt * AXE_SKILL_LIFESTEAL, player.max_health - player.health)
                 player.health += heal
-                if heal >= 1:
-                    fx.add_text(player.rect.centerx, player.rect.top - 22, f"+{heal:.0f}", (120, 255, 140))
+                self.healed += heal
+            if self.frames == self.SWING_FRAMES and self.healed >= 1:
+                fx.add_text(player.rect.centerx, player.rect.top - 26, f"흡혈 +{self.healed:.0f}", (120, 255, 140), big=True)
+        # 그림: 큰 범위 원 + 날이 지나간 자리의 붉은 궤적 + 커다란 도끼
         size = self.visual.image.get_width()
         c = size // 2
         image = pygame.Surface((size, size), pygame.SRCALPHA)
-        pygame.draw.circle(image, (255, 110, 110, 40), (c, c), int(self.radius))
-        pygame.draw.circle(image, (255, 160, 160, 120), (c, c), int(self.radius), 2)
-        angle = self.frames * 24  # 한 바퀴에 0.25초
-        for offset in (0, 180):
-            a = math.radians(angle + offset)
-            rotated = pygame.transform.rotate(self.axe_image, angle + offset)
+        fade = 1.0 if self.frames <= self.SWING_FRAMES else max(0.0, 1 - (self.frames - self.SWING_FRAMES) / 10)
+        pygame.draw.circle(image, (255, 90, 90, int(35 * fade)), (c, c), int(self.radius))
+        pygame.draw.circle(image, (255, 150, 150, int(140 * fade)), (c, c), int(self.radius), 3)
+        current = self.blade_angle(min(self.frames, self.SWING_FRAMES))
+        for i in range(14):   # 궤적: 날 뒤쪽으로 갈수록 흐려짐
+            a = current - i * 0.16
+            if a < self.aim:
+                break
+            alpha = int((200 - i * 13) * fade)
+            if alpha <= 0:
+                break
+            inner, outer = self.radius * 0.35, self.radius
+            pygame.draw.line(image, (255, 120, 100, alpha), (c + math.cos(a) * inner, c + math.sin(a) * inner),
+                             (c + math.cos(a) * outer, c + math.sin(a) * outer), 7)
+        if self.frames <= self.SWING_FRAMES:
+            rotated = pygame.transform.rotate(self.axe_image, -math.degrees(current))
             reach = self.radius - self.axe_image.get_width() / 2
-            image.blit(rotated, rotated.get_rect(center=(c + math.cos(a) * reach, c - math.sin(a) * reach)))
+            image.blit(rotated, rotated.get_rect(center=(c + math.cos(current) * reach, c + math.sin(current) * reach)))
         self.visual.image = image
         self.visual.rect = image.get_rect(center=(cx, cy))
 
 
-class GlockBarrageSkill(ActiveSkill):
-    """글록 탄창 비우기: 가까운 좀비를 향해 자동으로 속사"""
-    def __init__(self, shots, damage, dir_x, dir_y):
-        super().__init__(shots * 4 + 1)
-        self.damage, self.dir_x, self.dir_y = damage, dir_x, dir_y
+_plane_images = {}
+
+
+def _plane_image(angle_deg):
+    """폭격기 그림 (오른쪽을 보는 전투기를 진행 방향으로 회전)"""
+    key = int(round(angle_deg)) % 360
+    image = _plane_images.get(key)
+    if image is None:
+        base = pygame.Surface((120, 100), pygame.SRCALPHA)
+        body = (150, 160, 175)
+        dark = (95, 105, 120)
+        pygame.draw.polygon(base, dark, [(30, 50), (62, 6), (74, 6), (70, 50)])            # 왼쪽 날개
+        pygame.draw.polygon(base, dark, [(30, 50), (62, 94), (74, 94), (70, 50)])          # 오른쪽 날개
+        pygame.draw.polygon(base, dark, [(6, 50), (14, 30), (22, 30), (22, 50)])           # 꼬리 날개
+        pygame.draw.polygon(base, dark, [(6, 50), (14, 70), (22, 70), (22, 50)])
+        pygame.draw.ellipse(base, body, (4, 40, 110, 20))                                  # 몸통
+        pygame.draw.ellipse(base, (90, 200, 255), (78, 44, 22, 10))                        # 조종석
+        pygame.draw.circle(base, (255, 170, 60), (8, 50), 5)                               # 엔진 불꽃
+        image = _plane_images[key] = pygame.transform.rotozoom(base, key, 1.6)   # 크게 (1.6배)
+    return image
+
+
+class AirStrikeSkill(ActiveSkill):
+    """글록 항공 폭격: 비행기가 화면 밖에서 날아와 조준 방향 직선을 따라 폭탄을 줄줄이 떨어뜨림"""
+    PLANE_SPEED = 28        # 비행기 속도 (px/프레임)
+    ENTRY = 1100            # 플레이어 뒤쪽 이만큼 떨어진 곳(화면 밖)에서 진입
+    SPACING = 70            # 폭탄 간격
+    FALL_FRAMES = 12        # 폭탄이 떨어지는 시간
+    BLAST_RADIUS = 75
+
+    def __init__(self, player, all_sprites, damage, dir_x, dir_y, length):
+        cx, cy = player.rect.center
+        self.dir_x, self.dir_y, self.damage = dir_x, dir_y, damage
+        self.start = (cx - dir_x * self.ENTRY, cy - dir_y * self.ENTRY)
+        offsets = list(range(-150, int(length) + 1, self.SPACING))
+        self.drops = [(self.ENTRY + d, cx + dir_x * d, cy + dir_y * d) for d in offsets]   # (진입점에서의 거리, x, y)
+        self.travel = self.ENTRY + length + 1000
+        super().__init__(int(self.travel / self.PLANE_SPEED) + self.FALL_FRAMES + 5)
+        self.next_drop = 0
+        self.falling = []
+        angle = -math.degrees(math.atan2(dir_y, dir_x))
+        self.visual = SkillVisual(_plane_image(angle), self.start)
+        all_sprites.add(self.visual)
+        # 폭격 예고선 (붉은 선)
+        first, last = self.drops[0], self.drops[-1]
+        all_sprites.add(LineFlash(first[1], first[2], last[1], last[2], (255, 70, 50), width=6, duration=50))
+        fx.add_text(cx, player.rect.top - 30, "항공 폭격!", (255, 200, 90), big=True)
 
     def tick(self, player, zombies, bullets, all_sprites, explosions):
-        if self.frames % 4:
-            return
-        cx, cy = player.rect.center
-        target = nearest_zombie(zombies, cx, cy, 700)
-        tx, ty = (target.rect.center if target is not None else (cx + self.dir_x * 500, cy + self.dir_y * 500))
-        bullet = Bullet(cx, cy, tx, ty, self.damage, "normal", "glock")
-        bullet.speed = player.weapon.bullet_speed + 4
-        bullets.add(bullet)
-        all_sprites.add(bullet)
-        fire_muzzle_flash(player, tx, ty)
+        dist = self.frames * self.PLANE_SPEED
+        px, py = self.start[0] + self.dir_x * dist, self.start[1] + self.dir_y * dist
+        self.visual.rect = self.visual.image.get_rect(center=(int(px), int(py)))
+        if dist < self.travel and self.frames % 2 == 0:
+            fx.trail(px - self.dir_x * 55, py - self.dir_y * 55, (255, 190, 90), 4, 10)    # 엔진 불꽃 꼬리
+        while self.next_drop < len(self.drops) and dist >= self.drops[self.next_drop][0]:
+            _, bx, by = self.drops[self.next_drop]
+            self.falling.append([bx, by, self.FALL_FRAMES])
+            self.next_drop += 1
+        for bomb in self.falling:
+            bomb[2] -= 1
+            fx.trail(bomb[0], bomb[1] - bomb[2] * 6, (60, 60, 60), 3, 3)                       # 떨어지는 폭탄
+            if bomb[2] <= 0:
+                bx, by = bomb[0], bomb[1]
+                boom = Explosion(bx, by, self.BLAST_RADIUS)
+                explosions.add(boom)
+                all_sprites.add(boom)
+                for zombie in list(zombies):
+                    if zombie.health > 0 and math.hypot(zombie.rect.centerx - bx, zombie.rect.centery - by) < self.BLAST_RADIUS:
+                        skill_damage(zombie, self.damage)
+                        push_zombie(zombie, bx, by, 6)
+                fx.add_shake(2)
+        self.falling = [bomb for bomb in self.falling if bomb[2] > 0]
+        if dist >= self.travel and self.next_drop >= len(self.drops) and not self.falling:
+            return False
+        if dist >= self.travel:
+            self.visual.rect.center = (-99999, -99999)   # 화면 밖으로 사라짐
 
 
 class TurretSkill(ActiveSkill):
@@ -2789,10 +2890,23 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         # 카타나 강화(데미지 +3)는 공격력에 더해지는 것에 더해 일섬에 1회당 +10% 더 반영
         katana_mult = 1 + KATANA_DASH_UPGRADE_BONUS * player.weapon_upgrades["katana"]["damage"]
         dash_kills = 0
+        ougi_hits = 0
         first_hit = None
         for zombie in zombies_near_line(zombies, cx, cy, end_x, end_y, 45):
             # 기본 공격 업그레이드도 적용: 치명타 + 속성탄 (화염/얼음/전기)
-            skill_damage(zombie, roll_crit_damage(player, base * 4 * (1 + 0.3 * up["damage"]) * katana_mult * chain_mult, zombie))
+            dash_damage = roll_crit_damage(player, base * 4 * (1 + 0.3 * up["damage"]) * katana_mult * chain_mult, zombie)
+            if up.get("ougi", 0):
+                # 오의 연섬: 일부를 대상 최대 체력 비례 고정 피해로 (방어 무시)
+                skill_damage(zombie, dash_damage * (1 - KATANA_OUGI_RATIO))
+                zombie.health -= max(dash_damage * KATANA_OUGI_RATIO, zombie.max_health * KATANA_OUGI_HP_RATIO)
+                ougi_hits += 1
+                size = max(zombie.rect.width, zombie.rect.height) * 0.9
+                for sign in (1, -1):   # 붉은 X자 베기
+                    all_sprites.add(LineFlash(zombie.rect.centerx - size, zombie.rect.centery - sign * size,
+                                              zombie.rect.centerx + size, zombie.rect.centery + sign * size,
+                                              (255, 70, 70), width=6, duration=14))
+            else:
+                skill_damage(zombie, dash_damage)
             apply_hit_elements(player, zombie, zombies, base)
             fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (210, 230, 255))
             if first_hit is None:
@@ -2812,6 +2926,8 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
                 if other is not first_hit and math.hypot(other.rect.centerx - boom_x, other.rect.centery - boom_y) < 80:
                     other.health -= base * EXPLOSION_SKILL_RATIO * get_damage_multiplier(other)
         all_sprites.add(LineFlash(cx, cy, end_x, end_y, (150, 200, 255), width=22, duration=16))
+        if ougi_hits:
+            fx.add_text((cx + end_x) / 2, (cy + end_y) / 2 - 40, "오의 · 연섬", (255, 90, 90), big=True, life=50)
         for i in range(10):  # 잔상
             t = i / 9
             fx.trail(cx + (end_x - cx) * t, cy + (end_y - cy) * t, (200, 230, 255), 5, 14)
@@ -2837,10 +2953,10 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
             player.katana_chain_timer = 0
 
     elif weapon_type == "axe":
-        # 회전 베기: 2초 동안 주변을 빙글빙글 돌며 연속 공격
-        radius = 130 + up["range"]
+        # 대회전 베기: 도끼를 크게 한 바퀴 휘둘러 지나가는 좀비를 모두 베고 흡혈
+        radius = AXE_SKILL_RADIUS + up["range"]
         knockback = AXE_SKILL_KNOCKBACK * (1 + 0.12 * up["knockback"]) * get_knockback_multiplier(player)
-        player.active_skills.append(WhirlwindSkill(player, all_sprites, base * 1.0, radius, knockback))
+        player.active_skills.append(GreatSwingSkill(player, all_sprites, base * AXE_SKILL_DAMAGE_MULT, radius, knockback, aim))
 
     elif weapon_type == "spear":
         # 투창: 거대한 창을 던져 일직선의 좀비를 모두 관통
@@ -2879,9 +2995,9 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         fx.add_text(cx, player.rect.top - 30, "러시!", (255, 160, 200), big=True)
 
     elif weapon_type == "glock":
-        # 탄창 비우기: 1초 동안 가까운 좀비를 향해 자동 속사
-        shots = 12 + up["burst"] * 3
-        player.active_skills.append(GlockBarrageSkill(shots, base * 1.5, direction_x, direction_y))
+        # 항공 폭격: 비행기가 날아와 조준 방향 직선으로 폭탄을 줄줄이 떨어뜨림
+        length = GLOCK_STRIKE_LENGTH + up["burst"] * 100
+        player.active_skills.append(AirStrikeSkill(player, all_sprites, base * GLOCK_STRIKE_DAMAGE_MULT, direction_x, direction_y, length))
 
     elif weapon_type == "machinegun":
         # 포탑 설치: 그 자리에서 자동 사격하는 포탑
@@ -4150,7 +4266,7 @@ def select_ability():
 # 무기 선택 메뉴
 def select_weapon():
     weapons = [
-        {"name": "글록", "desc": "균형 잡힌 권총", "skill": "탄창 비우기", "type": "glock", "color": YELLOW},
+        {"name": "글록", "desc": "균형 잡힌 권총", "skill": "항공 폭격", "type": "glock", "color": YELLOW},
         {"name": "샷건", "desc": "근거리 3발 산탄", "skill": "용의 숨결", "type": "shotgun", "color": (230, 130, 30)},
         {"name": "저격총", "desc": "강한 한 발, 관통", "skill": "레일건", "type": "sniper", "color": (200, 205, 230)},
         {"name": "기관총", "desc": "꾹 눌러 연사", "skill": "포탑 설치", "type": "machinegun", "color": (255, 130, 70)},
@@ -4158,7 +4274,7 @@ def select_weapon():
         {"name": "로켓", "desc": "느리지만 큰 폭발", "skill": "미사일 폭격", "type": "rocket", "color": (255, 80, 60)},
         {"name": "나무 방망이", "desc": "기본 근접", "skill": "홈런", "type": "melee", "color": (210, 140, 70)},
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
-        {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
+        {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
         {"name": "창", "desc": "가장 긴 근접 사거리", "skill": "투창", "type": "spear", "color": (200, 200, 70)},
         {"name": "해머", "desc": "묵직한 한 방, 최강 넉백", "skill": "대지 강타 (기절)", "type": "hammer", "color": (205, 205, 215)},
         {"name": "글로브", "desc": "초고속, 짧은 사거리", "skill": "러시 (공속 3배)", "type": "gloves", "color": (255, 170, 200)},
@@ -4327,7 +4443,7 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"근접 무기 공격력(전용 강화): +{melee_damage_bonus}")
 
     if counts.get("glock_skill_burst", 0) > 0:
-        lines.append(f"글록 탄창 비우기: +{counts['glock_skill_burst'] * 3}발")
+        lines.append(f"항공 폭격 거리: +{counts['glock_skill_burst'] * 100}px")
     if counts.get("shotgun_skill_pellets", 0) > 0:
         lines.append(f"샷건 추가 탄환: +{counts['shotgun_skill_pellets']}발")
     if counts.get("sniper_skill_pierces", 0) > 0:
@@ -4339,6 +4455,8 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"일섬 거리: +{counts['katana_skill_strikes'] * 40}px")
     if counts.get("melee_damage_katana", 0) > 0:
         lines.append(f"일섬 추가 데미지 (카타나 강화): +{counts['melee_damage_katana'] * 10}%")
+    if counts.get("katana_skill_ougi", 0) > 0:
+        lines.append(f"오의 연섬: 일섬 피해 {int(KATANA_OUGI_RATIO * 100)}% → 고정 피해 (최소 대상 최대 체력 {int(KATANA_OUGI_HP_RATIO * 100)}%)")
     if counts.get("katana_skill_chain", 0) > 0:
         lines.append(f"연참 스택당 데미지: +{5 + counts['katana_skill_chain'] * 3}%")
     if counts.get("gloves_skill_strikes", 0) > 0:
@@ -4349,7 +4467,7 @@ def build_cumulative_upgrade_lines(player):
     if counts.get("melee_skill_range", 0) > 0:
         lines.append(f"홈런 범위: +{counts['melee_skill_range'] * 12}px")
     if counts.get("axe_skill_range", 0) > 0:
-        lines.append(f"회전 베기 범위: +{counts['axe_skill_range'] * 25}px")
+        lines.append(f"대회전 베기 범위: +{counts['axe_skill_range'] * 25}px")
     if counts.get("hammer_skill_range", 0) > 0:
         lines.append(f"대지 강타 범위: +{counts['hammer_skill_range'] * 20}px")
     if counts.get("plasma_skill_range", 0) > 0:
@@ -4472,6 +4590,10 @@ def is_upgrade_at_limit(player, upgrade_type):
     if upgrade_type == "knockback" and weapon_type not in MELEE_WEAPONS and weapon_type != "rocket":
         return True   # 넉백은 근접 무기와 로켓 폭발에만 있음
 
+    # 오의 연섬: 카타나 레벨 6부터, 한 번만
+    if upgrade_type == "katana_skill_ougi":
+        return player.level < KATANA_OUGI_MIN_LEVEL or player.skill_upgrades["katana"].get("ougi", 0) >= 1
+
     # 관통은 레벨식 (최대 MAX_PIERCE_LEVEL)
     if upgrade_type == "skill_piercing":
         return player.pierce_level >= MAX_PIERCE_LEVEL
@@ -4572,14 +4694,16 @@ def build_upgrade_choices(player):
         weapon_upgrades = [
             {"name": "일섬 거리 +40px", "desc": "더 멀리 돌진", "type": "katana_skill_strikes", "color": (255, 200, 100)},
             {"name": "연참 데미지 +3%", "desc": "연참 스택당 데미지 증가", "type": "katana_skill_chain", "color": (150, 230, 255)},
+            {"name": "오의 연섬 (패시브)", "desc": "일섬 피해 25%가 고정 피해로 (최소 대상 최대 체력 6%, 방어 무시)",
+             "type": "katana_skill_ougi", "color": (230, 70, 70)},
             {"name": f"{player.weapon.name} 데미지 +3", "desc": "공격력 증가 + 일섬 데미지 +10%", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 3},
             {"name": "공격 속도 +12%", "desc": "더 빠른 공격", "type": f"melee_skill_speed_{weapon_type}", "color": (200, 150, 150)},
         ]
     elif weapon_type == "axe":
         weapon_upgrades = [
-            {"name": "회전 베기 범위 +25px", "desc": "회전 범위 확대", "type": "axe_skill_range", "color": (150, 100, 200)},
+            {"name": "대회전 범위 +25px", "desc": "대회전 베기 범위 확대", "type": "axe_skill_range", "color": (150, 100, 200)},
             {"name": f"{player.weapon.name} 데미지 +8", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 8},
-            {"name": "회전 넉백 +12%", "desc": "회전 베기 넉백 강화", "type": "axe_skill_knockback", "color": (200, 100, 200)},
+            {"name": "대회전 넉백 +12%", "desc": "대회전 베기 넉백 강화", "type": "axe_skill_knockback", "color": (200, 100, 200)},
         ]
     elif weapon_type == "spear":
         weapon_upgrades = [
@@ -4601,7 +4725,7 @@ def build_upgrade_choices(player):
         ]
     elif weapon_type == "glock":
         weapon_upgrades = [
-            {"name": "탄창 +3발", "desc": "속사 발수 증가", "type": "glock_skill_burst", "color": (255, 200, 100)},
+            {"name": "폭격 거리 +100px", "desc": "항공 폭격 길이 증가", "type": "glock_skill_burst", "color": (255, 200, 100)},
             {"name": "데미지 +2", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 2},
         ]
     elif weapon_type == "shotgun":
@@ -4808,6 +4932,8 @@ def apply_upgrade(player, selected_upgrade):
         player.skill_upgrades["melee"]["range"] += 12
     elif selected_upgrade["type"] == "katana_skill_strikes":
         player.skill_upgrades["katana"]["strikes"] += 1
+    elif selected_upgrade["type"] == "katana_skill_ougi":
+        player.skill_upgrades["katana"]["ougi"] = 1
     elif selected_upgrade["type"] == "katana_skill_chain":
         player.skill_upgrades["katana"]["chain"] = player.skill_upgrades["katana"].get("chain", 0) + 1
     elif selected_upgrade["type"] == "axe_skill_range":
@@ -4887,11 +5013,12 @@ def get_upgrade_name(upgrade_type):
         "melee_skill_speed_melee": "나무 방망이 속도 +8%",
         "katana_skill_strikes": "일섬 거리 +40px",
         "katana_skill_chain": "연참 데미지 +3%",
+        "katana_skill_ougi": "오의 연섬",
         "melee_damage_katana": "카타나 데미지 +3",
         "melee_skill_speed_katana": "카타나 속도 +12%",
-        "axe_skill_range": "회전 베기 범위 +25px",
+        "axe_skill_range": "대회전 범위 +25px",
         "melee_damage_axe": "도끼 데미지 +8",
-        "axe_skill_knockback": "회전 넉백 +12%",
+        "axe_skill_knockback": "대회전 넉백 +12%",
         "spear_skill_pierces": "투창 개수 +1",
         "melee_damage_spear": "창 데미지 +4",
         "melee_skill_speed_spear": "투창 속도 +8%",
@@ -4902,7 +5029,7 @@ def get_upgrade_name(upgrade_type):
         "melee_damage_gloves": "글로브 데미지 +2",
         "melee_skill_speed_gloves": "글로브 속도 +10%",
         # 원거리 무기 스킬
-        "glock_skill_burst": "탄창 +3발",
+        "glock_skill_burst": "폭격 거리 +100px",
         "shotgun_skill_pellets": "기본 발사 탄환 +1발",
         "shotgun_skill_damage": "화염 데미지 +8%",
         "sniper_skill_pierces": "레일건 데미지 +20%",
@@ -5503,7 +5630,7 @@ def main():
                     if healed:
                         fx.ring(source.rect.centerx, source.rect.centery, (120, 255, 150), radius, count=28)
 
-            # 지속형 스킬 (회전 베기 / 탄창 비우기 / 포탑 / 블랙홀 / 미사일 폭격)
+            # 지속형 스킬 (대회전 베기 / 항공 폭격 / 포탑 / 블랙홀 / 미사일 폭격)
             for skill in list(player.active_skills):
                 if not skill.update(player, zombies, bullets, all_sprites, explosions):
                     player.active_skills.remove(skill)
