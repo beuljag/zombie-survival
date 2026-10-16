@@ -144,11 +144,12 @@
   오의 연섬 (패시브, 레벨 6부터 업그레이드로 획득): 일섬 피해 25%가 고정 피해로 (최소 대상 최대 체력 6%, 방어 무시)
   "연참 데미지 +3%" 업그레이드로 스택당 보너스 증가
   일섬으로 처치한 좀비는 경험치 75%
-- 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (최대 30) (12초)
+- 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (최대 100) (12초)
 - 창: 투창 - 거대한 창을 던져 일직선의 좀비를 모두 관통 (8초)
 - 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
 - 글로브: 러시 - 3초 동안 공격 속도 3배 (15초)
-- 글록: 항공 폭격 - 비행기가 날아와 조준 방향 직선(약 1000px)에 폭탄을 줄줄이 떨어뜨림 (10초)
+- 글록: 항공 폭격 - 비행기가 날아와 조준 방향 직선(약 1000px)에 폭탄을 줄줄이 떨어뜨림
+  폭탄 1발 기본 1000 데미지, 공격력이 오르면 같은 비율로 증가 (40초)
 - 기관총: 포탑 설치 - 6초 동안 자동으로 쏘는 포탑 (18초)
 - 샷건: 용의 숨결 - 앞쪽 부채꼴 화염 방사 + 불붙임 (10초)
 - 저격총: 레일건 - 화면을 가로지르는 관통 광선 (12초)
@@ -287,7 +288,7 @@ WEAPON_STATS = {
 # 우클릭 스킬 기본 쿨타임(ms) - "스킬 쿨타임 감소" 업그레이드가 모든 무기에 똑같이 적용됨
 SKILL_COOLDOWNS = {
     "melee": 8000, "katana": 6000, "axe": 12000, "spear": 8000, "hammer": 12000, "gloves": 15000,
-    "glock": 10000, "machinegun": 18000, "shotgun": 10000, "sniper": 12000, "plasma": 18000, "rocket": 15000,
+    "glock": 40000, "machinegun": 18000, "shotgun": 10000, "sniper": 12000, "plasma": 18000, "rocket": 15000,
 }
 
 # 카타나 일섬: 끝난 뒤 무적 시간(프레임), 연속 처치(쿨 초기화) 1회당 데미지 증가
@@ -304,14 +305,18 @@ KATANA_OUGI_RATIO = 0.25
 KATANA_OUGI_HP_RATIO = 0.06
 KATANA_OUGI_MIN_LEVEL = 6
 
-# 도끼 대회전 베기: 크게 한 바퀴 휘두름 (반경 190, 데미지 3.5배) / 흡혈 (준 피해의 10%, 한 번에 최대 30) / 넉백 20
+# 도끼 대회전 베기: 크게 한 바퀴 휘두름 (반경 190, 데미지 3.5배) / 흡혈 (준 피해의 10%, 한 번에 최대 100) / 넉백 20
 AXE_SKILL_RADIUS = 190
 AXE_SKILL_DAMAGE_MULT = 3.5
 AXE_SKILL_LIFESTEAL = 0.10
-AXE_SKILL_LIFESTEAL_CAP = 30
+AXE_SKILL_LIFESTEAL_CAP = 100
 AXE_SKILL_KNOCKBACK = 20
-# 글록 항공 폭격: 폭탄 1발 데미지 배율 / 폭격 길이 (업그레이드 1회당 +100px)
-GLOCK_STRIKE_DAMAGE_MULT = 4.0
+# 글록 항공 폭격 (쿨타임 40초): 폭탄 1발 기본 데미지 1000, 공격력이 오른 만큼 같은 비율로 증가
+#  (폭탄 데미지 = 1000 × 현재 공격력 / 글록 기본 공격력)
+#  "폭격 범위" 업그레이드 1회당: 폭격 길이 +100px, 폭발 반경(폭) +15px
+GLOCK_STRIKE_BASE_DAMAGE = 1000
+GLOCK_STRIKE_RANGE_LENGTH = 100
+GLOCK_STRIKE_RANGE_WIDTH = 15
 GLOCK_STRIKE_LENGTH = 850
 
 
@@ -2595,7 +2600,7 @@ class GreatSwingSkill(ActiveSkill):
                 dealt += before - max(0.0, zombie.health)
                 push_zombie(zombie, cx, cy, self.knockback)
                 fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS["axe"])
-            # 흡혈: 준 피해의 10% (한 번 휘두를 때 최대 30)
+            # 흡혈: 준 피해의 10% (한 번 휘두를 때 최대 100)
             if dealt > 0 and player.health < player.max_health and self.healed < AXE_SKILL_LIFESTEAL_CAP:
                 heal = min(AXE_SKILL_LIFESTEAL_CAP - self.healed, dealt * AXE_SKILL_LIFESTEAL, player.max_health - player.health)
                 player.health += heal
@@ -2658,9 +2663,10 @@ class AirStrikeSkill(ActiveSkill):
     FALL_FRAMES = 12        # 폭탄이 떨어지는 시간
     BLAST_RADIUS = 75
 
-    def __init__(self, player, all_sprites, damage, dir_x, dir_y, length):
+    def __init__(self, player, all_sprites, damage, dir_x, dir_y, length, blast_radius=None):
         cx, cy = player.rect.center
         self.dir_x, self.dir_y, self.damage = dir_x, dir_y, damage
+        self.blast_radius = blast_radius or self.BLAST_RADIUS
         self.start = (cx - dir_x * self.ENTRY, cy - dir_y * self.ENTRY)
         offsets = list(range(-150, int(length) + 1, self.SPACING))
         self.drops = [(self.ENTRY + d, cx + dir_x * d, cy + dir_y * d) for d in offsets]   # (진입점에서의 거리, x, y)
@@ -2673,7 +2679,7 @@ class AirStrikeSkill(ActiveSkill):
         all_sprites.add(self.visual)
         # 폭격 예고선 (붉은 선)
         first, last = self.drops[0], self.drops[-1]
-        all_sprites.add(LineFlash(first[1], first[2], last[1], last[2], (255, 70, 50), width=6, duration=50))
+        all_sprites.add(LineFlash(first[1], first[2], last[1], last[2], (255, 70, 50), width=int(self.blast_radius / 6), duration=50))
         fx.add_text(cx, player.rect.top - 30, "항공 폭격!", (255, 200, 90), big=True)
 
     def tick(self, player, zombies, bullets, all_sprites, explosions):
@@ -2691,11 +2697,11 @@ class AirStrikeSkill(ActiveSkill):
             fx.trail(bomb[0], bomb[1] - bomb[2] * 6, (60, 60, 60), 3, 3)                       # 떨어지는 폭탄
             if bomb[2] <= 0:
                 bx, by = bomb[0], bomb[1]
-                boom = Explosion(bx, by, self.BLAST_RADIUS)
+                boom = Explosion(bx, by, self.blast_radius)
                 explosions.add(boom)
                 all_sprites.add(boom)
                 for zombie in list(zombies):
-                    if zombie.health > 0 and math.hypot(zombie.rect.centerx - bx, zombie.rect.centery - by) < self.BLAST_RADIUS:
+                    if zombie.health > 0 and math.hypot(zombie.rect.centerx - bx, zombie.rect.centery - by) < self.blast_radius:
                         skill_damage(zombie, self.damage)
                         push_zombie(zombie, bx, by, 6)
                 fx.add_shake(2)
@@ -2996,8 +3002,10 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
 
     elif weapon_type == "glock":
         # 항공 폭격: 비행기가 날아와 조준 방향 직선으로 폭탄을 줄줄이 떨어뜨림
-        length = GLOCK_STRIKE_LENGTH + up["burst"] * 100
-        player.active_skills.append(AirStrikeSkill(player, all_sprites, base * GLOCK_STRIKE_DAMAGE_MULT, direction_x, direction_y, length))
+        length = GLOCK_STRIKE_LENGTH + up["burst"] * GLOCK_STRIKE_RANGE_LENGTH
+        blast = AirStrikeSkill.BLAST_RADIUS + up["burst"] * GLOCK_STRIKE_RANGE_WIDTH
+        bomb_damage = GLOCK_STRIKE_BASE_DAMAGE * base / WEAPON_STATS["glock"]["dmg"]
+        player.active_skills.append(AirStrikeSkill(player, all_sprites, bomb_damage, direction_x, direction_y, length, blast))
 
     elif weapon_type == "machinegun":
         # 포탑 설치: 그 자리에서 자동 사격하는 포탑
@@ -4443,7 +4451,7 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"근접 무기 공격력(전용 강화): +{melee_damage_bonus}")
 
     if counts.get("glock_skill_burst", 0) > 0:
-        lines.append(f"항공 폭격 거리: +{counts['glock_skill_burst'] * 100}px")
+        lines.append(f"항공 폭격 범위: 길이 +{counts['glock_skill_burst'] * GLOCK_STRIKE_RANGE_LENGTH}px, 폭 +{counts['glock_skill_burst'] * GLOCK_STRIKE_RANGE_WIDTH}px")
     if counts.get("shotgun_skill_pellets", 0) > 0:
         lines.append(f"샷건 추가 탄환: +{counts['shotgun_skill_pellets']}발")
     if counts.get("sniper_skill_pierces", 0) > 0:
@@ -4725,7 +4733,7 @@ def build_upgrade_choices(player):
         ]
     elif weapon_type == "glock":
         weapon_upgrades = [
-            {"name": "폭격 거리 +100px", "desc": "항공 폭격 길이 증가", "type": "glock_skill_burst", "color": (255, 200, 100)},
+            {"name": "폭격 범위 증가", "desc": "항공 폭격 길이 +100px, 폭 +15px", "type": "glock_skill_burst", "color": (255, 200, 100)},
             {"name": "데미지 +2", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 2},
         ]
     elif weapon_type == "shotgun":
@@ -5029,7 +5037,7 @@ def get_upgrade_name(upgrade_type):
         "melee_damage_gloves": "글로브 데미지 +2",
         "melee_skill_speed_gloves": "글로브 속도 +10%",
         # 원거리 무기 스킬
-        "glock_skill_burst": "폭격 거리 +100px",
+        "glock_skill_burst": "폭격 범위 증가",
         "shotgun_skill_pellets": "기본 발사 탄환 +1발",
         "shotgun_skill_damage": "화염 데미지 +8%",
         "sniper_skill_pierces": "레일건 데미지 +20%",
