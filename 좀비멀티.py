@@ -550,7 +550,7 @@ class MatchState:
                     if other is first_hit_zombie:
                         continue
                     if math.hypot(other.rect.centerx - boom_x, other.rect.centery - boom_y) < 80:
-                        other.health -= melee_damage * EXPLOSION_SKILL_RATIO * get_damage_multiplier(other)
+                        other.health -= melee_damage * EXPLOSION_SKILL_RATIO_MELEE * get_damage_multiplier(other)
         elif p.weapon.weapon_type == "shotgun":
             pellets = 3 + p.skill_upgrades["shotgun"]["pellets"]
             spread = 0.6 / (pellets - 1) if pellets > 1 else 0

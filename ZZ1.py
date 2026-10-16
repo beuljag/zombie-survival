@@ -131,7 +131,7 @@
 - 방어막 (Lv3): 플레이어 주변 방어막 생성
 - 순간이동 (Lv4): 마우스 위치로 즉시 이동
 - 시간감속 (Lv5): 주변 좀비 속도 감소
-- 폭발 공격 (Lv4): 공격 시 작은 폭발 (주변 30%, 0.2초에 한 번)
+- 폭발 공격 (Lv4): 공격 시 작은 폭발 (주변 30%, 근접 무기는 12%, 0.2초에 한 번)
 - 무한탄약 (Lv2): 30초간 탄약 무한 사용
 
 무기별 스킬 (우클릭):
@@ -338,6 +338,7 @@ MAX_PIERCE_LEVEL = 10
 
 # "폭발 공격" 업그레이드: 주변 피해 비율과 최소 간격(프레임) - 연사 무기로 매 발 터지지 않도록
 EXPLOSION_SKILL_RATIO = 0.3
+EXPLOSION_SKILL_RATIO_MELEE = 0.12   # 근접 무기(일섬 포함)는 한 번에 여러 마리를 때려서 폭발 피해를 더 낮춤 (30% → 12%)
 EXPLOSION_SKILL_COOLDOWN = 12
 
 # ===== 아이템 드롭 =====
@@ -2930,7 +2931,7 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
             all_sprites.add(boom)
             for other in list(zombies):
                 if other is not first_hit and math.hypot(other.rect.centerx - boom_x, other.rect.centery - boom_y) < 80:
-                    other.health -= base * EXPLOSION_SKILL_RATIO * get_damage_multiplier(other)
+                    other.health -= base * EXPLOSION_SKILL_RATIO_MELEE * get_damage_multiplier(other)
         all_sprites.add(LineFlash(cx, cy, end_x, end_y, (150, 200, 255), width=22, duration=16))
         if ougi_hits:
             fx.add_text((cx + end_x) / 2, (cy + end_y) / 2 - 40, "오의 · 연섬", (255, 90, 90), big=True, life=50)
@@ -4679,7 +4680,8 @@ def build_upgrade_choices(player):
         {"name": "방어막", "desc": "플레이어 주변 방어막 생성", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3},
         {"name": "순간이동", "desc": "마우스 위치로 즉시 이동", "type": "skill_teleport", "color": (200, 100, 255), "min_level": 4},
         {"name": "시간감속", "desc": "주변 좀비를 느리게 함", "type": "skill_slowdown", "color": (100, 255, 255), "min_level": 5},
-        {"name": "폭발 공격", "desc": "공격 시 작은 폭발 (주변 30%)", "type": "skill_explosion", "color": (255, 150, 0), "min_level": 4},
+        {"name": "폭발 공격", "desc": f"공격 시 작은 폭발 (주변 {int((EXPLOSION_SKILL_RATIO_MELEE if player.weapon.weapon_type in MELEE_WEAPONS else EXPLOSION_SKILL_RATIO) * 100)}%)",
+         "type": "skill_explosion", "color": (255, 150, 0), "min_level": 4},
     ]
 
     # 플레이어 레벨 및 최대치에 따라 스킬 필터링
@@ -5408,7 +5410,7 @@ def main():
                                                    (other_zombie.rect.centery - boom_y)**2)
                                     if dist < explosion_radius:
                                         damage_multiplier = get_damage_multiplier(other_zombie)
-                                        other_zombie.health -= melee_damage * EXPLOSION_SKILL_RATIO * damage_multiplier
+                                        other_zombie.health -= melee_damage * EXPLOSION_SKILL_RATIO_MELEE * damage_multiplier
 
                         elif player.weapon.weapon_type == "shotgun":
                             # 여러 방향으로 발사 (pellets 개수만큼)
