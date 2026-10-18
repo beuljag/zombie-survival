@@ -636,6 +636,7 @@ class MatchState:
         if p.shock_time > 0:
             p.shock_time -= 1
         tick_katana_chain(p)   # 연참: 3초 안에 다시 안 쓰면 스택 초기화
+        tick_overshield(p)     # 흡혈 보호막 3초
         if p.rush_time > 0:
             p.rush_time -= 1
             p.weapon.rush_mult = 3.0
@@ -1546,6 +1547,14 @@ def clean_address(text):
 
 
 def text_input(title, initial=""):
+    pygame.key.start_text_input()     # 글자 입력 화면에서만 켬 (게임 중에는 꺼 둠)
+    try:
+        return _text_input_loop(title, initial)
+    finally:
+        pygame.key.stop_text_input()
+
+
+def _text_input_loop(title, initial):
     text = initial
     while True:
         ui_background(screen)

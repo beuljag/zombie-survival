@@ -145,6 +145,7 @@
   "연참 데미지 +3%" 업그레이드로 스택당 보너스 증가
   일섬으로 처치한 좀비는 경험치 75%
 - 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (제한 없음) (12초)
+  체력이 가득 차서 넘친 흡혈량의 50%는 3초 동안 흡혈 보호막 (최대 체력의 50%까지, 피해를 먼저 받음)
 - 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 데미지) (8초)
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
@@ -216,6 +217,9 @@ SCREEN_WIDTH = info.current_w
 SCREEN_HEIGHT = info.current_h
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
 SCREEN_WIDTH, SCREEN_HEIGHT = screen.get_size()   # 실제로 만들어진 화면 크기 기준으로 UI 배치
+# 한글 입력기(IME)가 켜져 있으면 글자 키가 "조합 중인 글자"로 가로채져 키 입력/키 설정이 안 될 수 있어서 끔
+# (글자를 입력하는 화면 - 멀티 IP 입력 - 에서만 잠깐 켬)
+pygame.key.stop_text_input()
 pygame.display.set_caption("좀비 슈팅 게임")
 
 # 색상
@@ -312,6 +316,10 @@ AXE_SKILL_RADIUS = 190
 AXE_SKILL_DAMAGE_MULT = 3.5
 AXE_SKILL_LIFESTEAL = 0.10
 AXE_SKILL_KNOCKBACK = 20
+# 흡혈 보호막: 체력이 가득 차서 넘친 흡혈량의 50%를 3초 동안 보호막으로 (최대 체력의 50%까지), 피해는 보호막이 먼저 받음
+OVERHEAL_SHIELD_RATIO = 0.5
+OVERHEAL_SHIELD_FRAMES = 180
+OVERHEAL_SHIELD_MAX = 0.5
 # 글록 항공 폭격 (쿨타임 80초): 폭탄 1발 기본 데미지 1000, 공격력이 오른 만큼 같은 비율로 증가
 #  (폭탄 데미지 = 1000 × 현재 공격력 / 글록 기본 공격력)
 #  "폭격 범위" 업그레이드 1회당: 폭격 길이 +100px, 폭발 반경(폭) +15px
@@ -355,6 +363,21 @@ ABILITY_TRAITS = {
 GLOCK_STRIKE_RANGE_LENGTH = 100
 GLOCK_STRIKE_RANGE_WIDTH = 15
 GLOCK_STRIKE_LENGTH = 850
+
+
+def add_overshield(player, amount):
+    """흡혈 보호막 추가 (3초 유지, 다시 쌓으면 시간 초기화, 최대 체력의 50%까지)"""
+    if amount <= 0:
+        return
+    player.overshield = min(player.max_health * OVERHEAL_SHIELD_MAX, getattr(player, "overshield", 0) + amount)
+    player.overshield_time = OVERHEAL_SHIELD_FRAMES
+
+
+def tick_overshield(player):
+    if getattr(player, "overshield_time", 0) > 0:
+        player.overshield_time -= 1
+        if player.overshield_time <= 0:
+            player.overshield = 0.0
 
 
 def tick_katana_chain(player):
@@ -1007,6 +1030,9 @@ def draw_zombie_sprite(surface, camera, zombie, player):
 def draw_player_sprite(surface, camera, player):
     """플레이어: 걸을 때 흔들리고, 조준 방향으로 총구/무기가 향함"""
     sx, sy = camera.apply(player.rect.centerx, player.rect.centery)
+    if getattr(player, "overshield", 0) >= 1:   # 흡혈 보호막: 하늘색 고리 (끝나기 1초 전부터 깜빡임)
+        if player.overshield_time > 60 or player.overshield_time % 10 < 5:
+            pygame.draw.circle(surface, (150, 220, 255), (int(sx), int(sy)), 30, 2)
     w, h = player.rect.size
     if player.is_moving:
         bob = abs(math.sin(player.walk_phase)) * 3
@@ -1325,6 +1351,8 @@ class Player(pygame.sprite.Sprite):
         self.active_skills = []  # 여러 프레임 유지되는 스킬 (대회전 베기, 항공 폭격, 포탑, 블랙홀 등)
         self.rush_time = 0       # 글로브 러시: 남은 시간 동안 공격 속도 3배
         self.invuln_time = 0     # 무적 남은 시간 (카타나 일섬 직후)
+        self.overshield = 0.0    # 흡혈 보호막 (도끼 대회전 베기로 넘친 회복량)
+        self.overshield_time = 0
         self.katana_chain = 0    # 일섬 연속 처치 횟수 (처치 실패 시 0으로)
         self.katana_chain_timer = 0  # 연참 유지 남은 시간 (0이 되면 스택 초기화)
         # 아이템 버프 남은 시간 (프레임)
@@ -2445,6 +2473,10 @@ def apply_player_damage(player, amount):
         amount *= 1.3  # 부식 (산성좀비)
     if player.shield_active:
         amount *= 0.5
+    if getattr(player, "overshield", 0) > 0:   # 흡혈 보호막이 먼저 받음
+        absorbed = min(player.overshield, amount)
+        player.overshield -= absorbed
+        amount -= absorbed
     player.health -= amount
 
 
@@ -2833,10 +2865,12 @@ class GreatSwingSkill(ActiveSkill):
                 push_zombie(zombie, cx, cy, self.knockback)
                 fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS["axe"])
             # 흡혈: 준 피해의 10% (회복량 제한 없음 - 최대 체력까지만)
-            if dealt > 0 and player.health < player.max_health:
-                heal = min(dealt * AXE_SKILL_LIFESTEAL, player.max_health - player.health)
+            if dealt > 0:
+                steal = dealt * AXE_SKILL_LIFESTEAL
+                heal = max(0.0, min(steal, player.max_health - player.health))
                 player.health += heal
                 self.healed += heal
+                add_overshield(player, (steal - heal) * OVERHEAL_SHIELD_RATIO)   # 넘친 만큼은 보호막으로
             if self.frames == self.SWING_FRAMES and self.healed >= 1:
                 fx.add_text(player.rect.centerx, player.rect.top - 26, f"흡혈 +{self.healed:.0f}", (120, 255, 140), big=True)
         # 그림: 큰 범위 원 + 날이 지나간 자리의 붉은 궤적 + 커다란 도끼
@@ -4461,6 +4495,8 @@ def get_player_buffs(player):
         buffs.append(("러시 (공격 속도 3배)", "rush", player.rush_time, (255, 160, 200)))
     if player.ability == "damage" and player.health <= player.max_health * 0.5:
         buffs.append(("광전사: 공격력 +25%", "rage", 1, (255, 120, 90)))
+    if getattr(player, "overshield", 0) >= 1:
+        buffs.append((f"흡혈 보호막 {int(player.overshield)}", "overshield", player.overshield_time, (150, 220, 255)))
     if player.invuln_time > 20:   # 부활 무적 등 (일섬 직후 0.2초 무적은 너무 짧아서 표시 안 함)
         buffs.append(("무적", "invuln", player.invuln_time, (150, 230, 255)))
     if player.shock_time > 0:
@@ -4487,7 +4523,11 @@ def draw_player_status(surface, player, x=14, y=14):
     ratio = max(0, min(1, player.health / max(player.max_health, 1)))
     hp_color = UI_GOOD if ratio > 0.5 else (255, 200, 60) if ratio > 0.25 else UI_DANGER
     bx, bw = x + 78, w - 90
-    ui_bar(surface, (bx, y + 12, bw, 26), ratio, hp_color, label=f"{int(max(0, player.health))} / {int(player.max_health)}")
+    shield = getattr(player, "overshield", 0)
+    ui_bar(surface, (bx, y + 12, bw, 26), ratio, hp_color,
+           label=f"{int(max(0, player.health))} / {int(player.max_health)}" + (f"  +{int(shield)}" if shield >= 1 else ""))
+    if shield >= 1:   # 보호막: 체력 바 위에 하늘색 띠
+        pygame.draw.rect(surface, (150, 220, 255), (bx + 2, y + 13, max(3, int((bw - 4) * min(1, shield / player.max_health))), 5), border_radius=2)
     ui_bar(surface, (bx, y + 44, bw, 10), player.exp / max(player.exp_to_level, 1), UI_EXP, back=(36, 40, 48), radius=5)
     ui_text(surface, f"EXP {int(player.exp)}/{int(player.exp_to_level)}", font_tiny, UI_SUB, (bx, y + 56), shadow=False)
     if player.ability in ABILITY_LABELS:
@@ -5659,25 +5699,34 @@ def assign_binding(action, bind):
 def show_key_settings(background=None):
     """조작 키 설정 화면: 바꿀 항목을 누르고 새 키를 누름 (다른 항목과 겹치면 서로 바꿈)"""
     background = background or ui_snapshot()
+    pygame.key.stop_text_input()     # 한글 입력기가 글자 키를 가로채지 않게
     waiting = None
-    row_h = 46
-    panel = pygame.Rect(0, 0, 640, 150 + len(KEY_ACTIONS) * row_h + 90)
+    notice = ""
+    # 2열 배치 (작은 화면에서도 모든 항목과 버튼이 보이도록 줄 높이를 맞춤)
+    per_col = (len(KEY_ACTIONS) + 1) // 2
+    row_h = max(34, min(46, (SCREEN_HEIGHT - 250) // per_col))
+    col_w = min(420, (SCREEN_WIDTH - 120) // 2)
+    panel = pygame.Rect(0, 0, col_w * 2 + 80, 120 + per_col * row_h + 90)
     panel.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-    rows = [pygame.Rect(panel.x + 30, panel.y + 110 + i * row_h, panel.w - 60, row_h - 6) for i in range(len(KEY_ACTIONS))]
-    reset_btn = pygame.Rect(panel.x + 30, panel.bottom - 70, 260, 50)
-    close_btn = pygame.Rect(panel.right - 290, panel.bottom - 70, 260, 50)
+    rows = [pygame.Rect(panel.x + 30 + (i // per_col) * (col_w + 20), panel.y + 112 + (i % per_col) * row_h, col_w, row_h - 6)
+            for i in range(len(KEY_ACTIONS))]
+    reset_btn = pygame.Rect(panel.x + 30, panel.bottom - 66, 260, 48)
+    close_btn = pygame.Rect(panel.right - 290, panel.bottom - 66, 260, 48)
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
     while True:
         screen.blit(background, (0, 0))
         ui_overlay(screen, 190)
         ui_panel(screen, panel, alpha=240, radius=16)
         ui_text(screen, "조작 키 설정", font_large, UI_TEXT, (panel.centerx, panel.y + 18), "midtop")
-        if waiting is not None:
+        if notice:
+            hint = notice
+        elif waiting is not None:
             hint = ("새 키나 마우스 버튼을 누르세요 (ESC: 취소)" if KEY_ACTIONS[waiting][0] in MOUSE_BINDABLE
                     else "새 키를 누르세요 (ESC: 취소)")
         else:
             hint = "바꿀 항목을 누르세요 · 겹치는 키는 서로 바뀜 · 공격/스킬은 마우스 버튼도 가능 · ESC: 닫기"
-        ui_text(screen, hint, font_desc, UI_ACCENT if waiting is not None else UI_SUB, (panel.centerx, panel.y + 74), "midtop", shadow=False)
+        ui_text(screen, hint, font_desc, UI_DANGER if notice else UI_ACCENT if waiting is not None else UI_SUB,
+                (panel.centerx, panel.y + 74), "midtop", shadow=False)
         mouse = pygame.mouse.get_pos()
         for i, ((action, label, _), rect) in enumerate(zip(KEY_ACTIONS, rows)):
             active = waiting == i
@@ -5699,16 +5748,21 @@ def show_key_settings(background=None):
             ui_quit_event(event)
             if event.type == pygame.KEYDOWN:
                 if waiting is not None:
-                    if event.key != pygame.K_ESCAPE:
+                    if event.key == pygame.K_ESCAPE:
+                        waiting, notice = None, ""
+                    elif not event.key or pygame.key.name(event.key) in ("", "unknown key"):
+                        # 한글 입력 상태 등으로 키가 제대로 안 들어온 경우 - 지정하지 않고 안내
+                        notice = "인식되지 않는 키입니다 · 한/영 키로 영문 상태로 바꾼 뒤 다시 눌러 주세요"
+                    else:
                         assign_binding(KEY_ACTIONS[waiting][0], event.key)
-                    waiting = None
+                        waiting, notice = None, ""
                 elif event.key == pygame.K_ESCAPE:
                     return
             elif event.type == pygame.MOUSEBUTTONDOWN and waiting is not None:
                 action = KEY_ACTIONS[waiting][0]
                 if action in MOUSE_BINDABLE and event.button in MOUSE_BUTTON_NAMES:
                     assign_binding(action, -event.button)   # 마우스 버튼 지정
-                waiting = None
+                waiting, notice = None, ""
                 continue
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for i, rect in enumerate(rows):
@@ -6103,6 +6157,7 @@ def main():
             if player.invuln_time > 0:
                 player.invuln_time -= 1
             tick_katana_chain(player)
+            tick_overshield(player)
 
             # 글로브 러시
             if player.rush_time > 0:
