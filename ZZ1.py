@@ -336,7 +336,22 @@ SNIPER_RICOCHET_UPGRADE = 3
 CRIT_BASE_MULT = 1.3
 SNIPER_CRIT_DAMAGE_UPGRADE = 0.25
 SNIPER_CRIT_DAMAGE_MAX = 10
-SNIPER_RICOCHET_CRIT_BONUS = 0.20   # 도탄 사격은 치명타 확률 +20% (치명타 업그레이드가 없어도 터짐)
+SNIPER_RICOCHET_CRIT_BONUS = 0.20
+# 시작 능력 특성
+#  속도형 "바람걸음": 회피 +15%, 스킬 쿨타임 -15%
+#  탱커형 "강철 몸": 받는 피해 -20%, 체력 재생 초당 1
+#  공격형 "광전사": 치명타 확률 +10%, 체력 50% 이하일 때 공격력 +25%
+SPEED_TRAIT_DODGE = 0.15
+SPEED_TRAIT_COOLDOWN = 0.15
+TANK_TRAIT_DAMAGE_TAKEN = 0.8
+TANK_TRAIT_REGEN = 1.0
+DAMAGE_TRAIT_CRIT = 0.10
+DAMAGE_TRAIT_RAGE = 1.25
+ABILITY_TRAITS = {
+    "speed": ("바람걸음", ["회피 +15%", "스킬 쿨타임 -15%"]),
+    "tank": ("강철 몸", ["받는 피해 -20%", "체력 재생 초당 1"]),
+    "damage": ("광전사", ["치명타 확률 +10%", "체력 절반 이하일 때 공격력 +25%"]),
+}   # 도탄 사격은 치명타 확률 +20% (치명타 업그레이드가 없어도 터짐)
 GLOCK_STRIKE_RANGE_LENGTH = 100
 GLOCK_STRIKE_RANGE_WIDTH = 15
 GLOCK_STRIKE_LENGTH = 850
@@ -1372,10 +1387,12 @@ class Player(pygame.sprite.Sprite):
             self.speed = 10
             self.max_health = 80
             self.health = 80  # 현재 체력이 최대 체력(80)보다 크게 시작하던 문제 수정
+            self.skill_cooldown_reduction = SPEED_TRAIT_COOLDOWN   # 특성 바람걸음: 스킬 쿨타임 -15%
         elif ability == "tank":
             self.max_health = 150
             self.health = 150
             self.speed = 5
+            self.regen = TANK_TRAIT_REGEN                          # 특성 강철 몸: 체력 재생 초당 1
         elif ability == "damage":
             self.damage = 40
             self.max_health = 90
@@ -2418,9 +2435,12 @@ def apply_player_damage(player, amount):
     # 무적 (카타나 일섬 직후)
     if getattr(player, "invuln_time", 0) > 0:
         return
-    # 회피 (levels["dodge"] * 5%): 접촉뿐 아니라 투사체/폭발/독 등 모든 피해에 적용
-    if random.random() < player.levels.get("dodge", 0) * 0.05:
+    # 회피 (levels["dodge"] * 5%, 속도형은 +15%): 접촉뿐 아니라 투사체/폭발/독 등 모든 피해에 적용
+    dodge = player.levels.get("dodge", 0) * 0.05 + (SPEED_TRAIT_DODGE if player.ability == "speed" else 0)
+    if random.random() < dodge:
         return
+    if player.ability == "tank":
+        amount *= TANK_TRAIT_DAMAGE_TAKEN   # 특성 강철 몸: 받는 피해 -20%
     if player.corrode_time > 0:
         amount *= 1.3  # 부식 (산성좀비)
     if player.shield_active:
@@ -2435,6 +2455,8 @@ def get_crit_multiplier(player):
 
 def roll_crit_damage(player, damage, target=None, bonus_chance=0.0):
     """치명타 판정 (levels["crit"] * 5% (+ bonus_chance) 확률로 치명타 배율만큼 데미지). target을 주면 치명타 숫자 연출용으로 표시"""
+    if player.ability == "damage":
+        bonus_chance += DAMAGE_TRAIT_CRIT   # 특성 광전사: 치명타 확률 +10%
     if random.random() < player.levels.get("crit", 0) * 0.05 + bonus_chance:
         if target is not None:
             target.crit_marked = True
@@ -2517,6 +2539,8 @@ def get_weapon_damage(player):
         damage *= ITEM_BUFF_MULTIPLIER
     if player.weapon.weapon_type == "spear":
         damage *= get_spear_speed_factor(player)
+    if player.ability == "damage" and player.health <= player.max_health * 0.5:
+        damage *= DAMAGE_TRAIT_RAGE   # 특성 광전사: 체력 절반 이하면 공격력 +25%
     return damage
 
 
@@ -4373,7 +4397,7 @@ ZOMBIE_BAR_COLORS = {
     "behemoth": (80, 80, 80), "leviathan": (0, 100, 150), "elder": (100, 150, 100),
     "slime": (90, 220, 90), "sniper_z": (120, 170, 120), "howler": (240, 150, 50),
 }
-ABILITY_LABELS = {"speed": ("속도형", CYAN), "tank": ("탱커형", (110, 160, 255)), "damage": ("공격형", YELLOW)}
+ABILITY_LABELS = {"speed": ("속도형 · 바람걸음", CYAN), "tank": ("탱커형 · 강철 몸", (110, 160, 255)), "damage": ("공격형 · 광전사", YELLOW)}
 
 
 def zombie_display_name(zombie):
@@ -4435,6 +4459,8 @@ def get_player_buffs(player):
         buffs.append((f"연참 x{player.katana_chain} (다음 일섬 +{bonus}%)", "chain", player.katana_chain_timer, (150, 230, 255)))
     if player.rush_time > 0:
         buffs.append(("러시 (공격 속도 3배)", "rush", player.rush_time, (255, 160, 200)))
+    if player.ability == "damage" and player.health <= player.max_health * 0.5:
+        buffs.append(("광전사: 공격력 +25%", "rage", 1, (255, 120, 90)))
     if player.invuln_time > 20:   # 부활 무적 등 (일섬 직후 0.2초 무적은 너무 짧아서 표시 안 함)
         buffs.append(("무적", "invuln", player.invuln_time, (150, 230, 255)))
     if player.shock_time > 0:
@@ -4492,7 +4518,7 @@ def draw_player_status(surface, player, x=14, y=14):
     for label, key, frames, color in buffs:
         active.add(key)
         maxes[key] = max(maxes.get(key, 0), frames)
-        ui_text(surface, f"{label}  {frames / FPS:.1f}초", font_tiny, ui_bright(color), (x + 14, by), shadow=False)
+        ui_text(surface, label if key == "rage" else f"{label}  {frames / FPS:.1f}초", font_tiny, ui_bright(color), (x + 14, by), shadow=False)
         ui_bar(surface, (x + w - 84, by + 6, 72, 8), frames / max(maxes[key], 1), ui_bright(color, 150), back=(30, 30, 40), radius=4)
         by += 24
     for key in list(maxes):
@@ -4616,7 +4642,7 @@ def select_ability():
     while True:
         ui_background(screen)
         ui_title(screen, "능력을 선택하세요", SCREEN_HEIGHT * 0.14, "게임 내내 유지되는 기본 성향")
-        rects = _card_row(3, 300, 210, SCREEN_HEIGHT // 2 - 105, gap=36)
+        rects = _card_row(3, 300, 310, SCREEN_HEIGHT // 2 - 155, gap=36)
         mouse_pos = pygame.mouse.get_pos()
         for i, (ability, rect) in enumerate(zip(abilities, rects)):
             hover = rect.collidepoint(mouse_pos)
@@ -4627,6 +4653,12 @@ def select_ability():
                 pygame.draw.circle(screen, color, (card.x + 26, y + 12), 4)
                 ui_text(screen, text, font_medium, color, (card.x + 38, y - 4), shadow=False)
                 y += 38
+            trait_name, trait_lines = ABILITY_TRAITS[ability["type"]]
+            y = ui_text(screen, f"특성 · {trait_name}", font_hud, UI_ACCENT, (card.x + 20, y + 4), shadow=False).bottom + 2
+            for line in trait_lines:
+                pygame.draw.circle(screen, UI_ACCENT, (card.x + 26, y + 10), 3)
+                for part in ui_wrap(line, font_desc, card.w - 56):
+                    y = ui_text(screen, part, font_desc, UI_TEXT, (card.x + 36, y), shadow=False).bottom
             for line in ui_wrap(ability["tip"], font_tiny, card.w - 40):
                 y = ui_text(screen, line, font_tiny, UI_SUB, (card.x + 20, y + 6), shadow=False).bottom - 4
         ui_text(screen, "클릭 또는 1 / 2 / 3 키로 선택", font_desc, UI_SUB, (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 70), "midtop", shadow=False)
@@ -5530,7 +5562,9 @@ KEY_ACTIONS = [
     ("down", "아래로 이동", pygame.K_s),
     ("left", "왼쪽으로 이동", pygame.K_a),
     ("right", "오른쪽으로 이동", pygame.K_d),
-    ("skill", "무기 스킬 (우클릭과 같음)", pygame.K_q),
+    ("attack", "기본 공격", -1),
+    ("skill", "무기 스킬", -3),
+    ("skill2", "무기 스킬 (보조)", pygame.K_q),
     ("teleport", "순간이동", pygame.K_e),
     ("stack", "업그레이드 목록", pygame.K_TAB),
     ("pick1", "업그레이드 선택 1", pygame.K_1),
@@ -5540,12 +5574,18 @@ KEY_ACTIONS = [
 KEY_DEFAULTS = {action: key for action, _, key in KEY_ACTIONS}
 KEYS = dict(KEY_DEFAULTS)
 KEYBIND_PATH = os.path.join(SAVE_DIR, "keybinds.json")
+MOUSE_BINDABLE = {"attack", "skill", "skill2"}          # 마우스 버튼도 지정할 수 있는 동작
+MOUSE_BUTTON_NAMES = {1: "좌클릭", 2: "휠 클릭", 3: "우클릭", 6: "마우스4", 7: "마우스5"}
+_MOUSE_PRESSED_INDEX = {1: 0, 2: 1, 3: 2, 6: 3, 7: 4}   # get_pressed(5)에서의 위치
 
 
 def load_keybinds():
     try:
         with open(KEYBIND_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
+        if "attack" not in data and "skill" in data:
+            # 예전 설정 파일: "skill"은 키보드 보조 스킬 키였음 → skill2로 옮기고 스킬은 우클릭 기본값
+            data["skill2"] = data.pop("skill")
         for action in KEY_DEFAULTS:
             if isinstance(data.get(action), int):
                 KEYS[action] = data[action]
@@ -5562,10 +5602,31 @@ def save_keybinds():
 
 
 def key_label(key):
-    """키 이름 (화면 표시용)"""
+    """키 / 마우스 버튼 이름 (화면 표시용)"""
+    if key < 0:
+        return MOUSE_BUTTON_NAMES.get(-key, f"마우스{-key}")
     name = pygame.key.name(key) if key else "-"
     return {"tab": "TAB", "space": "SPACE", "left shift": "L-SHIFT", "right shift": "R-SHIFT",
             "left ctrl": "L-CTRL", "right ctrl": "R-CTRL", "return": "ENTER"}.get(name, name.upper())
+
+
+def binding_event(event, action):
+    """이 이벤트가 그 동작의 키(또는 마우스 버튼)를 누른 것인지"""
+    bind = KEYS[action]
+    if bind < 0:
+        return event.type == pygame.MOUSEBUTTONDOWN and event.button == -bind
+    return event.type == pygame.KEYDOWN and event.key == bind
+
+
+def binding_held(action, keys=None):
+    """그 동작의 키(또는 마우스 버튼)를 누르고 있는지 (기관총 연사 등)"""
+    bind = KEYS[action]
+    if bind < 0:
+        pressed = pygame.mouse.get_pressed(5)
+        index = _MOUSE_PRESSED_INDEX.get(-bind)
+        return bool(index is not None and index < len(pressed) and pressed[index])
+    keys = keys if keys is not None else pygame.key.get_pressed()
+    return bool(keys[bind])
 
 
 def pick_index(key):
@@ -5579,8 +5640,20 @@ def pick_index(key):
 def controls_hint(extra=""):
     labels = [key_label(KEYS[a]) for a in ("up", "left", "down", "right")]
     move = "".join(labels) if all(len(x) == 1 for x in labels) else "/".join(labels)
-    return (f"{move} 이동 · 좌클릭 공격 · 우클릭/{key_label(KEYS['skill'])} 스킬 · {key_label(KEYS['teleport'])} 순간이동 · "
+    return (f"{move} 이동 · {key_label(KEYS['attack'])} 공격 · {key_label(KEYS['skill'])}/{key_label(KEYS['skill2'])} 스킬 · "
+            f"{key_label(KEYS['teleport'])} 순간이동 · "
             f"{key_label(KEYS['stack'])} 업그레이드 목록{extra}")
+
+
+def assign_binding(action, bind):
+    """동작에 키/마우스 버튼 지정 (다른 동작이 쓰던 것이면 서로 바꿈 - 바꿀 수 없는 조합이면 그 동작을 기본값으로)"""
+    for other in KEYS:
+        if other != action and KEYS[other] == bind:
+            KEYS[other] = KEYS[action]
+            if KEYS[other] < 0 and other not in MOUSE_BINDABLE:
+                KEYS[other] = KEY_DEFAULTS[other]
+    KEYS[action] = bind
+    save_keybinds()
 
 
 def show_key_settings(background=None):
@@ -5599,7 +5672,11 @@ def show_key_settings(background=None):
         ui_overlay(screen, 190)
         ui_panel(screen, panel, alpha=240, radius=16)
         ui_text(screen, "조작 키 설정", font_large, UI_TEXT, (panel.centerx, panel.y + 18), "midtop")
-        hint = "새 키를 누르세요 (ESC: 취소)" if waiting is not None else "바꿀 항목을 누르세요 · 겹치는 키는 서로 바뀜 · ESC: 닫기"
+        if waiting is not None:
+            hint = ("새 키나 마우스 버튼을 누르세요 (ESC: 취소)" if KEY_ACTIONS[waiting][0] in MOUSE_BINDABLE
+                    else "새 키를 누르세요 (ESC: 취소)")
+        else:
+            hint = "바꿀 항목을 누르세요 · 겹치는 키는 서로 바뀜 · 공격/스킬은 마우스 버튼도 가능 · ESC: 닫기"
         ui_text(screen, hint, font_desc, UI_ACCENT if waiting is not None else UI_SUB, (panel.centerx, panel.y + 74), "midtop", shadow=False)
         mouse = pygame.mouse.get_pos()
         for i, ((action, label, _), rect) in enumerate(zip(KEY_ACTIONS, rows)):
@@ -5623,19 +5700,17 @@ def show_key_settings(background=None):
             if event.type == pygame.KEYDOWN:
                 if waiting is not None:
                     if event.key != pygame.K_ESCAPE:
-                        action = KEY_ACTIONS[waiting][0]
-                        for other in KEYS:   # 이미 다른 항목에 쓰는 키면 서로 바꿈
-                            if other != action and KEYS[other] == event.key:
-                                KEYS[other] = KEYS[action]
-                        KEYS[action] = event.key
-                        save_keybinds()
+                        assign_binding(KEY_ACTIONS[waiting][0], event.key)
                     waiting = None
                 elif event.key == pygame.K_ESCAPE:
                     return
+            elif event.type == pygame.MOUSEBUTTONDOWN and waiting is not None:
+                action = KEY_ACTIONS[waiting][0]
+                if action in MOUSE_BINDABLE and event.button in MOUSE_BUTTON_NAMES:
+                    assign_binding(action, -event.button)   # 마우스 버튼 지정
+                waiting = None
+                continue
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if waiting is not None:
-                    waiting = None
-                    continue
                 for i, rect in enumerate(rows):
                     if rect.collidepoint(event.pos):
                         waiting = i
@@ -5804,8 +5879,9 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN and not game_over:
-                # 마우스 클릭으로 총알 발사 (왼쪽 클릭) 또는 우클릭 스킬
+            elif not game_over and (binding_event(event, "attack") or binding_event(event, "skill") or binding_event(event, "skill2")):
+                # 공격 / 무기 스킬 (키 설정에서 키보드 키나 마우스 버튼으로 바꿀 수 있음)
+                is_attack = binding_event(event, "attack")
                 mouse_screen_x, mouse_screen_y = pygame.mouse.get_pos()
                 mouse_world_x = mouse_screen_x + camera.x
                 mouse_world_y = mouse_screen_y + camera.y
@@ -5815,7 +5891,7 @@ def main():
                     if auto_target:
                         mouse_world_x, mouse_world_y = auto_target
 
-                if event.button == 1:  # 왼쪽 클릭 - 무기 발사
+                if is_attack:  # 기본 공격 (기본: 좌클릭)
                     # 무기 발사
                     can_fire = player.shock_time <= 0 and player.weapon.fire()
                     if player.skills.get("skill_infinity_ammo", False) and player.infinity_ammo_time > 0 and player.shock_time <= 0:
@@ -5964,7 +6040,7 @@ def main():
                             fire_muzzle_flash(player, mouse_world_x, mouse_world_y,
                                               kick=2.0 if player.weapon.weapon_type == "sniper" else 0)
 
-                elif event.button == 3:  # 우클릭 - 무기 스킬
+                else:  # 무기 스킬 (기본: 우클릭 / Q)
                     execute_weapon_skill(player.weapon.weapon_type, player, mouse_world_x, mouse_world_y,
                                        zombies, bullets, all_sprites, explosions)
 
@@ -5972,11 +6048,6 @@ def main():
                 if event.key == KEYS["stack"] and not game_over:
                     # 업그레이드 목록 토글 (기본 TAB)
                     show_stack = not show_stack
-                elif event.key == KEYS["skill"] and not game_over:
-                    # 키보드로 무기 스킬 (우클릭과 같음, 기본 Q)
-                    mouse_screen_x, mouse_screen_y = pygame.mouse.get_pos()
-                    execute_weapon_skill(player.weapon.weapon_type, player, mouse_screen_x + camera.x, mouse_screen_y + camera.y,
-                                         zombies, bullets, all_sprites, explosions)
                 elif event.key == KEYS["teleport"] and not game_over:
                     if player.skills.get("skill_teleport", False) and player.teleport_cooldown <= 0:
                         mouse_screen_x, mouse_screen_y = pygame.mouse.get_pos()
@@ -6079,8 +6150,7 @@ def main():
 
             # 기관총 연발 처리 (마우스 꾹 누르고 있을 때)
             if not game_over:
-                mouse_buttons = pygame.mouse.get_pressed()
-                if mouse_buttons[0]:  # 왼쪽 마우스 버튼 누르고 있음
+                if binding_held("attack"):  # 공격 키/버튼을 누르고 있음
                     if player.weapon.weapon_type == "machinegun":
                         # 기관총 연발
                         mouse_screen_x, mouse_screen_y = pygame.mouse.get_pos()

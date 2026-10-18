@@ -1351,7 +1351,9 @@ def run_match(lockstep, seed, roster, local_pid):
                         return
                     elif event.key == KEYS["teleport"]:
                         clicks["e"] = 1
-                    elif event.key == KEYS["skill"] and not ui["menu"]:
+                    elif binding_event(event, "attack") and not ui["menu"]:
+                        clicks["l"] = 1
+                    elif (binding_event(event, "skill") or binding_event(event, "skill2")) and not ui["menu"]:
                         clicks["r"] = 1
                     elif event.key == KEYS["stack"]:
                         ui["stack"] = not ui.get("stack", False)
@@ -1360,10 +1362,10 @@ def run_match(lockstep, seed, roster, local_pid):
                 elif event.type == pygame.MOUSEBUTTONDOWN and not ui["menu"]:
                     card = next((i for i, rect in enumerate(ui["cards"]) if rect.collidepoint(event.pos)), None)
                     if card is not None and event.button == 1:
-                        clicks["u"] = card
-                    elif event.button == 1:
+                        clicks["u"] = card        # 업그레이드 카드는 항상 좌클릭
+                    elif binding_event(event, "attack"):
                         clicks["l"] = 1
-                    elif event.button == 3:
+                    elif binding_event(event, "skill") or binding_event(event, "skill2"):
                         clicks["r"] = 1
 
             # 내 입력 보내기 (INPUT_DELAY 프레임 뒤에 반영)
@@ -1373,7 +1375,7 @@ def run_match(lockstep, seed, roster, local_pid):
             while next_send <= state.sim_frame + lockstep.input_delay():
                 keys = REAL_GET_PRESSED()
                 mx, my = pygame.mouse.get_pos()
-                held = pygame.mouse.get_pressed()[0] and not ui["menu"]
+                held = binding_held("attack", keys) and not ui["menu"]
                 bits = 0 if ui["menu"] else (keys[KEYS["up"]] * 1 | keys[KEYS["left"]] * 2 | keys[KEYS["down"]] * 4 | keys[KEYS["right"]] * 8)
                 inp = {"k": bits, "x": int(mx + camera.x), "y": int(my + camera.y), "l": clicks["l"], "h": int(held),
                        "r": clicks["r"], "e": clicks["e"], "u": clicks["u"]}
