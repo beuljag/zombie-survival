@@ -439,6 +439,8 @@ class MatchState:
 
         # 9) 총알/아이템/이펙트 갱신
         bullets.update()
+        for melee_attack in [b for b in bullets if isinstance(b, Melee)]:
+            melee_sweep(melee_attack, zombies)   # 휘두르는 도중 들어온 좀비도 맞음
         items.update()
         explosions.update()
         handled = set(bullets.sprites())
@@ -531,6 +533,7 @@ class MatchState:
                 if not melee_hit or distance_to_zombie < first_hit_distance:
                     first_hit_zombie, first_hit_distance = zombie, distance_to_zombie
                 melee_hit = True
+                melee.has_hit.add(zombie)   # 휘두르는 동안 다시 맞지 않게
                 zombie.health -= roll_crit_damage(p, melee_damage, zombie) * get_damage_multiplier(zombie)
                 fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS.get(p.weapon.weapon_type, WHITE))
                 self.apply_elements(p, zombie, melee_damage, 150)

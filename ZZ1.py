@@ -152,7 +152,7 @@
   폭탄 1발 기본 1000 데미지, 공격력이 오르면 같은 비율로 증가 (80초)
 - 기관총: 포탑 설치 - 6초 동안 자동으로 쏘는 포탑 (18초)
 - 샷건: 용의 숨결 - 앞쪽 부채꼴 화염 방사 + 불붙임 (10초)
-- 저격총: 레일건 - 화면을 가로지르는 관통 광선 (12초)
+- 저격총: 도탄 사격 - 한 발이 맞은 좀비에서 주변 좀비로 10번 튕김 (맞을 때마다 3배 데미지, "도탄 +3회" 업그레이드) (12초)
 - 플라즈마: 블랙홀 - 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발 (18초)
 - 로켓: 미사일 폭격 - 마우스 주변에 미사일 8발 (15초)
 
@@ -315,6 +315,10 @@ AXE_SKILL_KNOCKBACK = 20
 #  (폭탄 데미지 = 1000 × 현재 공격력 / 글록 기본 공격력)
 #  "폭격 범위" 업그레이드 1회당: 폭격 길이 +100px, 폭발 반경(폭) +15px
 GLOCK_STRIKE_BASE_DAMAGE = 1000
+# 저격총 도탄 사격: 맞을 때마다 공격력 3배, 기본 10번 튕김 ("도탄 +3회" 업그레이드 1회당 +3번)
+SNIPER_RICOCHET_DAMAGE_MULT = 3.0
+SNIPER_RICOCHET_BOUNCES = 10
+SNIPER_RICOCHET_UPGRADE = 3
 GLOCK_STRIKE_RANGE_LENGTH = 100
 GLOCK_STRIKE_RANGE_WIDTH = 15
 GLOCK_STRIKE_LENGTH = 850
@@ -2325,6 +2329,34 @@ def apply_hit_elements(player, zombie, zombies, base_damage, chain_range=150):
             target.electric_fx = 30
 
 
+def melee_sweep(melee, zombies):
+    """근접 무기를 휘두르는 도중 범위(부채꼴)에 새로 들어온 좀비도 맞음 - 한 번 휘두를 때 좀비마다 한 번만
+    (예전에는 클릭한 순간 범위 안에 있던 좀비만 맞고, 휘두르는 동안 들어온 좀비는 무기가 지나가도 안 맞았음)"""
+    player = melee.owner
+    if player is None:
+        return
+    px, py = player.rect.center
+    knockback_mult = get_knockback_multiplier(player)
+    for zombie in list(zombies):
+        if zombie.health <= 0 or zombie in melee.has_hit:
+            continue
+        dx, dy = zombie.rect.centerx - px, zombie.rect.centery - py
+        dist = math.hypot(dx, dy)
+        in_range = dist < Melee.CLOSE_HIT_RADIUS
+        if not in_range and dist < melee.attack_range:
+            angle_diff = abs((math.degrees(math.atan2(-dy, dx)) - melee.base_angle + 180) % 360 - 180)
+            in_range = angle_diff <= melee.hit_half_arc
+        if not in_range:
+            continue
+        melee.has_hit.add(zombie)
+        zombie.health -= roll_crit_damage(player, melee.damage, zombie) * get_damage_multiplier(zombie)
+        fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS.get(melee.weapon_type, WHITE))
+        apply_hit_elements(player, zombie, zombies, melee.damage, 150)
+        if dist > 0:
+            zombie.knockback_vel_x = dx / dist * melee.knockback_power / 100 * knockback_mult
+            zombie.knockback_vel_y = dy / dist * melee.knockback_power / 100 * knockback_mult
+
+
 def get_knockback_multiplier(player):
     """넉백 강화 업그레이드 반영 (1회당 +10%)"""
     return 1.0 + 0.1 * player.levels.get("knockback", 0)
@@ -2410,7 +2442,7 @@ def get_auto_aim_target(player, zombies, max_range=600):
 
 # ===== 무기별 우클릭 스킬 =====
 # 나무 방망이: 홈런 / 카타나: 일섬 / 도끼: 대회전 베기 / 창: 투창 / 해머: 대지 강타 / 글로브: 러시
-# 글록: 항공 폭격 / 기관총: 포탑 설치 / 샷건: 용의 숨결 / 저격총: 레일건 / 플라즈마: 블랙홀 / 로켓: 미사일 폭격
+# 글록: 항공 폭격 / 기관총: 포탑 설치 / 샷건: 용의 숨결 / 저격총: 도탄 사격 / 플라즈마: 블랙홀 / 로켓: 미사일 폭격
 
 def skill_damage(zombie, amount):
     """스킬 피해 (갑옷/방패/수호 오라 감소 적용)"""
@@ -2711,6 +2743,70 @@ class AirStrikeSkill(ActiveSkill):
             return False
         if dist >= self.travel:
             self.visual.rect.center = (-99999, -99999)   # 화면 밖으로 사라짐
+
+
+class RicochetSkill(ActiveSkill):
+    """저격총 도탄 사격: 한 발을 쏘면 처음 맞은 좀비에서 주변 좀비로 계속 튕겨 다님
+    (아직 안 맞은 좀비를 먼저 노리고, 없으면 이미 맞은 좀비에게라도 튕김)"""
+    HOP_FRAMES = 4        # 한 번 튕기는 데 걸리는 프레임 (0.07초)
+    BOUNCE_RANGE = 450    # 다음 대상을 찾는 거리
+    RANGE = 1400          # 첫 발 사거리
+
+    def __init__(self, cx, cy, dir_x, dir_y, damage, bounces, zombies, all_sprites):
+        super().__init__((bounces + 2) * self.HOP_FRAMES + 2)
+        self.damage, self.bounces_left = damage, bounces
+        self.pos = (cx, cy)
+        self.hit_count = {}
+        self.hits = 0
+        end_x, end_y = cx + dir_x * self.RANGE, cy + dir_y * self.RANGE
+        on_line = zombies_near_line(zombies, cx, cy, end_x, end_y, 28)
+        self.target = min(on_line, key=lambda z: math.hypot(z.rect.centerx - cx, z.rect.centery - cy)) if on_line else None
+        if self.target is None:   # 아무도 없으면 허공으로 날아감
+            all_sprites.add(LineFlash(cx, cy, end_x, end_y, (150, 230, 255), width=8, duration=12))
+        fx.add_shake(3)
+
+    def tick(self, player, zombies, bullets, all_sprites, explosions):
+        if self.target is None:
+            return False
+        if self.frames % self.HOP_FRAMES:
+            return True
+        target = self.target
+        if target not in zombies or target.health <= 0:      # 날아가는 사이 다른 공격에 죽었으면 근처의 다른 좀비로
+            target = self._next_target(zombies, None)
+            if target is None:
+                return False
+        tx, ty = target.rect.center
+        all_sprites.add(LineFlash(self.pos[0], self.pos[1], tx, ty, (180, 240, 255), width=11, duration=24))
+        skill_damage(target, self.damage)
+        fx.hit_spark(tx, ty, (150, 230, 255))
+        fx.ring(tx, ty, (150, 230, 255), 34, count=12)
+        self.hit_count[id(target)] = self.hit_count.get(id(target), 0) + 1
+        self.hits += 1
+        self.pos = (tx, ty)
+        if self.bounces_left <= 0:
+            fx.add_text(tx, ty - 40, f"도탄 x{self.hits}", (150, 230, 255))
+            return False
+        self.target = self._next_target(zombies, target)
+        if self.target is None:
+            fx.add_text(tx, ty - 40, f"도탄 x{self.hits}", (150, 230, 255))
+            return False
+        self.bounces_left -= 1
+        return True
+
+    def _next_target(self, zombies, current):
+        """지금 위치에서 가장 가까운 좀비 (안 맞은 좀비 우선)"""
+        px, py = self.pos
+        best, best_key = None, None
+        for zombie in zombies:
+            if zombie is current or zombie.health <= 0:
+                continue
+            d = math.hypot(zombie.rect.centerx - px, zombie.rect.centery - py)
+            if d > self.BOUNCE_RANGE:
+                continue
+            key = (self.hit_count.get(id(zombie), 0), d)
+            if best_key is None or key < best_key:
+                best, best_key = zombie, key
+        return best
 
 
 class TurretSkill(ActiveSkill):
@@ -3029,13 +3125,11 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         fx.add_shake(3)
 
     elif weapon_type == "sniper":
-        # 레일건: 화면을 가로지르는 관통 광선
-        end_x, end_y = cx + direction_x * 1400, cy + direction_y * 1400
-        for zombie in zombies_near_line(zombies, cx, cy, end_x, end_y, 28):
-            skill_damage(zombie, base * 5 * (1 + 0.2 * up["pierces"]))
-            fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (150, 230, 255))
-        all_sprites.add(LineFlash(cx, cy, end_x, end_y, (90, 200, 255), width=30, duration=22))
-        fx.add_shake(5)
+        # 도탄 사격: 한 발이 맞은 좀비에서 주변 좀비로 10번 튕김 ("도탄 +3회" 업그레이드로 증가)
+        bounces = SNIPER_RICOCHET_BOUNCES + up["pierces"] * SNIPER_RICOCHET_UPGRADE
+        player.active_skills.append(RicochetSkill(cx, cy, direction_x, direction_y, base * SNIPER_RICOCHET_DAMAGE_MULT,
+                                                  bounces, zombies, all_sprites))
+        fire_muzzle_flash(player, mouse_world_x, mouse_world_y, kick=3.0)
 
     elif weapon_type == "plasma":
         # 블랙홀: 마우스 위치에 3초 동안 좀비를 끌어당기며 피해
@@ -4277,7 +4371,7 @@ def select_weapon():
     weapons = [
         {"name": "글록", "desc": "균형 잡힌 권총", "skill": "항공 폭격", "type": "glock", "color": YELLOW},
         {"name": "샷건", "desc": "근거리 3발 산탄", "skill": "용의 숨결", "type": "shotgun", "color": (230, 130, 30)},
-        {"name": "저격총", "desc": "강한 한 발, 관통", "skill": "레일건", "type": "sniper", "color": (200, 205, 230)},
+        {"name": "저격총", "desc": "강한 한 발, 관통", "skill": "도탄 사격", "type": "sniper", "color": (200, 205, 230)},
         {"name": "기관총", "desc": "꾹 눌러 연사", "skill": "포탑 설치", "type": "machinegun", "color": (255, 130, 70)},
         {"name": "플라즈마", "desc": "착탄 시 작은 폭발", "skill": "블랙홀", "type": "plasma", "color": CYAN},
         {"name": "로켓", "desc": "느리지만 큰 폭발", "skill": "미사일 폭격", "type": "rocket", "color": (255, 80, 60)},
@@ -4456,7 +4550,7 @@ def build_cumulative_upgrade_lines(player):
     if counts.get("shotgun_skill_pellets", 0) > 0:
         lines.append(f"샷건 추가 탄환: +{counts['shotgun_skill_pellets']}발")
     if counts.get("sniper_skill_pierces", 0) > 0:
-        lines.append(f"레일건 데미지: +{counts['sniper_skill_pierces'] * 20}%")
+        lines.append(f"도탄 사격 튕김: +{counts['sniper_skill_pierces'] * SNIPER_RICOCHET_UPGRADE}회")
     if counts.get("machinegun_skill_burst", 0) > 0:
         lines.append(f"포탑 지속: +{counts['machinegun_skill_burst']}초")
 
@@ -4745,7 +4839,7 @@ def build_upgrade_choices(player):
         ]
     elif weapon_type == "sniper":
         weapon_upgrades = [
-            {"name": "레일건 데미지 +20%", "desc": "레일건 강화", "type": "sniper_skill_pierces", "color": (100, 150, 255)},
+            {"name": "도탄 +3회", "desc": "도탄 사격이 3번 더 튕김", "type": "sniper_skill_pierces", "color": (100, 150, 255)},
             {"name": "데미지 +8", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 8},
         ]
     elif weapon_type == "machinegun":
@@ -5042,7 +5136,7 @@ def get_upgrade_name(upgrade_type):
         "glock_skill_burst": "폭격 범위 증가",
         "shotgun_skill_pellets": "기본 발사 탄환 +1발",
         "shotgun_skill_damage": "화염 데미지 +8%",
-        "sniper_skill_pierces": "레일건 데미지 +20%",
+        "sniper_skill_pierces": "도탄 +3회",
         "machinegun_skill_burst": "포탑 지속 +1초",
         "plasma_skill_range": "블랙홀 범위 +15px",
         "plasma_skill_damage": "블랙홀 데미지 +8%",
@@ -5351,6 +5445,7 @@ def main():
                                     if not melee_hit or distance_to_zombie < first_hit_distance:
                                         first_hit_zombie, first_hit_distance = zombie, distance_to_zombie
                                     melee_hit = True
+                                    melee.has_hit.add(zombie)   # 휘두르는 동안 다시 맞지 않게
                                     # 갑옷/방패 감소 적용 (예전에는 근접 기본 공격만 감소를 무시했음)
                                     zombie.health -= roll_crit_damage(player, melee_damage, zombie) * get_damage_multiplier(zombie)
                                     fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS.get(player.weapon.weapon_type, WHITE))
@@ -5796,6 +5891,8 @@ def main():
 
             # 그룹별 업데이트 (중복 업데이트 방지)
             bullets.update()
+            for melee_attack in [b for b in bullets if isinstance(b, Melee)]:
+                melee_sweep(melee_attack, zombies)   # 휘두르는 도중 들어온 좀비도 맞음
             items.update()
             explosions.update()
 
