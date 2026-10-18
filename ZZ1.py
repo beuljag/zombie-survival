@@ -273,7 +273,7 @@ WEAPON_STATS = {
     "shotgun":    {"name": "샷건",   "dmg": 15, "rate": 1.5,  "speed": 13, "color": (200, 100, 0),
                    "max_range": 380},  # DPS 68  (3발 전탄) 근거리 전용
     "sniper":     {"name": "저격총", "dmg": 50, "rate": 1.0,  "speed": 24, "color": GRAY,
-                   "pierce": 2},  # DPS 50  기본 공격이 2마리 더 관통
+                   "pierce": 9999},  # DPS 50  기본 공격이 무한 관통 (사거리 끝까지 지나가는 좀비 모두)
     "plasma":     {"name": "플라즈마", "dmg": 28, "rate": 2.0, "speed": 13, "color": CYAN,
                    "splash_radius": 70, "splash_ratio": 0.4},  # DPS 56  + 착탄 폭발(주변 40%)
     "rocket":     {"name": "로켓",   "dmg": 55, "rate": 0.8,  "speed": 9,  "color": RED,
@@ -4558,7 +4558,7 @@ def select_weapon():
     weapons = [
         {"name": "글록", "desc": "균형 잡힌 권총", "skill": "항공 폭격", "type": "glock", "color": YELLOW},
         {"name": "샷건", "desc": "근거리 3발 산탄", "skill": "용의 숨결", "type": "shotgun", "color": (230, 130, 30)},
-        {"name": "저격총", "desc": "강한 한 발, 관통", "skill": "도탄 사격", "type": "sniper", "color": (200, 205, 230)},
+        {"name": "저격총", "desc": "강한 한 발, 무한 관통", "skill": "도탄 사격", "type": "sniper", "color": (200, 205, 230)},
         {"name": "기관총", "desc": "꾹 눌러 연사", "skill": "포탑 설치", "type": "machinegun", "color": (255, 130, 70)},
         {"name": "플라즈마", "desc": "착탄 시 작은 폭발", "skill": "블랙홀", "type": "plasma", "color": CYAN},
         {"name": "로켓", "desc": "느리지만 큰 폭발", "skill": "미사일 폭격", "type": "rocket", "color": (255, 80, 60)},
@@ -4881,6 +4881,8 @@ def is_upgrade_at_limit(player, upgrade_type):
         return True   # 근접 무기는 총알/탄약을 쓰지 않음
     if weapon_type == "rocket" and upgrade_type == "skill_piercing":
         return True   # 로켓은 처음 맞는 곳에서 폭발하므로 관통 의미 없음
+    if weapon_type == "sniper" and upgrade_type == "skill_piercing":
+        return True   # 저격총은 이미 무한 관통
     if upgrade_type == "knockback" and weapon_type not in MELEE_WEAPONS and weapon_type != "rocket":
         return True   # 넉백은 근접 무기와 로켓 폭발에만 있음
 
@@ -5733,7 +5735,7 @@ def main():
                             bullet_type = "plasma" if player.weapon.weapon_type == "plasma" else "normal"
                             bullet = Bullet(player.rect.centerx, player.rect.centery, mouse_world_x, mouse_world_y, get_weapon_damage(player), bullet_type, player.weapon.weapon_type)
                             bullet.speed = player.weapon.bullet_speed
-                            bullet.pierce = player.weapon.pierce              # 저격총: 기본 2마리 관통
+                            bullet.pierce = player.weapon.pierce              # 저격총: 무한 관통
                             bullet.splash_radius = player.weapon.splash_radius  # 플라즈마: 착탄 폭발
                             bullet.splash_ratio = player.weapon.splash_ratio
                             bullet.max_range = player.weapon.max_range
