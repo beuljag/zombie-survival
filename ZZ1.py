@@ -1085,15 +1085,89 @@ class Camera:
         return x - self.x + self.shake_x, y - self.y + self.shake_y
 
     def draw_background(self, surface):
-        # 그리드 배경 그리기 (무한한 느낌)
-        grid_size = 50
-        start_x = -(int(self.x - self.shake_x) % grid_size)
-        start_y = -(int(self.y - self.shake_y) % grid_size)
+        # 바닥: 미리 그려 둔 이음매 없는 타일을 카메라에 맞춰 반복 (무한한 느낌, 매 프레임 그리는 비용은 거의 없음)
+        tile = get_ground_tile()
+        size = GROUND_TILE_SIZE
+        start_x = -(int(self.x - self.shake_x) % size)
+        start_y = -(int(self.y - self.shake_y) % size)
+        for x in range(start_x, self.width, size):
+            for y in range(start_y, self.height, size):
+                surface.blit(tile, (x, y))
 
-        for x in range(start_x, self.width + grid_size, grid_size):
-            pygame.draw.line(surface, DARK_GRAY, (x, 0), (x, self.height), 1)
-        for y in range(start_y, self.height + grid_size, grid_size):
-            pygame.draw.line(surface, DARK_GRAY, (0, y), (self.width, y), 1)
+
+# ===== 게임 바닥 (Claude 톤: 따뜻한 숯색 땅 + 옅은 타일 줄 + 금 + 자갈 + 코랄빛 티끌) =====
+GROUND_TILE_SIZE = 512
+_ground_tile = None
+
+
+def get_ground_tile():
+    """이음매 없는 바닥 타일 (처음 한 번만 그림). 전용 난수를 써서 게임 결과/멀티 동기화에 영향 없음"""
+    global _ground_tile
+    if _ground_tile is not None:
+        return _ground_tile
+    size = GROUND_TILE_SIZE
+    rng = random.Random(20261018)
+    tile = pygame.Surface((size, size))
+    tile.fill((31, 29, 27))
+
+    def wrapped(draw):
+        # 타일 가장자리에 걸친 그림은 반대편에도 그려서 이어 붙였을 때 끊기지 않게
+        for ox in (-size, 0, size):
+            for oy in (-size, 0, size):
+                draw(ox, oy)
+
+    # 1) 큰 얼룩 (밝은/어두운 흙) - 가장자리가 부드럽게 퍼지도록 옅은 원을 여러 겹으로
+    for _ in range(40):
+        x, y, r = rng.uniform(0, size), rng.uniform(0, size), rng.uniform(30, 100)
+        rgb = rng.choice([(46, 42, 37), (21, 19, 18), (42, 35, 30)])
+        blob = pygame.Surface((int(r * 2), int(r * 2)), pygame.SRCALPHA)
+        for k in range(8):
+            pygame.draw.circle(blob, (*rgb, 9), (int(r), int(r)), max(1, int(r * (1 - k / 8))))
+        wrapped(lambda ox, oy, x=x, y=y, r=r, blob=blob: tile.blit(blob, (int(x - r + ox), int(y - r + oy))))
+
+    # 2) 옅은 바닥 타일 줄 (64px), 큰 칸(256px)은 조금 더 진하게
+    for i in range(0, size, 64):
+        color = (44, 41, 38) if i % 256 == 0 else (37, 35, 32)
+        pygame.draw.line(tile, color, (i, 0), (i, size - 1))
+        pygame.draw.line(tile, color, (0, i), (size - 1, i))
+
+    # 3) 갈라진 금 (어두운 선 + 위쪽 밝은 테두리)
+    for _ in range(12):
+        x, y = rng.uniform(0, size), rng.uniform(0, size)
+        angle = rng.uniform(0, 2 * math.pi)
+        points = [(x, y)]
+        for _ in range(rng.randint(4, 8)):
+            angle += rng.uniform(-0.7, 0.7)
+            step = rng.uniform(10, 26)
+            x, y = x + math.cos(angle) * step, y + math.sin(angle) * step
+            points.append((x, y))
+        def crack(ox, oy, points=points):
+            moved = [(px + ox, py + oy) for px, py in points]
+            pygame.draw.lines(tile, (20, 18, 17), False, moved, 2)
+            pygame.draw.lines(tile, (46, 42, 38), False, [(px, py - 1) for px, py in moved], 1)
+        wrapped(crack)
+
+    # 4) 자갈 (그림자 + 돌 + 하이라이트)
+    for _ in range(140):
+        x, y = rng.uniform(0, size), rng.uniform(0, size)
+        w, h = rng.uniform(3, 8), rng.uniform(2, 6)
+        stone = rng.choice([(54, 50, 46), (60, 55, 50), (48, 45, 42)])
+        def pebble(ox, oy, x=x, y=y, w=w, h=h, stone=stone):
+            pygame.draw.ellipse(tile, (19, 18, 17), (int(x + ox + 1), int(y + oy + 2), int(w), int(h)))
+            pygame.draw.ellipse(tile, stone, (int(x + ox), int(y + oy), int(w), int(h)))
+            if w > 5:
+                pygame.draw.circle(tile, (78, 72, 66), (int(x + ox + w * 0.35), int(y + oy + h * 0.35)), 1)
+        wrapped(pebble)
+
+    # 5) 코랄빛 티끌 / 마른 잎 (아주 옅게 - 따뜻한 느낌)
+    for _ in range(36):
+        x, y = rng.uniform(0, size), rng.uniform(0, size)
+        color = rng.choice([(96, 58, 46), (110, 66, 50), (84, 62, 44)])
+        r = rng.choice([1, 1, 2])
+        wrapped(lambda ox, oy, x=x, y=y, color=color, r=r: pygame.draw.circle(tile, color, (int(x + ox), int(y + oy)), r))
+
+    _ground_tile = tile.convert()
+    return _ground_tile
 
 # 아이템 클래스 (좀비 처치 시 드롭)
 class Item(pygame.sprite.Sprite):

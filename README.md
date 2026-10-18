@@ -32,6 +32,6 @@
 | | |
 |---|---|
 | ![능력 선택](screenshots/ability.png) | ![일시정지](screenshots/pause.png) |
-| ![멀티](screenshots/multiplayer.png) | |
+| ![멀티](screenshots/multiplayer.png) | ![게임 화면](screenshots/ingame.png) |
 
 자세한 내용은 [게임 가이드](좀비게임_가이드.md)를 참고하세요.
