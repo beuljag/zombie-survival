@@ -608,6 +608,7 @@ def ui_quit_event(event):
 # ===== 시각 효과 (파티클 / 데미지 숫자 / 화면 흔들림 / 피격 테두리) =====
 # 이펙트용 난수는 게임용 random과 따로 써서, 연출이 게임 결과(좀비 종류·치명타 등)를 바꾸지 않게 함
 fx_random = random.Random()
+FX_MAX_PARTICLES = 1500
 
 font_damage = pygame.font.SysFont('malgun gothic', 18, bold=True)
 font_damage_big = pygame.font.SysFont('malgun gothic', 26, bold=True)
@@ -772,6 +773,8 @@ class EffectManager:
             p[0] += p[2]
             p[1] += p[3]
             alive.append(p)
+        if len(alive) > FX_MAX_PARTICLES:   # 너무 많으면 오래된 것부터 버림 (그리기 전용 - 큰 전투에서 프레임 저하 방지)
+            alive = alive[-FX_MAX_PARTICLES:]
         self.particles = alive
         texts = []
         for t in self.texts:
@@ -1389,16 +1392,16 @@ class Player(pygame.sprite.Sprite):
         if self.speed_buff_time > 0:
             current_speed *= ITEM_BUFF_MULTIPLIER
 
-        if keys[pygame.K_w]:
+        if keys[KEYS['up']]:
             self.pos_y -= current_speed
             self.last_direction_y = -1
-        if keys[pygame.K_s]:
+        if keys[KEYS['down']]:
             self.pos_y += current_speed
             self.last_direction_y = 1
-        if keys[pygame.K_a]:
+        if keys[KEYS['left']]:
             self.pos_x -= current_speed
             self.last_direction_x = -1
-        if keys[pygame.K_d]:
+        if keys[KEYS['right']]:
             self.pos_x += current_speed
             self.last_direction_x = 1
 
@@ -1406,10 +1409,10 @@ class Player(pygame.sprite.Sprite):
         self._synced_center = self.rect.center
 
         # 걷기 모션용
-        self.is_moving = bool(keys[pygame.K_w] or keys[pygame.K_s] or keys[pygame.K_a] or keys[pygame.K_d])
+        self.is_moving = bool(keys[KEYS['up']] or keys[KEYS['down']] or keys[KEYS['left']] or keys[KEYS['right']])
         # 이동 방향 (창 돌진 판정용, 멈춰 있으면 None)
-        move_x = int(bool(keys[pygame.K_d])) - int(bool(keys[pygame.K_a]))
-        move_y = int(bool(keys[pygame.K_s])) - int(bool(keys[pygame.K_w]))
+        move_x = int(bool(keys[KEYS['right']])) - int(bool(keys[KEYS['left']]))
+        move_y = int(bool(keys[KEYS['down']])) - int(bool(keys[KEYS['up']]))
         length = math.hypot(move_x, move_y)
         self.move_dir = (move_x / length, move_y / length) if length else None
         if self.is_moving:
@@ -4377,18 +4380,33 @@ def zombie_display_name(zombie):
     return zombie.custom_name if hasattr(zombie, "custom_name") else ZOMBIE_DISPLAY_NAMES.get(zombie.zombie_type, "좀비")
 
 
+LABEL_CROWD_LIMIT = 60   # 화면에 좀비가 이보다 많으면 일반 좀비는 이름 없이 체력 바만 (보스/거대/이름 있는 좀비는 그대로)
+
+
 def draw_zombie_labels(surface, camera, zombies):
-    """좀비 머리 위: 이름 + 체력 숫자 한 줄, 그 아래 둥근 체력 바 (화면 밖 좀비는 건너뜀)"""
+    """좀비 머리 위: 이름 + 체력 숫자 한 줄, 그 아래 둥근 체력 바 (화면 밖 좀비는 건너뜀)
+    좀비가 많으면 일반 좀비는 체력 바만 그려서 글자가 겹쳐 안 읽히는 것과 프레임 저하를 막음"""
     width, height = surface.get_size()
+    visible = []
     for zombie in zombies:
         sx, sy = camera.apply(zombie.rect.centerx, zombie.rect.centery)
-        if sx < -120 or sx > width + 120 or sy < -120 or sy > height + 120:
-            continue
+        if -120 <= sx <= width + 120 and -120 <= sy <= height + 120:
+            visible.append((zombie, sx, sy))
+    crowded = len(visible) > LABEL_CROWD_LIMIT
+    for zombie, sx, sy in visible:
         bar_w = max(30, zombie.size)
         top = sy - zombie.size // 2 - 15
         ratio = max(0, min(1, zombie.health / max(zombie.max_health, 1)))
+        fill_w = int(bar_w * ratio)
+        if crowded and zombie.zombie_type not in GUARANTEED_DROP_TYPES and not hasattr(zombie, "custom_name"):
+            # 체력 바만 (글자 없이)
+            x = int(sx) - bar_w // 2
+            surface.fill((12, 12, 16), (x - 1, int(top) - 1, bar_w + 2, 6))
+            if fill_w > 0:
+                surface.fill(ui_bright(ZOMBIE_BAR_COLORS.get(zombie.zombie_type, RED), 150), (x, int(top), max(2, fill_w), 4))
+            continue
         hp = int(max(0, zombie.health))
-        key = (zombie_display_name(zombie), hp, int(bar_w * ratio), bar_w, zombie.zombie_type)
+        key = (zombie_display_name(zombie), hp, fill_w, bar_w, zombie.zombie_type)
         cached = zombie.__dict__.get("_label_cache")
         if cached is None or cached[0] != key:
             color = ui_bright(ZOMBIE_BAR_COLORS.get(zombie.zombie_type, RED), 150)
@@ -4398,7 +4416,7 @@ def draw_zombie_labels(surface, camera, zombies):
             bar_x = lw // 2 - bar_w // 2
             pygame.draw.rect(label, (12, 12, 16), (bar_x - 1, th + 1, bar_w + 2, 8), border_radius=3)
             if ratio > 0:
-                pygame.draw.rect(label, color, (bar_x, th + 2, max(2, int(bar_w * ratio)), 6), border_radius=3)
+                pygame.draw.rect(label, color, (bar_x, th + 2, max(2, fill_w), 6), border_radius=3)
             label.blit(text, (lw // 2 - tw // 2, 0))
             cached = zombie._label_cache = (key, label)
         label = cached[1]
@@ -4559,7 +4577,7 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
         if len(names) > max_items:
             ui_text(surface, f"(최근 {max_items}개 · 전체는 ESC → 능력 확인)", font_tiny, UI_ACCENT, (box.x + 16, box.bottom - 26), shadow=False)
 
-    draw_controls_bar(surface, "WASD 이동 · 좌클릭 공격 · 우클릭 스킬 · TAB 업그레이드 목록 · ESC 일시정지")
+    draw_controls_bar(surface, controls_hint(" · ESC 일시정지"))
     ui_text(surface, f"FPS {clock.get_fps():.0f}", font_tiny, UI_SUB, (width - 14, height - 52), "topright")
 
 
@@ -4679,6 +4697,7 @@ def show_pause_menu(player):
     buttons = [
         {"name": "돌아가기", "desc": "게임 계속하기 (ESC)", "type": "resume", "color": (128, 196, 132)},
         {"name": "능력 확인", "desc": "획득한 능력 보기", "type": "abilities", "color": (106, 155, 204)},
+        {"name": "키 설정", "desc": "조작 키 바꾸기", "type": "keys", "color": (180, 160, 220)},
         {"name": "저장하고 나가기", "desc": "다음에 실행하면 이어하기", "type": "save_exit", "color": (232, 180, 90)},
         {"name": "처음으로", "desc": "저장하지 않고 능력 선택화면으로", "type": "exit", "color": (228, 92, 78)},
     ]
@@ -4708,6 +4727,8 @@ def show_pause_menu(player):
                     if rect.collidepoint(event.pos):
                         if button["type"] == "abilities":
                             show_obtained_upgrades(player, background)   # 보고 나면 다시 일시정지 메뉴로
+                        elif button["type"] == "keys":
+                            show_key_settings(background)
                         else:
                             # "exit": 게임을 처음부터 다시 시작 (main()을 재귀 호출하지 않고 호출한 쪽에서 재시작 처리)
                             return button["type"]
@@ -5153,7 +5174,6 @@ def show_upgrade_menu(player, camera):
     # 남아 있는 클릭을 비우고 잠깐(0.3초) 입력을 막음
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
     menu_open_time = pygame.time.get_ticks()
-    keys = (pygame.K_1, pygame.K_2, pygame.K_3)
 
     while True:
         elapsed = pygame.time.get_ticks() - menu_open_time
@@ -5168,15 +5188,16 @@ def show_upgrade_menu(player, camera):
         for i, (upgrade, rect) in enumerate(zip(selected_upgrades, rects)):
             ui_card(screen, rect, upgrade["color"], rect.collidepoint(mouse_pos), upgrade["name"], [upgrade["desc"]],
                     badge=f"[{i + 1}]", title_color=ui_bright(upgrade["color"]))
-        ui_text(screen, f"획득한 업그레이드 {len(player.obtained_upgrades)}개 · 클릭 또는 1 / 2 / 3 키", font_desc, UI_SUB,
+        ui_text(screen, f"획득한 업그레이드 {len(player.obtained_upgrades)}개 · 클릭 또는 "
+                f"{key_label(KEYS['pick1'])} / {key_label(KEYS['pick2'])} / {key_label(KEYS['pick3'])} 키", font_desc, UI_SUB,
                 (SCREEN_WIDTH // 2, rects[0].bottom + 40), "midtop", shadow=False)
 
         for event in pygame.event.get():
             ui_quit_event(event)
             if elapsed < 300:
                 continue
-            if event.type == pygame.KEYDOWN and event.key in keys[:len(selected_upgrades)]:
-                return selected_upgrades[keys.index(event.key)]
+            if event.type == pygame.KEYDOWN and 0 <= pick_index(event.key) < len(selected_upgrades):
+                return selected_upgrades[pick_index(event.key)]
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for upgrade, rect in zip(selected_upgrades, rects):
                     if rect.collidepoint(event.pos):
@@ -5502,6 +5523,132 @@ def get_zombie_type_by_wave(wave):
 SAVE_DIR = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
 SAVE_PATH = os.path.join(SAVE_DIR, "zombie_save.json")
 SAVE_VERSION = 1
+
+# ===== 조작 키 설정 (게임 폴더의 keybinds.json에 저장) =====
+KEY_ACTIONS = [
+    ("up", "위로 이동", pygame.K_w),
+    ("down", "아래로 이동", pygame.K_s),
+    ("left", "왼쪽으로 이동", pygame.K_a),
+    ("right", "오른쪽으로 이동", pygame.K_d),
+    ("skill", "무기 스킬 (우클릭과 같음)", pygame.K_q),
+    ("teleport", "순간이동", pygame.K_e),
+    ("stack", "업그레이드 목록", pygame.K_TAB),
+    ("pick1", "업그레이드 선택 1", pygame.K_1),
+    ("pick2", "업그레이드 선택 2", pygame.K_2),
+    ("pick3", "업그레이드 선택 3", pygame.K_3),
+]
+KEY_DEFAULTS = {action: key for action, _, key in KEY_ACTIONS}
+KEYS = dict(KEY_DEFAULTS)
+KEYBIND_PATH = os.path.join(SAVE_DIR, "keybinds.json")
+
+
+def load_keybinds():
+    try:
+        with open(KEYBIND_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for action in KEY_DEFAULTS:
+            if isinstance(data.get(action), int):
+                KEYS[action] = data[action]
+    except (OSError, ValueError):
+        pass
+
+
+def save_keybinds():
+    try:
+        with open(KEYBIND_PATH, "w", encoding="utf-8") as f:
+            json.dump(KEYS, f)
+    except OSError:
+        pass
+
+
+def key_label(key):
+    """키 이름 (화면 표시용)"""
+    name = pygame.key.name(key) if key else "-"
+    return {"tab": "TAB", "space": "SPACE", "left shift": "L-SHIFT", "right shift": "R-SHIFT",
+            "left ctrl": "L-CTRL", "right ctrl": "R-CTRL", "return": "ENTER"}.get(name, name.upper())
+
+
+def pick_index(key):
+    """업그레이드 선택 키 → 0/1/2 (아니면 -1)"""
+    for i, action in enumerate(("pick1", "pick2", "pick3")):
+        if key == KEYS[action]:
+            return i
+    return -1
+
+
+def controls_hint(extra=""):
+    labels = [key_label(KEYS[a]) for a in ("up", "left", "down", "right")]
+    move = "".join(labels) if all(len(x) == 1 for x in labels) else "/".join(labels)
+    return (f"{move} 이동 · 좌클릭 공격 · 우클릭/{key_label(KEYS['skill'])} 스킬 · {key_label(KEYS['teleport'])} 순간이동 · "
+            f"{key_label(KEYS['stack'])} 업그레이드 목록{extra}")
+
+
+def show_key_settings(background=None):
+    """조작 키 설정 화면: 바꿀 항목을 누르고 새 키를 누름 (다른 항목과 겹치면 서로 바꿈)"""
+    background = background or ui_snapshot()
+    waiting = None
+    row_h = 46
+    panel = pygame.Rect(0, 0, 640, 150 + len(KEY_ACTIONS) * row_h + 90)
+    panel.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+    rows = [pygame.Rect(panel.x + 30, panel.y + 110 + i * row_h, panel.w - 60, row_h - 6) for i in range(len(KEY_ACTIONS))]
+    reset_btn = pygame.Rect(panel.x + 30, panel.bottom - 70, 260, 50)
+    close_btn = pygame.Rect(panel.right - 290, panel.bottom - 70, 260, 50)
+    pygame.event.clear(pygame.MOUSEBUTTONDOWN)
+    while True:
+        screen.blit(background, (0, 0))
+        ui_overlay(screen, 190)
+        ui_panel(screen, panel, alpha=240, radius=16)
+        ui_text(screen, "조작 키 설정", font_large, UI_TEXT, (panel.centerx, panel.y + 18), "midtop")
+        hint = "새 키를 누르세요 (ESC: 취소)" if waiting is not None else "바꿀 항목을 누르세요 · 겹치는 키는 서로 바뀜 · ESC: 닫기"
+        ui_text(screen, hint, font_desc, UI_ACCENT if waiting is not None else UI_SUB, (panel.centerx, panel.y + 74), "midtop", shadow=False)
+        mouse = pygame.mouse.get_pos()
+        for i, ((action, label, _), rect) in enumerate(zip(KEY_ACTIONS, rows)):
+            active = waiting == i
+            hover = rect.collidepoint(mouse)
+            pygame.draw.rect(screen, (60, 48, 40) if active else (46, 43, 39) if hover else (36, 34, 31), rect, border_radius=8)
+            if active:
+                pygame.draw.rect(screen, UI_ACCENT, rect, 2, border_radius=8)
+            ui_text(screen, label, font_desc, UI_TEXT, (rect.x + 16, rect.centery), "midleft", shadow=False)
+            chip_text = "..." if active else key_label(KEYS[action])
+            chip_w = max(70, font_hud.size(chip_text)[0] + 24)
+            chip = pygame.Rect(rect.right - chip_w - 10, rect.y + 6, chip_w, rect.h - 12)
+            pygame.draw.rect(screen, (24, 22, 20), chip, border_radius=6)
+            pygame.draw.rect(screen, UI_ACCENT if active else UI_BORDER, chip, 1, border_radius=6)
+            ui_text(screen, chip_text, font_hud, UI_ACCENT if active else UI_TEXT, chip.center, "center", shadow=False)
+        for rect, label, color in ((reset_btn, "기본값으로", (228, 92, 78)), (close_btn, "닫기", (128, 196, 132))):
+            card = ui_card(screen, rect, color, rect.collidepoint(mouse))
+            ui_text(screen, label, font_hud, UI_TEXT, card.center, "center")
+        for event in pygame.event.get():
+            ui_quit_event(event)
+            if event.type == pygame.KEYDOWN:
+                if waiting is not None:
+                    if event.key != pygame.K_ESCAPE:
+                        action = KEY_ACTIONS[waiting][0]
+                        for other in KEYS:   # 이미 다른 항목에 쓰는 키면 서로 바꿈
+                            if other != action and KEYS[other] == event.key:
+                                KEYS[other] = KEYS[action]
+                        KEYS[action] = event.key
+                        save_keybinds()
+                    waiting = None
+                elif event.key == pygame.K_ESCAPE:
+                    return
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if waiting is not None:
+                    waiting = None
+                    continue
+                for i, rect in enumerate(rows):
+                    if rect.collidepoint(event.pos):
+                        waiting = i
+                if reset_btn.collidepoint(event.pos):
+                    KEYS.update(KEY_DEFAULTS)
+                    save_keybinds()
+                elif close_btn.collidepoint(event.pos):
+                    return
+        pygame.display.flip()
+        clock.tick(60)
+
+
+load_keybinds()
 # 저장하는 플레이어 정보 (능력치/업그레이드/스킬 상태)
 PLAYER_SAVE_FIELDS = [
     "ability", "health", "max_health", "speed", "damage", "exp", "exp_to_level", "level", "regen",
@@ -5822,10 +5969,15 @@ def main():
                                        zombies, bullets, all_sprites, explosions)
 
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_TAB and not game_over:
-                    # TAB 키로 업그레이드 스택 토글
+                if event.key == KEYS["stack"] and not game_over:
+                    # 업그레이드 목록 토글 (기본 TAB)
                     show_stack = not show_stack
-                elif event.key == pygame.K_e and not game_over:
+                elif event.key == KEYS["skill"] and not game_over:
+                    # 키보드로 무기 스킬 (우클릭과 같음, 기본 Q)
+                    mouse_screen_x, mouse_screen_y = pygame.mouse.get_pos()
+                    execute_weapon_skill(player.weapon.weapon_type, player, mouse_screen_x + camera.x, mouse_screen_y + camera.y,
+                                         zombies, bullets, all_sprites, explosions)
+                elif event.key == KEYS["teleport"] and not game_over:
                     if player.skills.get("skill_teleport", False) and player.teleport_cooldown <= 0:
                         mouse_screen_x, mouse_screen_y = pygame.mouse.get_pos()
                         player.rect.centerx = mouse_screen_x + camera.x

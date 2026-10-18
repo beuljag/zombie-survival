@@ -7,3 +7,4 @@ build/
 dist/
 *.spec
 zombie_save.json
+keybinds.json

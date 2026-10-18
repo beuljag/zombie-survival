@@ -225,8 +225,9 @@ class KeyState:
         self.bits = bits
 
     def __getitem__(self, key):
-        return bool((key == pygame.K_w and self.bits & 1) or (key == pygame.K_a and self.bits & 2) or
-                    (key == pygame.K_s and self.bits & 4) or (key == pygame.K_d and self.bits & 8))
+        # 입력 비트는 "위/왼쪽/아래/오른쪽" 뜻만 담고, 각 PC의 키 설정으로 해석 (키 설정이 달라도 동기화 유지)
+        return bool((key == KEYS["up"] and self.bits & 1) or (key == KEYS["left"] and self.bits & 2) or
+                    (key == KEYS["down"] and self.bits & 4) or (key == KEYS["right"] and self.bits & 8))
 
 
 _current_keys = [KeyState(0)]
@@ -374,6 +375,7 @@ class MatchState:
         # 4) 좀비 이동 (가장 가까운 살아 있는 플레이어를 쫓음)
         for zombie in zombies:
             target = self.nearest_player(zombie.rect.centerx, zombie.rect.centery)
+            zombie.chase_target = target   # 그리기(눈 방향)와 아래 거리 확인에서 다시 찾지 않도록 기억
             zombie.update(target, bullets, all_sprites, explosions)
         for p in alive:
             spear_charge(p, zombies)   # 창을 들고 달리면 정면 좀비에게 피해 + 넉백
@@ -427,11 +429,19 @@ class MatchState:
         _current_owner[0] = None
 
         # 7) 너무 멀어진 좀비는 가장 가까운 플레이어 근처로
+        leash_sq = ZOMBIE_LEASH_DISTANCE * ZOMBIE_LEASH_DISTANCE
         for zombie in zombies:
+            # 쫓던 플레이어가 충분히 가까우면 가장 가까운 플레이어도 그보다 가까우므로 다시 찾을 필요 없음 (결과는 같음)
+            near = getattr(zombie, "chase_target", None)
+            if near is not None and not near.dead and not near.left:
+                dx = zombie.rect.centerx - near.rect.centerx
+                dy = zombie.rect.centery - near.rect.centery
+                if dx * dx + dy * dy <= leash_sq:
+                    continue
             near = self.nearest_player(zombie.rect.centerx, zombie.rect.centery)
             dx = zombie.rect.centerx - near.rect.centerx
             dy = zombie.rect.centery - near.rect.centery
-            if dx * dx + dy * dy > ZOMBIE_LEASH_DISTANCE * ZOMBIE_LEASH_DISTANCE:
+            if dx * dx + dy * dy > leash_sq:
                 angle = random.uniform(0, 2 * math.pi)
                 zombie.rect.center = (round(near.rect.centerx + math.cos(angle) * ZOMBIE_RESPAWN_DISTANCE),
                                       round(near.rect.centery + math.sin(angle) * ZOMBIE_RESPAWN_DISTANCE))
@@ -1071,6 +1081,107 @@ class MatchState:
 # =====================================================================
 # 화면
 # =====================================================================
+MINIMAP_SIZE = 200           # 미니맵 크기 (px)
+MINIMAP_SCALE = 1 / 22       # 월드 1px → 미니맵 크기 (반경 약 2200px가 보임)
+
+
+def draw_teammate_markers(state, camera, local):
+    """화면 밖 팀원: 화면 가장자리에 팀원 색 화살표 + 이름 + 거리 (쓰러진 팀원은 회색 + 부활 대기)"""
+    w, h = SCREEN_WIDTH, SCREEN_HEIGHT
+    # 표시 영역: 위쪽 HUD와 아래 안내줄을 피해서 (화면 가장자리에서 이만큼 안쪽)
+    left_m, right_m, top_m, bottom_m = 60, 60, 120, 110
+    cx, cy = (left_m + w - right_m) / 2, (top_m + h - bottom_m) / 2
+    half_w, half_h = (w - left_m - right_m) / 2, (h - top_m - bottom_m) / 2
+    for p in state.players:
+        if p is local or p.left:
+            continue
+        sx, sy = camera.apply(p.rect.centerx, p.rect.centery)
+        if 40 < sx < w - 40 and 40 < sy < h - 40 and not p.dead:
+            continue   # 화면 안에 보이면 이름표로 충분
+        dx, dy = sx - cx, sy - cy
+        if abs(dx) < 1 and abs(dy) < 1:
+            continue
+        t = min(half_w / abs(dx) if dx else 1e9, half_h / abs(dy) if dy else 1e9, 1.0)
+        mx, my = cx + dx * t, cy + dy * t
+        angle = math.atan2(dy, dx)
+        color = (130, 130, 130) if p.dead else p.color
+        pulse = 2 * math.sin(state.sim_frame * 0.15)
+        tip = (mx + math.cos(angle) * (34 + pulse), my + math.sin(angle) * (34 + pulse))
+        left = (mx + math.cos(angle + 2.6) * 22, my + math.sin(angle + 2.6) * 22)
+        right = (mx + math.cos(angle - 2.6) * 22, my + math.sin(angle - 2.6) * 22)
+        pygame.draw.polygon(screen, (0, 0, 0), [(tip[0] + 2, tip[1] + 2), (left[0] + 2, left[1] + 2), (right[0] + 2, right[1] + 2)])
+        pygame.draw.polygon(screen, color, [tip, left, right])
+        pygame.draw.circle(screen, (20, 20, 24), (int(mx), int(my)), 18)
+        pygame.draw.circle(screen, color, (int(mx), int(my)), 18, 3)
+        ui_text(screen, p.name, font_tiny, color, (mx, my), "center", shadow=False)
+        dist = math.hypot(p.rect.centerx - local.rect.centerx, p.rect.centery - local.rect.centery) / 50
+        label = "부활 대기" if p.dead else f"{dist:.0f}m"
+        ui_text(screen, label, font_hud, color, (mx - math.cos(angle) * 44, my - math.sin(angle) * 40), "center")
+
+
+def draw_minimap(state, camera, local):
+    """오른쪽 아래 미니맵: 팀원 / 내 시야 / 보스 / 주변 좀비"""
+    size = MINIMAP_SIZE
+    box = pygame.Rect(SCREEN_WIDTH - size - 14, SCREEN_HEIGHT - size - 64, size, size)
+    ui_panel(screen, box, alpha=170, radius=10)
+    view_x = camera.x + SCREEN_WIDTH / 2
+    view_y = camera.y + SCREEN_HEIGHT / 2
+    half = size / 2
+    to_map = lambda x, y: (box.x + half + (x - view_x) * MINIMAP_SCALE, box.y + half + (y - view_y) * MINIMAP_SCALE)
+    screen.set_clip(box.inflate(-4, -4))
+    # 내 화면 범위
+    vw, vh = SCREEN_WIDTH * MINIMAP_SCALE, SCREEN_HEIGHT * MINIMAP_SCALE
+    pygame.draw.rect(screen, (90, 84, 76), (box.x + half - vw / 2, box.y + half - vh / 2, vw, vh), 1)
+    # 좀비 (점) / 보스 (큰 점)
+    reach = half / MINIMAP_SCALE
+    for zombie in state.zombies:
+        zx, zy = zombie.rect.center
+        if abs(zx - view_x) > reach or abs(zy - view_y) > reach:
+            continue
+        mx, my = to_map(zx, zy)
+        if zombie.zombie_type in GUARANTEED_DROP_TYPES:
+            pygame.draw.circle(screen, (255, 90, 90), (int(mx), int(my)), 4)
+        else:
+            screen.fill((170, 70, 60), (int(mx), int(my), 2, 2))
+    # 팀원 (가장자리 밖이면 가장자리에 붙여서)
+    for p in state.players:
+        if p.left:
+            continue
+        mx, my = to_map(p.rect.centerx, p.rect.centery)
+        mx = min(max(mx, box.x + 6), box.right - 6)
+        my = min(max(my, box.y + 6), box.bottom - 6)
+        color = (130, 130, 130) if p.dead else p.color
+        pygame.draw.circle(screen, color, (int(mx), int(my)), 5)
+        if p is local:
+            pygame.draw.circle(screen, (245, 240, 232), (int(mx), int(my)), 7, 2)
+    screen.set_clip(None)
+    ui_text(screen, "지도", font_tiny, UI_SUB, (box.x + 8, box.y + 4), shadow=False)
+
+
+def draw_upgrade_summary(local, top):
+    """TAB(설정한 키): 지금까지 얻은 효과를 종합해서 보여 줌 (게임은 계속 진행)"""
+    lines = build_cumulative_upgrade_lines(local) or ["아직 얻은 업그레이드가 없습니다"]
+    recent = [get_upgrade_entry_name(e) for e in local.obtained_upgrades[-5:]]
+    w = 360
+    h = min(SCREEN_HEIGHT - top - 300, 60 + len(lines) * 24 + (40 + len(recent) * 22 if recent else 0))
+    box = ui_panel(screen, (SCREEN_WIDTH - w - 14, top, w, h), alpha=225)
+    ui_text(screen, f"내 능력 종합 (업그레이드 {len(local.obtained_upgrades)}개)", font_hud, UI_ACCENT, (box.x + 14, box.y + 10))
+    y = box.y + 44
+    screen.set_clip(box.inflate(-6, -6))
+    for line in lines:
+        pygame.draw.circle(screen, UI_GOOD, (box.x + 20, y + 10), 3)
+        ui_text(screen, line, font_tiny, UI_TEXT, (box.x + 30, y), shadow=False)
+        y += 24
+    if recent:
+        y += 8
+        ui_text(screen, "최근 얻은 것", font_tiny, UI_SUB, (box.x + 14, y), shadow=False)
+        y += 22
+        for name in reversed(recent):
+            ui_text(screen, f"· {name}", font_tiny, (200, 195, 185), (box.x + 20, y), shadow=False)
+            y += 22
+    screen.set_clip(None)
+
+
 def draw_match(state, camera, ui):
     local = state.by_pid[state.local_pid]
     view = local if not local.dead else (state.alive_players() or [local])[0]
@@ -1087,7 +1198,7 @@ def draw_match(state, camera, ui):
         if isinstance(sprite, Player):
             continue
         if isinstance(sprite, Zombie):
-            target = state.nearest_player(sprite.rect.centerx, sprite.rect.centery) or local
+            target = getattr(sprite, "chase_target", None) or local   # 눈 방향만 (게임 계산에서 이미 찾은 대상)
             draw_zombie_sprite(screen, camera, sprite, target)
             continue
         sx, sy = camera.apply(sprite.rect.centerx, sprite.rect.centery)
@@ -1161,7 +1272,12 @@ def draw_match(state, camera, ui):
             ui_text(screen, f"LV.{p.level}", font_tiny, UI_ACCENT, (row.right - 10, row.y + 3), "topright", shadow=False)
             ratio = max(0, p.health) / max(p.max_health, 1)
             ui_bar(screen, bar, ratio, UI_GOOD if ratio > 0.5 else (255, 200, 60) if ratio > 0.25 else UI_DANGER, radius=5)
-    draw_controls_bar(screen, f"WASD 이동 · 좌클릭 공격 · 우클릭 스킬 · 1/2/3 업그레이드 · ESC 메뉴  |  좀비 수 {state.n_players}명 x {MOB_FACTOR}")
+    draw_controls_bar(screen, controls_hint(f" · ESC 메뉴  |  좀비 수 {state.n_players}명 x {MOB_FACTOR}"))
+    if state.n_players > 1:
+        draw_minimap(state, camera, local)
+        draw_teammate_markers(state, camera, local)
+    if ui.get("stack"):
+        draw_upgrade_summary(local, team.bottom + 10)
 
     # 업그레이드 선택 카드 (게임은 계속 진행)
     ui["cards"] = []
@@ -1170,7 +1286,8 @@ def draw_match(state, camera, ui):
         width, height, gap = 270, 104, 18
         x0 = SCREEN_WIDTH // 2 - (len(choices) * width + (len(choices) - 1) * gap) // 2
         y0 = SCREEN_HEIGHT - 190
-        ui_text(screen, f"레벨업! 업그레이드 선택 (클릭 또는 1/2/3) · 남은 선택 {len(local.pending_choices)}", font_hud, UI_ACCENT,
+        ui_text(screen, f"레벨업! 업그레이드 선택 (클릭 또는 {key_label(KEYS['pick1'])}/{key_label(KEYS['pick2'])}/{key_label(KEYS['pick3'])}) "
+                        f"· 남은 선택 {len(local.pending_choices)}", font_hud, UI_ACCENT,
                 (SCREEN_WIDTH // 2, y0 - 34), "midtop")
         mouse = pygame.mouse.get_pos()
         for i, choice in enumerate(choices):
@@ -1232,10 +1349,14 @@ def run_match(lockstep, seed, roster, local_pid):
                         ui["menu"] = not ui["menu"]
                     elif ui["menu"] and event.key == pygame.K_q:
                         return
-                    elif event.key == pygame.K_e:
+                    elif event.key == KEYS["teleport"]:
                         clicks["e"] = 1
-                    elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3) and local.pending_choices:
-                        clicks["u"] = event.key - pygame.K_1
+                    elif event.key == KEYS["skill"] and not ui["menu"]:
+                        clicks["r"] = 1
+                    elif event.key == KEYS["stack"]:
+                        ui["stack"] = not ui.get("stack", False)
+                    elif pick_index(event.key) >= 0 and local.pending_choices:
+                        clicks["u"] = pick_index(event.key)
                 elif event.type == pygame.MOUSEBUTTONDOWN and not ui["menu"]:
                     card = next((i for i, rect in enumerate(ui["cards"]) if rect.collidepoint(event.pos)), None)
                     if card is not None and event.button == 1:
@@ -1253,7 +1374,7 @@ def run_match(lockstep, seed, roster, local_pid):
                 keys = REAL_GET_PRESSED()
                 mx, my = pygame.mouse.get_pos()
                 held = pygame.mouse.get_pressed()[0] and not ui["menu"]
-                bits = 0 if ui["menu"] else (keys[pygame.K_w] * 1 | keys[pygame.K_a] * 2 | keys[pygame.K_s] * 4 | keys[pygame.K_d] * 8)
+                bits = 0 if ui["menu"] else (keys[KEYS["up"]] * 1 | keys[KEYS["left"]] * 2 | keys[KEYS["down"]] * 4 | keys[KEYS["right"]] * 8)
                 inp = {"k": bits, "x": int(mx + camera.x), "y": int(my + camera.y), "l": clicks["l"], "h": int(held),
                        "r": clicks["r"], "e": clicks["e"], "u": clicks["u"]}
                 inp.update(INPUT_HOOK(state, local) if INPUT_HOOK else {})
@@ -1337,7 +1458,7 @@ def message_screen(title, subtitle="", wait=True):
         clock.tick(30)
 
 
-BUTTON_COLORS = {"host": (128, 196, 132), "join": (106, 155, 204), "quit": (228, 92, 78)}
+BUTTON_COLORS = {"host": (128, 196, 132), "join": (106, 155, 204), "keys": (180, 160, 220), "quit": (228, 92, 78)}
 
 
 def button_menu(title, options, info_lines=()):
@@ -1605,10 +1726,13 @@ LOBBY_HOOK = None     # 자동 시험용
 def multiplayer_menu():
     last_address = "192.168."
     while True:
-        choice = button_menu("좀비 슈팅 - LAN 멀티 (최대 4명)", [("host", "방 만들기 (호스트)"), ("join", "참가하기"), ("quit", "나가기")],
+        choice = button_menu("좀비 슈팅 - LAN 멀티 (최대 4명)", [("host", "방 만들기 (호스트)"), ("join", "참가하기"), ("keys", "키 설정"), ("quit", "나가기")],
                              [f"좀비 수 = 1인 기준 x 인원수 x {MOB_FACTOR}  |  죽으면 {REVIVE_WAVES}웨이브 뒤 부활  |  경험치 공유"])
         if choice in (None, "quit"):
             return
+        if choice == "keys":
+            show_key_settings()
+            continue
         if choice == "host":
             result = host_lobby(choose_loadout())
         else:
