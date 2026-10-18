@@ -226,8 +226,11 @@ class KeyState:
 
     def __getitem__(self, key):
         # 입력 비트는 "위/왼쪽/아래/오른쪽" 뜻만 담고, 각 PC의 키 설정으로 해석 (키 설정이 달라도 동기화 유지)
-        return bool((key == KEYS["up"] and self.bits & 1) or (key == KEYS["left"] and self.bits & 2) or
-                    (key == KEYS["down"] and self.bits & 4) or (key == KEYS["right"] and self.bits & 8))
+        return bool((key in KEYS["up"] and self.bits & 1) or (key in KEYS["left"] and self.bits & 2) or
+                    (key in KEYS["down"] and self.bits & 4) or (key in KEYS["right"] and self.bits & 8))
+
+    def action_held(self, action):
+        return bool(self.bits & {"up": 1, "left": 2, "down": 4, "right": 8}.get(action, 0))
 
 
 _current_keys = [KeyState(0)]
@@ -1287,7 +1290,7 @@ def draw_match(state, camera, ui):
         width, height, gap = 270, 104, 18
         x0 = SCREEN_WIDTH // 2 - (len(choices) * width + (len(choices) - 1) * gap) // 2
         y0 = SCREEN_HEIGHT - 190
-        ui_text(screen, f"레벨업! 업그레이드 선택 (클릭 또는 {key_label(KEYS['pick1'])}/{key_label(KEYS['pick2'])}/{key_label(KEYS['pick3'])}) "
+        ui_text(screen, f"레벨업! 업그레이드 선택 (클릭 또는 {binding_label('pick1')}/{binding_label('pick2')}/{binding_label('pick3')}) "
                         f"· 남은 선택 {len(local.pending_choices)}", font_hud, UI_ACCENT,
                 (SCREEN_WIDTH // 2, y0 - 34), "midtop")
         mouse = pygame.mouse.get_pos()
@@ -1354,7 +1357,7 @@ def run_match(lockstep, seed, roster, local_pid):
                         clicks["e"] = 1
                     elif binding_event(event, "attack") and not ui["menu"]:
                         clicks["l"] = 1
-                    elif (binding_event(event, "skill") or binding_event(event, "skill2")) and not ui["menu"]:
+                    elif (binding_event(event, "skill")) and not ui["menu"]:
                         clicks["r"] = 1
                     elif binding_event(event, "stack"):
                         ui["stack"] = not ui.get("stack", False)
@@ -1366,7 +1369,7 @@ def run_match(lockstep, seed, roster, local_pid):
                         clicks["u"] = card        # 업그레이드 카드는 항상 좌클릭
                     elif binding_event(event, "attack"):
                         clicks["l"] = 1
-                    elif binding_event(event, "skill") or binding_event(event, "skill2"):
+                    elif binding_event(event, "skill"):
                         clicks["r"] = 1
                     elif binding_event(event, "teleport"):          # 마우스 버튼으로 지정한 순간이동 등
                         clicks["e"] = 1

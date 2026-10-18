@@ -145,7 +145,7 @@
   "연참 데미지 +3%" 업그레이드로 스택당 보너스 증가
   일섬으로 처치한 좀비는 경험치 75%
 - 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (제한 없음) (12초)
-  체력이 가득 차서 넘친 흡혈량의 50%는 3초 동안 흡혈 보호막 (최대 체력의 50%까지, 피해를 먼저 받음)
+  체력이 가득 차서 넘친 흡혈량의 50%는 5초 동안 흡혈 보호막 (최대 체력의 50%까지, 피해를 먼저 받음)
 - 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 데미지) (8초)
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
@@ -316,9 +316,9 @@ AXE_SKILL_RADIUS = 190
 AXE_SKILL_DAMAGE_MULT = 3.5
 AXE_SKILL_LIFESTEAL = 0.10
 AXE_SKILL_KNOCKBACK = 20
-# 흡혈 보호막: 체력이 가득 차서 넘친 흡혈량의 50%를 3초 동안 보호막으로 (최대 체력의 50%까지), 피해는 보호막이 먼저 받음
+# 흡혈 보호막: 체력이 가득 차서 넘친 흡혈량의 50%를 5초 동안 보호막으로 (최대 체력의 50%까지), 피해는 보호막이 먼저 받음
 OVERHEAL_SHIELD_RATIO = 0.5
-OVERHEAL_SHIELD_FRAMES = 180
+OVERHEAL_SHIELD_FRAMES = 300
 OVERHEAL_SHIELD_MAX = 0.5
 # 글록 항공 폭격 (쿨타임 80초): 폭탄 1발 기본 데미지 1000, 공격력이 오른 만큼 같은 비율로 증가
 #  (폭탄 데미지 = 1000 × 현재 공격력 / 글록 기본 공격력)
@@ -366,7 +366,7 @@ GLOCK_STRIKE_LENGTH = 850
 
 
 def add_overshield(player, amount):
-    """흡혈 보호막 추가 (3초 유지, 다시 쌓으면 시간 초기화, 최대 체력의 50%까지)"""
+    """흡혈 보호막 추가 (5초 유지, 다시 쌓으면 시간 초기화, 최대 체력의 50%까지)"""
     if amount <= 0:
         return
     player.overshield = min(player.max_health * OVERHEAL_SHIELD_MAX, getattr(player, "overshield", 0) + amount)
@@ -1434,10 +1434,9 @@ class Player(pygame.sprite.Sprite):
         keys = pygame.key.get_pressed()
 
         def held(action):
-            bind = KEYS[action]
-            if bind >= 0 or hasattr(keys, "bits"):   # 키보드 키 / 멀티 입력(KeyState)
-                return bool(keys[bind])
-            return binding_held(action)              # 마우스 버튼으로 지정한 이동
+            if hasattr(keys, "action_held"):         # 멀티 입력 (방향 비트)
+                return keys.action_held(action)
+            return binding_held(action, keys)        # 지정한 키/마우스 버튼 중 하나라도 누르면
 
         # 둔화 상태에서는 속도 감소, 이동속도 아이템 버프 중에는 증가
         current_speed = self.speed * self.slow_multiplier
@@ -5277,7 +5276,7 @@ def show_upgrade_menu(player, camera):
             ui_card(screen, rect, upgrade["color"], rect.collidepoint(mouse_pos), upgrade["name"], [upgrade["desc"]],
                     badge=f"[{i + 1}]", title_color=ui_bright(upgrade["color"]))
         ui_text(screen, f"획득한 업그레이드 {len(player.obtained_upgrades)}개 · 클릭 또는 "
-                f"{key_label(KEYS['pick1'])} / {key_label(KEYS['pick2'])} / {key_label(KEYS['pick3'])} 키", font_desc, UI_SUB,
+                f"{binding_label('pick1')} / {binding_label('pick2')} / {binding_label('pick3')} 키", font_desc, UI_SUB,
                 (SCREEN_WIDTH // 2, rects[0].bottom + 40), "midtop", shadow=False)
 
         for event in pygame.event.get():
@@ -5613,40 +5612,61 @@ SAVE_PATH = os.path.join(SAVE_DIR, "zombie_save.json")
 SAVE_VERSION = 1
 
 # ===== 조작 키 설정 (게임 폴더의 keybinds.json에 저장) =====
+# 동작마다 키보드 키 / 마우스 버튼을 최대 3개까지 지정 (마우스 버튼 N은 -N으로 저장)
 KEY_ACTIONS = [
-    ("up", "위로 이동", pygame.K_w),
-    ("down", "아래로 이동", pygame.K_s),
-    ("left", "왼쪽으로 이동", pygame.K_a),
-    ("right", "오른쪽으로 이동", pygame.K_d),
-    ("attack", "기본 공격", -1),
-    ("skill", "무기 스킬", -3),
-    ("skill2", "무기 스킬 (보조)", pygame.K_q),
-    ("teleport", "순간이동", pygame.K_e),
-    ("stack", "업그레이드 목록", pygame.K_TAB),
-    ("pick1", "업그레이드 선택 1", pygame.K_1),
-    ("pick2", "업그레이드 선택 2", pygame.K_2),
-    ("pick3", "업그레이드 선택 3", pygame.K_3),
+    ("up", "위로 이동", [pygame.K_w]),
+    ("down", "아래로 이동", [pygame.K_s]),
+    ("left", "왼쪽으로 이동", [pygame.K_a]),
+    ("right", "오른쪽으로 이동", [pygame.K_d]),
+    ("attack", "기본 공격", [-1]),
+    ("skill", "무기 스킬", [-3, pygame.K_q]),
+    ("teleport", "순간이동", [pygame.K_e]),
+    ("stack", "업그레이드 목록", [pygame.K_TAB]),
+    ("pick1", "업그레이드 선택 1", [pygame.K_1]),
+    ("pick2", "업그레이드 선택 2", [pygame.K_2]),
+    ("pick3", "업그레이드 선택 3", [pygame.K_3]),
 ]
-KEY_DEFAULTS = {action: key for action, _, key in KEY_ACTIONS}
-KEYS = dict(KEY_DEFAULTS)
+MAX_BINDINGS = 3
+KEY_DEFAULTS = {action: list(keys) for action, _, keys in KEY_ACTIONS}
+KEYS = {action: list(keys) for action, keys in KEY_DEFAULTS.items()}
 KEYBIND_PATH = os.path.join(SAVE_DIR, "keybinds.json")
-MOUSE_BINDABLE = {action for action, _, _ in KEY_ACTIONS}   # 모든 동작에 마우스 버튼도 지정 가능 (좌/우/휠/옆 4·5)
 MOUSE_BUTTON_NAMES = {1: "좌클릭", 2: "휠 클릭", 3: "우클릭", 6: "마우스4", 7: "마우스5"}
 _MOUSE_PRESSED_INDEX = {1: 0, 2: 1, 3: 2, 6: 3, 7: 4}   # get_pressed(5)에서의 위치
 
 
+def reset_keybinds():
+    for action, keys in KEY_DEFAULTS.items():
+        KEYS[action] = list(keys)
+
+
 def load_keybinds():
+    """설정 파일 읽기 (예전 형식 - 동작마다 키 하나, "skill2" 따로 - 도 그대로 읽음)"""
     try:
         with open(KEYBIND_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-        if "attack" not in data and "skill" in data:
-            # 예전 설정 파일: "skill"은 키보드 보조 스킬 키였음 → skill2로 옮기고 스킬은 우클릭 기본값
-            data["skill2"] = data.pop("skill")
-        for action in KEY_DEFAULTS:
-            if isinstance(data.get(action), int):
-                KEYS[action] = data[action]
     except (OSError, ValueError):
-        pass
+        return
+    if not isinstance(data, dict):
+        return
+    if "attack" not in data and isinstance(data.get("skill"), int):
+        data["skill2"] = data.pop("skill")          # 아주 예전 형식: skill = 키보드 보조 스킬
+    loaded = {}
+    for action in KEY_DEFAULTS:
+        value = data.get(action)
+        if isinstance(value, int):
+            value = [value]
+        if isinstance(value, list):
+            value = [v for v in value if isinstance(v, int) and v != 0][:MAX_BINDINGS]
+            if value:
+                loaded[action] = value
+    if "skill" not in loaded and "skill2" in data:   # 예전 형식: skill(우클릭) + skill2(Q) → 스킬 하나에 두 키
+        loaded["skill"] = list(KEY_DEFAULTS["skill"][:1])
+    extra = data.get("skill2")
+    if isinstance(extra, int) and extra:
+        skill = loaded.setdefault("skill", list(KEY_DEFAULTS["skill"][:1]))
+        if extra not in skill and len(skill) < MAX_BINDINGS:
+            skill.append(extra)
+    KEYS.update(loaded)
 
 
 def save_keybinds():
@@ -5666,23 +5686,38 @@ def key_label(key):
             "left ctrl": "L-CTRL", "right ctrl": "R-CTRL", "return": "ENTER"}.get(name, name.upper())
 
 
-def binding_event(event, action):
-    """이 이벤트가 그 동작의 키(또는 마우스 버튼)를 누른 것인지"""
-    bind = KEYS[action]
+def binding_label(action):
+    """동작에 지정된 키들 (예: "W/UP")"""
+    return "/".join(key_label(k) for k in KEYS[action]) or "-"
+
+
+def _bind_matches(bind, event):
     if bind < 0:
         return event.type == pygame.MOUSEBUTTONDOWN and event.button == -bind
     return event.type == pygame.KEYDOWN and event.key == bind
 
 
+def binding_event(event, action):
+    """이 이벤트가 그 동작에 지정된 키(또는 마우스 버튼) 중 하나를 누른 것인지"""
+    return any(_bind_matches(bind, event) for bind in KEYS[action])
+
+
 def binding_held(action, keys=None):
-    """그 동작의 키(또는 마우스 버튼)를 누르고 있는지 (기관총 연사 등)"""
-    bind = KEYS[action]
-    if bind < 0:
-        pressed = pygame.mouse.get_pressed(5)
-        index = _MOUSE_PRESSED_INDEX.get(-bind)
-        return bool(index is not None and index < len(pressed) and pressed[index])
-    keys = keys if keys is not None else pygame.key.get_pressed()
-    return bool(keys[bind])
+    """그 동작에 지정된 키(또는 마우스 버튼) 중 하나라도 누르고 있는지 (이동, 기관총 연사 등)"""
+    pressed_mouse = None
+    for bind in KEYS[action]:
+        if bind < 0:
+            if pressed_mouse is None:
+                pressed_mouse = pygame.mouse.get_pressed(5)
+            index = _MOUSE_PRESSED_INDEX.get(-bind)
+            if index is not None and index < len(pressed_mouse) and pressed_mouse[index]:
+                return True
+        else:
+            if keys is None:
+                keys = pygame.key.get_pressed()
+            if keys[bind]:
+                return True
+    return False
 
 
 def pick_from_event(event):
@@ -5696,40 +5731,59 @@ def pick_from_event(event):
 def pick_index(key):
     """업그레이드 선택 키 → 0/1/2 (아니면 -1)"""
     for i, action in enumerate(("pick1", "pick2", "pick3")):
-        if key == KEYS[action]:
+        if key in KEYS[action]:
             return i
     return -1
 
 
 def controls_hint(extra=""):
-    labels = [key_label(KEYS[a]) for a in ("up", "left", "down", "right")]
+    labels = [binding_label(a) for a in ("up", "left", "down", "right")]
     move = "".join(labels) if all(len(x) == 1 for x in labels) else "/".join(labels)
-    return (f"{move} 이동 · {key_label(KEYS['attack'])} 공격 · {key_label(KEYS['skill'])}/{key_label(KEYS['skill2'])} 스킬 · "
-            f"{key_label(KEYS['teleport'])} 순간이동 · "
-            f"{key_label(KEYS['stack'])} 업그레이드 목록{extra}")
+    return (f"{move} 이동 · {binding_label('attack')} 공격 · {binding_label('skill')} 스킬 · "
+            f"{binding_label('teleport')} 순간이동 · {binding_label('stack')} 업그레이드 목록{extra}")
 
 
-def assign_binding(action, bind):
-    """동작에 키/마우스 버튼 지정 (다른 동작이 쓰던 것이면 서로 바꿈 - 바꿀 수 없는 조합이면 그 동작을 기본값으로)"""
-    for other in KEYS:
-        if other != action and KEYS[other] == bind:
-            KEYS[other] = KEYS[action]
-            if KEYS[other] < 0 and other not in MOUSE_BINDABLE:
-                KEYS[other] = KEY_DEFAULTS[other]
-    KEYS[action] = bind
+def assign_binding(action, bind, slot=None):
+    """동작의 slot번째 키를 bind로 (slot이 None이면 추가). 다른 동작이 쓰던 키면 그쪽에서 빼고,
+    그 동작에 키가 하나도 안 남으면 그 동작의 기본 키를 (안 겹치면) 돌려줌"""
+    for other, binds in KEYS.items():
+        if other != action and bind in binds:
+            binds.remove(bind)
+            if not binds:
+                used = {b for o, bs in KEYS.items() if o != other for b in bs} | {bind}
+                binds.extend(b for b in KEY_DEFAULTS[other] if b not in used)
+    binds = KEYS[action]
+    if bind in binds:
+        if slot is not None and slot < len(binds) and binds[slot] != bind:
+            binds.remove(bind)   # 같은 동작 안에서 자리만 바꿈
+        else:
+            save_keybinds()
+            return
+    if slot is None or slot >= len(binds):
+        if len(binds) < MAX_BINDINGS:
+            binds.append(bind)
+    else:
+        binds[slot] = bind
     save_keybinds()
 
 
+def remove_binding(action, slot):
+    """동작의 slot번째 키 지우기 (마지막 하나는 지울 수 없음)"""
+    binds = KEYS[action]
+    if len(binds) > 1 and slot < len(binds):
+        binds.pop(slot)
+        save_keybinds()
+
+
 def show_key_settings(background=None):
-    """조작 키 설정 화면: 바꿀 항목을 누르고 새 키를 누름 (다른 항목과 겹치면 서로 바꿈)"""
+    """조작 키 설정 화면: 키 칸을 누르면 바꾸기, + 를 누르면 추가 (동작마다 최대 3개), Delete로 지우기"""
     background = background or ui_snapshot()
     pygame.key.stop_text_input()     # 한글 입력기가 글자 키를 가로채지 않게
-    waiting = None
+    waiting = None                   # (동작 번호, 칸 번호) - 칸 번호가 키 개수와 같으면 "추가"
     notice = ""
-    # 2열 배치 (작은 화면에서도 모든 항목과 버튼이 보이도록 줄 높이를 맞춤)
     per_col = (len(KEY_ACTIONS) + 1) // 2
-    row_h = max(34, min(46, (SCREEN_HEIGHT - 250) // per_col))
-    col_w = min(420, (SCREEN_WIDTH - 120) // 2)
+    row_h = max(36, min(48, (SCREEN_HEIGHT - 250) // per_col))
+    col_w = min(500, (SCREEN_WIDTH - 120) // 2)
     panel = pygame.Rect(0, 0, col_w * 2 + 80, 120 + per_col * row_h + 90)
     panel.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
     rows = [pygame.Rect(panel.x + 30 + (i // per_col) * (col_w + 20), panel.y + 112 + (i % per_col) * row_h, col_w, row_h - 6)
@@ -5737,6 +5791,23 @@ def show_key_settings(background=None):
     reset_btn = pygame.Rect(panel.x + 30, panel.bottom - 66, 260, 48)
     close_btn = pygame.Rect(panel.right - 290, panel.bottom - 66, 260, 48)
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
+
+    def chips_for(i, rect):
+        """한 줄의 키 칸들 (오른쪽부터): [(칸 번호, Rect, 글자)] - 마지막은 '+' (꽉 차지 않았을 때)"""
+        action = KEY_ACTIONS[i][0]
+        items = [(slot, key_label(bind)) for slot, bind in enumerate(KEYS[action])]
+        if len(items) < MAX_BINDINGS:
+            items.append((len(items), "+"))
+        chips, x = [], rect.right - 8
+        for slot, text in reversed(items):
+            if waiting == (i, slot):
+                text = "..."
+            w = max(44 if text == "+" else 64, font_hud.size(text)[0] + 20)
+            chip = pygame.Rect(x - w, rect.y + 5, w, rect.h - 10)
+            chips.append((slot, chip, text))
+            x -= w + 6
+        return chips
+
     while True:
         screen.blit(background, (0, 0))
         ui_overlay(screen, 190)
@@ -5745,26 +5816,25 @@ def show_key_settings(background=None):
         if notice:
             hint = notice
         elif waiting is not None:
-            hint = ("새 키나 마우스 버튼을 누르세요 (ESC: 취소)" if KEY_ACTIONS[waiting][0] in MOUSE_BINDABLE
-                    else "새 키를 누르세요 (ESC: 취소)")
+            hint = "새 키나 마우스 버튼을 누르세요 · Delete: 이 키 지우기 · ESC: 취소"
         else:
-            hint = "바꿀 항목을 누르세요 · 겹치는 키는 서로 바뀜 · 마우스 버튼도 지정 가능 · ESC: 닫기"
+            hint = "키 칸을 누르면 바꾸기 · + 로 추가 (최대 3개) · 마우스 버튼도 가능 · 겹치는 키는 옮겨짐"
         ui_text(screen, hint, font_desc, UI_DANGER if notice else UI_ACCENT if waiting is not None else UI_SUB,
                 (panel.centerx, panel.y + 74), "midtop", shadow=False)
         mouse = pygame.mouse.get_pos()
+        all_chips = []
         for i, ((action, label, _), rect) in enumerate(zip(KEY_ACTIONS, rows)):
-            active = waiting == i
-            hover = rect.collidepoint(mouse)
-            pygame.draw.rect(screen, (60, 48, 40) if active else (46, 43, 39) if hover else (36, 34, 31), rect, border_radius=8)
-            if active:
-                pygame.draw.rect(screen, UI_ACCENT, rect, 2, border_radius=8)
-            ui_text(screen, label, font_desc, UI_TEXT, (rect.x + 16, rect.centery), "midleft", shadow=False)
-            chip_text = "..." if active else key_label(KEYS[action])
-            chip_w = max(70, font_hud.size(chip_text)[0] + 24)
-            chip = pygame.Rect(rect.right - chip_w - 10, rect.y + 6, chip_w, rect.h - 12)
-            pygame.draw.rect(screen, (24, 22, 20), chip, border_radius=6)
-            pygame.draw.rect(screen, UI_ACCENT if active else UI_BORDER, chip, 1, border_radius=6)
-            ui_text(screen, chip_text, font_hud, UI_ACCENT if active else UI_TEXT, chip.center, "center", shadow=False)
+            active_row = waiting is not None and waiting[0] == i
+            pygame.draw.rect(screen, (52, 44, 38) if active_row else (36, 34, 31), rect, border_radius=8)
+            ui_text(screen, label, font_desc, UI_TEXT, (rect.x + 14, rect.centery), "midleft", shadow=False)
+            for slot, chip, text in chips_for(i, rect):
+                all_chips.append((i, slot, chip))
+                active = waiting == (i, slot)
+                hover = chip.collidepoint(mouse)
+                pygame.draw.rect(screen, (60, 48, 40) if active or hover else (24, 22, 20), chip, border_radius=6)
+                pygame.draw.rect(screen, UI_ACCENT if active else UI_BORDER, chip, 1, border_radius=6)
+                color = UI_ACCENT if active else UI_SUB if text == "+" else UI_TEXT
+                ui_text(screen, text, font_hud, color, chip.center, "center", shadow=False)
         for rect, label, color in ((reset_btn, "기본값으로", (228, 92, 78)), (close_btn, "닫기", (128, 196, 132))):
             card = ui_card(screen, rect, color, rect.collidepoint(mouse))
             ui_text(screen, label, font_hud, UI_TEXT, card.center, "center")
@@ -5772,28 +5842,30 @@ def show_key_settings(background=None):
             ui_quit_event(event)
             if event.type == pygame.KEYDOWN:
                 if waiting is not None:
+                    action, slot = KEY_ACTIONS[waiting[0]][0], waiting[1]
                     if event.key == pygame.K_ESCAPE:
+                        waiting, notice = None, ""
+                    elif event.key in (pygame.K_DELETE, pygame.K_BACKSPACE):
+                        remove_binding(action, slot)
                         waiting, notice = None, ""
                     elif not event.key or pygame.key.name(event.key) in ("", "unknown key"):
                         # 한글 입력 상태 등으로 키가 제대로 안 들어온 경우 - 지정하지 않고 안내
                         notice = "인식되지 않는 키입니다 · 한/영 키로 영문 상태로 바꾼 뒤 다시 눌러 주세요"
                     else:
-                        assign_binding(KEY_ACTIONS[waiting][0], event.key)
+                        assign_binding(action, event.key, slot)
                         waiting, notice = None, ""
                 elif event.key == pygame.K_ESCAPE:
                     return
             elif event.type == pygame.MOUSEBUTTONDOWN and waiting is not None:
-                action = KEY_ACTIONS[waiting][0]
-                if action in MOUSE_BINDABLE and event.button in MOUSE_BUTTON_NAMES:
-                    assign_binding(action, -event.button)   # 마우스 버튼 지정
+                if event.button in MOUSE_BUTTON_NAMES:
+                    assign_binding(KEY_ACTIONS[waiting[0]][0], -event.button, waiting[1])   # 마우스 버튼 지정
                 waiting, notice = None, ""
-                continue
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                for i, rect in enumerate(rows):
-                    if rect.collidepoint(event.pos):
-                        waiting = i
+                for i, slot, chip in all_chips:
+                    if chip.collidepoint(event.pos):
+                        waiting = (i, slot)
                 if reset_btn.collidepoint(event.pos):
-                    KEYS.update(KEY_DEFAULTS)
+                    reset_keybinds()
                     save_keybinds()
                 elif close_btn.collidepoint(event.pos):
                     return
@@ -5957,7 +6029,7 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif not game_over and (binding_event(event, "attack") or binding_event(event, "skill") or binding_event(event, "skill2")):
+            elif not game_over and (binding_event(event, "attack") or binding_event(event, "skill")):
                 # 공격 / 무기 스킬 (키 설정에서 키보드 키나 마우스 버튼으로 바꿀 수 있음)
                 is_attack = binding_event(event, "attack")
                 mouse_screen_x, mouse_screen_y = pygame.mouse.get_pos()
