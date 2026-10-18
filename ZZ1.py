@@ -145,7 +145,8 @@
   "연참 데미지 +3%" 업그레이드로 스택당 보너스 증가
   일섬으로 처치한 좀비는 경험치 75%
 - 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (최대 100) (12초)
-- 창: 투창 - 거대한 창을 던져 일직선의 좀비를 모두 관통 (8초)
+- 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 데미지) (8초)
+  창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
 - 글로브: 러시 - 3초 동안 공격 속도 3배 (15초)
 - 글록: 항공 폭격 - 비행기가 날아와 조준 방향 직선(약 1000px)에 폭탄을 줄줄이 떨어뜨림
@@ -315,6 +316,18 @@ AXE_SKILL_KNOCKBACK = 20
 #  (폭탄 데미지 = 1000 × 현재 공격력 / 글록 기본 공격력)
 #  "폭격 범위" 업그레이드 1회당: 폭격 길이 +100px, 폭발 반경(폭) +15px
 GLOCK_STRIKE_BASE_DAMAGE = 1000
+# 창: 데미지가 이동속도에 비례 (기본 속도 7 기준) / 들고 달리면 정면 좀비에게 돌진 피해 + 넉백 / 스킬 물보라
+SPEAR_BASE_SPEED = 7
+SPEAR_CHARGE_RATIO = 0.8          # 돌진 피해 = 현재 창 공격력의 80%
+SPEAR_CHARGE_REACH = 100          # 정면 이 거리 안
+SPEAR_CHARGE_HALF_ARC = 40        # 이동 방향 ± 이 각도
+SPEAR_CHARGE_COOLDOWN_MS = 500    # 같은 좀비는 0.5초에 한 번
+SPEAR_CHARGE_KNOCKBACK = 14
+SPLASH_RADIUS = 230               # 물보라 기본 반경 ("물보라 범위 +30px" 업그레이드)
+SPLASH_DAMAGE_MULT = 2.0
+SPLASH_KNOCKBACK = 16
+SPLASH_SLOW = 0.5                 # 둔화 배율 (0.5 = 이동속도 50%, "물보라 둔화 +8%" 업그레이드로 더 느리게)
+SPLASH_SLOW_FRAMES = 180          # 3초
 # 저격총 도탄 사격: 맞을 때마다 공격력 3배, 기본 10번 튕김 ("도탄 +3회" 업그레이드 1회당 +3번)
 SNIPER_RICOCHET_DAMAGE_MULT = 3.0
 SNIPER_RICOCHET_BOUNCES = 10
@@ -597,7 +610,7 @@ font_damage_big = pygame.font.SysFont('malgun gothic', 26, bold=True)
 # 무기별 타격/총구 화염 색
 FX_WEAPON_COLORS = {
     "glock": (255, 230, 90), "shotgun": (255, 170, 50), "sniper": (230, 235, 255), "machinegun": (255, 130, 70),
-    "plasma": (90, 255, 255), "rocket": (255, 150, 40), "spear": (230, 220, 120), "gloves": (255, 170, 200),
+    "plasma": (90, 255, 255), "rocket": (255, 150, 40), "spear": (130, 210, 255), "gloves": (255, 170, 200),
     "melee": (230, 170, 90), "katana": (210, 230, 255), "axe": (255, 120, 120), "hammer": (230, 230, 230),
 }
 # 속성탄 색 (화염 / 얼음 / 전기)
@@ -816,6 +829,38 @@ def get_alpha_images(sprite):
     return sprite._alpha_image, sprite._flash_image
 
 
+_spear_art_cache = {}
+
+
+def draw_spear_art(length, thickness):
+    """창 그림 (오른쪽을 향함): 짙은 푸른 자루 + 감은 끈 + 금빛 고리 + 잎 모양 강철 날 + 물빛 리본"""
+    key = (int(length), int(thickness))
+    art = _spear_art_cache.get(key)
+    if art is not None:
+        return art
+    t = max(2, int(thickness))
+    h = t * 5
+    art = pygame.Surface((int(length), h), pygame.SRCALPHA)
+    cy = h // 2
+    blade_start = int(length * 0.68)
+    pygame.draw.rect(art, (32, 55, 92), (0, cy - t // 2, blade_start + 2, t), border_radius=max(1, t // 2))          # 자루
+    pygame.draw.line(art, (70, 105, 150), (0, cy - t // 2 + 1), (blade_start, cy - t // 2 + 1), max(1, t // 3))     # 자루 윗면 빛
+    for x in range(int(length * 0.06), int(length * 0.3), max(4, t + 2)):                                           # 손잡이 끈
+        pygame.draw.line(art, (150, 120, 70), (x, cy - t // 2), (x + t // 2, cy + t // 2), max(1, t // 3))
+    pygame.draw.rect(art, (230, 185, 70), (blade_start - t, cy - t, t + 2, t * 2), border_radius=max(1, t // 2))     # 금빛 고리
+    for sign in (-1, 1):                                                                                              # 물빛 리본
+        pygame.draw.polygon(art, (80, 170, 255), [(blade_start - t, cy + sign * t // 2),
+                                                  (blade_start - t * 5, cy + sign * t * 2),
+                                                  (blade_start - t * 3, cy + sign * t // 2)])
+    blade = [(blade_start, cy - int(t * 1.1)), (int(length * 0.85), cy - int(t * 1.9)), (int(length) - 1, cy),
+             (int(length * 0.85), cy + int(t * 1.9)), (blade_start, cy + int(t * 1.1))]
+    pygame.draw.polygon(art, (195, 215, 235), blade)                                                                 # 날
+    pygame.draw.polygon(art, (90, 125, 165), blade, max(1, t // 3))
+    pygame.draw.line(art, (245, 252, 255), (blade_start + t, cy), (int(length) - t, cy), max(1, t // 3))            # 날 가운데 선
+    _spear_art_cache[key] = art
+    return art
+
+
 def draw_shadow(surface, sx, sy, width, height):
     shadow_w = max(10, int(width * 0.95))
     shadow_h = max(4, int(width * 0.3))
@@ -961,7 +1006,10 @@ def draw_player_sprite(surface, camera, player):
     aim_x, aim_y = mx - sx, my - body_y
     dist = math.hypot(aim_x, aim_y) or 1
     ux, uy = aim_x / dist, aim_y / dist
-    if player.weapon is not None:
+    if player.weapon is not None and player.weapon.weapon_type == "spear":
+        held = pygame.transform.rotate(draw_spear_art(64, 3), -math.degrees(math.atan2(uy, ux)))
+        surface.blit(held, held.get_rect(center=(int(sx + ux * 26), int(body_y + uy * 26))))
+    elif player.weapon is not None:
         color = player.weapon.color
         if player.weapon.weapon_type in MELEE_WEAPONS:
             start, end, width = 8, 20, 5     # 손에 든 근접 무기 손잡이
@@ -1280,6 +1328,11 @@ class Player(pygame.sprite.Sprite):
 
         # 걷기 모션용
         self.is_moving = bool(keys[pygame.K_w] or keys[pygame.K_s] or keys[pygame.K_a] or keys[pygame.K_d])
+        # 이동 방향 (창 돌진 판정용, 멈춰 있으면 None)
+        move_x = int(bool(keys[pygame.K_d])) - int(bool(keys[pygame.K_a]))
+        move_y = int(bool(keys[pygame.K_s])) - int(bool(keys[pygame.K_w]))
+        length = math.hypot(move_x, move_y)
+        self.move_dir = (move_x / length, move_y / length) if length else None
         if self.is_moving:
             self.walk_phase += 0.3
         if self.hurt_flash > 0:
@@ -2362,12 +2415,47 @@ def get_knockback_multiplier(player):
     return 1.0 + 0.1 * player.levels.get("knockback", 0)
 
 
+def get_spear_speed_factor(player):
+    """창 데미지 배율 = 현재 이동속도 / 기본 이동속도 (이동속도 업그레이드·버프·둔화 반영)"""
+    speed = player.speed * player.slow_multiplier
+    if player.speed_buff_time > 0:
+        speed *= ITEM_BUFF_MULTIPLIER
+    return max(0.4, speed / SPEAR_BASE_SPEED)
+
+
 def get_weapon_damage(player):
-    """현재 무기 공격력 (공격력 아이템 버프 반영)"""
+    """현재 무기 공격력 (공격력 아이템 버프 반영, 창은 이동속도 비례)"""
     damage = player.weapon.damage
     if player.damage_buff_time > 0:
         damage *= ITEM_BUFF_MULTIPLIER
+    if player.weapon.weapon_type == "spear":
+        damage *= get_spear_speed_factor(player)
     return damage
+
+
+def spear_charge(player, zombies):
+    """창 돌진: 창을 든 채 달리면 공격하지 않아도 정면의 좀비에게 피해 + 넉백 (좀비마다 0.5초에 한 번)"""
+    if player.weapon.weapon_type != "spear" or getattr(player, "move_dir", None) is None:
+        return
+    mx, my = player.move_dir
+    px, py = player.rect.center
+    now = pygame.time.get_ticks()
+    damage = get_weapon_damage(player) * SPEAR_CHARGE_RATIO
+    min_dot = math.cos(math.radians(SPEAR_CHARGE_HALF_ARC))
+    for zombie in list(zombies):
+        if zombie.health <= 0:
+            continue
+        dx, dy = zombie.rect.centerx - px, zombie.rect.centery - py
+        dist = math.hypot(dx, dy)
+        if dist < 1 or dist > SPEAR_CHARGE_REACH + zombie.size * 0.4 or (dx * mx + dy * my) / dist < min_dot:
+            continue
+        cooldowns = zombie.__dict__.setdefault("_spear_cd", {})
+        if cooldowns.get(player, -1) > now:
+            continue
+        cooldowns[player] = now + SPEAR_CHARGE_COOLDOWN_MS
+        zombie.health -= roll_crit_damage(player, damage, zombie) * get_damage_multiplier(zombie)
+        push_zombie(zombie, px, py, SPEAR_CHARGE_KNOCKBACK)
+        fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS["spear"])
 
 
 def get_damage_multiplier(zombie):
@@ -2441,7 +2529,7 @@ def get_auto_aim_target(player, zombies, max_range=600):
 
 
 # ===== 무기별 우클릭 스킬 =====
-# 나무 방망이: 홈런 / 카타나: 일섬 / 도끼: 대회전 베기 / 창: 투창 / 해머: 대지 강타 / 글로브: 러시
+# 나무 방망이: 홈런 / 카타나: 일섬 / 도끼: 대회전 베기 / 창: 물보라 / 해머: 대지 강타 / 글로브: 러시
 # 글록: 항공 폭격 / 기관총: 포탑 설치 / 샷건: 용의 숨결 / 저격총: 도탄 사격 / 플라즈마: 블랙홀 / 로켓: 미사일 폭격
 
 def skill_damage(zombie, amount):
@@ -2617,7 +2705,7 @@ class GreatSwingSkill(ActiveSkill):
             prev, now = self.blade_angle(self.frames - 1), self.blade_angle(self.frames)
             dealt = 0.0
             for zombie in list(zombies):
-                if zombie.health <= 0 or id(zombie) in self.hit:
+                if zombie.health <= 0 or zombie in self.hit:
                     continue
                 dx, dy = zombie.rect.centerx - cx, zombie.rect.centery - cy
                 dist = math.hypot(dx, dy)
@@ -2627,7 +2715,7 @@ class GreatSwingSkill(ActiveSkill):
                 rel = (math.atan2(dy, dx) - prev) % (2 * math.pi)
                 if dist > 40 and rel > now - prev:
                     continue
-                self.hit.add(id(zombie))
+                self.hit.add(zombie)
                 before = zombie.health
                 skill_damage(zombie, self.damage)
                 dealt += before - max(0.0, zombie.health)
@@ -2780,7 +2868,7 @@ class RicochetSkill(ActiveSkill):
         skill_damage(target, self.damage)
         fx.hit_spark(tx, ty, (150, 230, 255))
         fx.ring(tx, ty, (150, 230, 255), 34, count=12)
-        self.hit_count[id(target)] = self.hit_count.get(id(target), 0) + 1
+        self.hit_count[target] = self.hit_count.get(target, 0) + 1
         self.hits += 1
         self.pos = (tx, ty)
         if self.bounces_left <= 0:
@@ -2803,10 +2891,90 @@ class RicochetSkill(ActiveSkill):
             d = math.hypot(zombie.rect.centerx - px, zombie.rect.centery - py)
             if d > self.BOUNCE_RANGE:
                 continue
-            key = (self.hit_count.get(id(zombie), 0), d)
+            key = (self.hit_count.get(zombie, 0), d)
             if best_key is None or key < best_key:
                 best, best_key = zombie, key
         return best
+
+
+class WaterSplashSkill(ActiveSkill):
+    """창 물보라: 하늘에서 거대한 창이 내 자리에 꽂히고, 그 자리에서 물결이 퍼져 닿은 좀비를 튕겨 내고 느리게 함"""
+    FALL_FRAMES = 14       # 창이 떨어지는 시간 (0.23초)
+    SPREAD_FRAMES = 18     # 물결이 끝까지 퍼지는 시간 (0.3초)
+    FADE_FRAMES = 16
+    DROP_HEIGHT = 520
+
+    def __init__(self, player, all_sprites, damage, radius, slow):
+        super().__init__(self.FALL_FRAMES + self.SPREAD_FRAMES + self.FADE_FRAMES)
+        self.damage, self.radius, self.slow = damage, radius, slow
+        self.center = player.rect.center
+        self.hit = set()
+        size = int(radius * 2 + 40)
+        self.visual = SkillVisual(pygame.Surface((size, size), pygame.SRCALPHA), self.center)
+        all_sprites.add(self.visual)
+        self.spear_image = pygame.transform.rotate(draw_spear_art(300, 15), -90)     # 날이 아래를 향함
+        self.spear = SkillVisual(self.spear_image.copy(), (self.center[0], self.center[1] - self.DROP_HEIGHT))
+        all_sprites.add(self.spear)
+
+    def update(self, player, zombies, bullets, all_sprites, explosions):
+        alive = super().update(player, zombies, bullets, all_sprites, explosions)
+        if not alive:
+            self.spear.kill()
+        return alive
+
+    def _place_spear(self, tip_y):
+        cx = self.center[0]
+        self.spear.rect = self.spear.image.get_rect(midbottom=(cx, int(tip_y)))
+
+    def tick(self, player, zombies, bullets, all_sprites, explosions):
+        cx, cy = self.center
+        size = self.visual.image.get_width()
+        c = size // 2
+        image = pygame.Surface((size, size), pygame.SRCALPHA)
+        if self.frames <= self.FALL_FRAMES:
+            # 1) 거대한 창이 떨어짐 (점점 빨라짐) + 바닥 그림자가 커짐
+            t = self.frames / self.FALL_FRAMES
+            self._place_spear(cy + 12 - self.DROP_HEIGHT * (1 - t * t))
+            shadow_w = int(30 + 60 * t)
+            pygame.draw.ellipse(image, (0, 0, 0, int(60 + 80 * t)), (c - shadow_w // 2, c - shadow_w // 6, shadow_w, shadow_w // 3))
+            if self.frames == self.FALL_FRAMES:   # 꽂히는 순간
+                fx.add_shake(9)
+                fx.ring(cx, cy, (150, 220, 255), 70, count=30, size=4)
+                fx.burst(cx, cy, (120, 200, 255), 26, speed=(2, 6), size=(2, 5), life=(14, 26), drag=0.9, gravity=0.15)
+            self.visual.image = image
+            self.visual.rect = image.get_rect(center=(cx, cy))
+            return True
+        # 2) 물결이 퍼짐
+        spread = self.frames - self.FALL_FRAMES
+        progress = min(1.0, spread / self.SPREAD_FRAMES)
+        wave = self.radius * progress
+        if spread <= self.SPREAD_FRAMES:
+            for zombie in list(zombies):
+                if zombie.health <= 0 or zombie in self.hit:
+                    continue
+                if math.hypot(zombie.rect.centerx - cx, zombie.rect.centery - cy) <= wave + zombie.size * 0.4:
+                    self.hit.add(zombie)
+                    skill_damage(zombie, self.damage)
+                    push_zombie(zombie, cx, cy, SPLASH_KNOCKBACK)
+                    zombie.slow_time = max(zombie.slow_time, SPLASH_SLOW_FRAMES)
+                    zombie.slow_multiplier = min(zombie.slow_multiplier, self.slow)
+                    fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "ice")
+            for i in range(6):   # 물결 가장자리에서 튀는 물방울
+                a = (spread * 0.9 + i * math.pi / 3) % (2 * math.pi)
+                fx.burst(cx + math.cos(a) * wave, cy + math.sin(a) * wave, (120, 200, 255), 1,
+                         speed=(1.0, 3.0), size=(2, 4), life=(12, 20), drag=0.92, gravity=0.1)
+        fade = 1.0 if spread <= self.SPREAD_FRAMES else max(0.0, 1 - (spread - self.SPREAD_FRAMES) / self.FADE_FRAMES)
+        r = max(4, int(wave))
+        pygame.draw.circle(image, (70, 150, 255, int(55 * fade)), (c, c), r)
+        pygame.draw.circle(image, (150, 220, 255, int(220 * fade)), (c, c), r, 8)
+        pygame.draw.circle(image, (230, 250, 255, int(200 * fade)), (c, c), max(2, r - 10), 2)
+        pygame.draw.ellipse(image, (0, 0, 0, int(140 * fade)), (c - 45, c - 15, 90, 30))      # 꽂힌 창 밑 그림자
+        self.visual.image = image
+        self.visual.rect = image.get_rect(center=(cx, cy))
+        # 꽂힌 창은 그대로 있다가 서서히 사라짐
+        self.spear.image = self.spear_image.copy()
+        self.spear.image.set_alpha(int(255 * fade))
+        self._place_spear(cy + 12)
 
 
 class TurretSkill(ActiveSkill):
@@ -3062,17 +3230,10 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         player.active_skills.append(GreatSwingSkill(player, all_sprites, base * AXE_SKILL_DAMAGE_MULT, radius, knockback, aim))
 
     elif weapon_type == "spear":
-        # 투창: 거대한 창을 던져 일직선의 좀비를 모두 관통
-        count = 1 + up["pierces"]
-        for i in range(count):
-            angle = aim + (i - (count - 1) / 2) * 0.12
-            javelin = Bullet(cx, cy, cx + math.cos(angle) * 500, cy + math.sin(angle) * 500, base * 4, "normal", "javelin")
-            javelin.speed = 22 * (1 + up["speed"])
-            javelin.pierce = 99
-            javelin.max_range = 1200
-            bullets.add(javelin)
-            all_sprites.add(javelin)
-        fx.add_shake(2)
+        # 물보라: 주변으로 물결을 일으켜 좀비를 튕겨 내고 느리게 함
+        radius = SPLASH_RADIUS + up["pierces"] * 30
+        slow = max(0.15, SPLASH_SLOW - up["speed"])
+        player.active_skills.append(WaterSplashSkill(player, all_sprites, base * SPLASH_DAMAGE_MULT, radius, slow))
 
     elif weapon_type == "hammer":
         # 대지 강타: 마우스 위치(최대 300px)를 내려쳐 주변 좀비 피해 + 1.5초 기절
@@ -3862,7 +4023,7 @@ class Melee(pygame.sprite.Sprite):
     # 무기별 휘두르기 방식: swing(빠르게 휘두르고 감속) / heavy(천천히 들었다 내려찍기) / thrust(앞으로 찌르기)
     SWING_STYLES = {"melee": "swing", "katana": "swing", "axe": "heavy", "hammer": "heavy", "spear": "thrust", "gloves": "thrust"}
     TRAIL_COLORS = {"melee": (230, 170, 90), "katana": (200, 225, 255), "axe": (255, 110, 110),
-                    "hammer": (230, 230, 230), "spear": (240, 220, 120), "gloves": (255, 160, 200)}
+                    "hammer": (230, 230, 230), "spear": (120, 200, 255), "gloves": (255, 160, 200)}
     # 공격이 맞는 부채꼴의 반각(도): 조준 방향 ± 이 각도, 반경 attack_range (그려지는 범위와 동일)
     HIT_HALF_ARCS = {"melee": 80, "katana": 90, "axe": 70, "hammer": 75, "spear": 30, "gloves": 45}
     # 이 거리 안에 붙은 좀비는 방향과 상관없이 맞음 (몸에 붙은 좀비를 못 때리는 일 방지)
@@ -3921,10 +4082,8 @@ class Melee(pygame.sprite.Sprite):
             self.swing_angle = 100
             self.attack_range = 125
         elif weapon_type == "spear":
-            # 창 - 매우 길쭉함
-            self.base_image = pygame.Surface((150, 12))
-            self.base_image.fill((128, 128, 0))
-            pygame.draw.polygon(self.base_image, (200, 150, 0), [(140, 0), (150, 6), (140, 12)])
+            # 창 - 짙은 푸른 자루 + 잎 모양 강철 날 (물보라 창)
+            self.base_image = draw_spear_art(160, 6).copy()
             self.duration = 28
             self.knockback_power = 600
             self.swing_angle = 80
@@ -4378,7 +4537,7 @@ def select_weapon():
         {"name": "나무 방망이", "desc": "기본 근접", "skill": "홈런", "type": "melee", "color": (210, 140, 70)},
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
-        {"name": "창", "desc": "가장 긴 근접 사거리", "skill": "투창", "type": "spear", "color": (200, 200, 70)},
+        {"name": "창", "desc": "속도 비례 데미지, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
         {"name": "해머", "desc": "묵직한 한 방, 최강 넉백", "skill": "대지 강타 (기절)", "type": "hammer", "color": (205, 205, 215)},
         {"name": "글로브", "desc": "초고속, 짧은 사거리", "skill": "러시 (공속 3배)", "type": "gloves", "color": (255, 170, 200)},
     ]
@@ -4565,7 +4724,7 @@ def build_cumulative_upgrade_lines(player):
     if counts.get("gloves_skill_strikes", 0) > 0:
         lines.append(f"러시 시간: +{counts['gloves_skill_strikes'] * 0.5:.1f}초")
     if counts.get("spear_skill_pierces", 0) > 0:
-        lines.append(f"투창 개수: +{counts['spear_skill_pierces']}")
+        lines.append(f"물보라 범위: +{counts['spear_skill_pierces'] * 30}px")
 
     if counts.get("melee_skill_range", 0) > 0:
         lines.append(f"홈런 범위: +{counts['melee_skill_range'] * 12}px")
@@ -4811,9 +4970,9 @@ def build_upgrade_choices(player):
         ]
     elif weapon_type == "spear":
         weapon_upgrades = [
-            {"name": "투창 개수 +1", "desc": "창을 하나 더 던짐", "type": "spear_skill_pierces", "color": (100, 150, 200)},
+            {"name": "물보라 범위 +30px", "desc": "물보라가 더 넓게 퍼짐", "type": "spear_skill_pierces", "color": (100, 150, 200)},
             {"name": f"{player.weapon.name} 데미지 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
-            {"name": "투창 속도 +8%", "desc": "더 빠른 투창", "type": f"melee_skill_speed_{weapon_type}", "color": (150, 150, 200)},
+            {"name": "물보라 둔화 +8%", "desc": "물보라에 맞은 좀비가 더 느려짐", "type": f"melee_skill_speed_{weapon_type}", "color": (150, 150, 200)},
         ]
     elif weapon_type == "hammer":
         weapon_upgrades = [
@@ -5123,9 +5282,9 @@ def get_upgrade_name(upgrade_type):
         "axe_skill_range": "대회전 범위 +25px",
         "melee_damage_axe": "도끼 데미지 +8",
         "axe_skill_knockback": "대회전 넉백 +12%",
-        "spear_skill_pierces": "투창 개수 +1",
+        "spear_skill_pierces": "물보라 범위 +30px",
         "melee_damage_spear": "창 데미지 +4",
-        "melee_skill_speed_spear": "투창 속도 +8%",
+        "melee_skill_speed_spear": "물보라 둔화 +8%",
         "hammer_skill_range": "대지 강타 범위 +20px",
         "melee_damage_hammer": "해머 데미지 +10",
         "hammer_skill_damage": "대지 강타 피해 +10%",
@@ -5693,6 +5852,7 @@ def main():
             # 좀비 이동
             for zombie in zombies:
                 zombie.update(player, bullets, all_sprites, explosions)
+            spear_charge(player, zombies)   # 창을 들고 달리면 정면 좀비에게 피해 + 넉백
 
             # 오라 능력 (매 프레임 다시 계산)
             #  - 벽좀비 / 수호의 천사: 주변 좀비가 받는 피해 감소

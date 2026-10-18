@@ -375,6 +375,8 @@ class MatchState:
         for zombie in zombies:
             target = self.nearest_player(zombie.rect.centerx, zombie.rect.centery)
             zombie.update(target, bullets, all_sprites, explosions)
+        for p in alive:
+            spear_charge(p, zombies)   # 창을 들고 달리면 정면 좀비에게 피해 + 넉백
 
         # 5) 오라 (벽/수호/질풍/회복)
         for zombie in zombies:
