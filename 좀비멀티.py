@@ -1350,16 +1350,16 @@ def run_match(lockstep, seed, roster, local_pid):
                         ui["menu"] = not ui["menu"]
                     elif ui["menu"] and event.key == pygame.K_q:
                         return
-                    elif event.key == KEYS["teleport"]:
+                    elif binding_event(event, "teleport"):
                         clicks["e"] = 1
                     elif binding_event(event, "attack") and not ui["menu"]:
                         clicks["l"] = 1
                     elif (binding_event(event, "skill") or binding_event(event, "skill2")) and not ui["menu"]:
                         clicks["r"] = 1
-                    elif event.key == KEYS["stack"]:
+                    elif binding_event(event, "stack"):
                         ui["stack"] = not ui.get("stack", False)
-                    elif pick_index(event.key) >= 0 and local.pending_choices:
-                        clicks["u"] = pick_index(event.key)
+                    elif pick_from_event(event) >= 0 and local.pending_choices:
+                        clicks["u"] = pick_from_event(event)
                 elif event.type == pygame.MOUSEBUTTONDOWN and not ui["menu"]:
                     card = next((i for i, rect in enumerate(ui["cards"]) if rect.collidepoint(event.pos)), None)
                     if card is not None and event.button == 1:
@@ -1368,6 +1368,12 @@ def run_match(lockstep, seed, roster, local_pid):
                         clicks["l"] = 1
                     elif binding_event(event, "skill") or binding_event(event, "skill2"):
                         clicks["r"] = 1
+                    elif binding_event(event, "teleport"):          # 마우스 버튼으로 지정한 순간이동 등
+                        clicks["e"] = 1
+                    elif binding_event(event, "stack"):
+                        ui["stack"] = not ui.get("stack", False)
+                    elif pick_from_event(event) >= 0 and local.pending_choices:
+                        clicks["u"] = pick_from_event(event)
 
             # 내 입력 보내기 (INPUT_DELAY 프레임 뒤에 반영)
             loops += 1
@@ -1377,7 +1383,8 @@ def run_match(lockstep, seed, roster, local_pid):
                 keys = REAL_GET_PRESSED()
                 mx, my = pygame.mouse.get_pos()
                 held = binding_held("attack", keys) and not ui["menu"]
-                bits = 0 if ui["menu"] else (keys[KEYS["up"]] * 1 | keys[KEYS["left"]] * 2 | keys[KEYS["down"]] * 4 | keys[KEYS["right"]] * 8)
+                bits = 0 if ui["menu"] else (binding_held("up", keys) * 1 | binding_held("left", keys) * 2 |
+                                             binding_held("down", keys) * 4 | binding_held("right", keys) * 8)
                 inp = {"k": bits, "x": int(mx + camera.x), "y": int(my + camera.y), "l": clicks["l"], "h": int(held),
                        "r": clicks["r"], "e": clicks["e"], "u": clicks["u"]}
                 inp.update(INPUT_HOOK(state, local) if INPUT_HOOK else {})

@@ -1030,9 +1030,9 @@ def draw_zombie_sprite(surface, camera, zombie, player):
 def draw_player_sprite(surface, camera, player):
     """플레이어: 걸을 때 흔들리고, 조준 방향으로 총구/무기가 향함"""
     sx, sy = camera.apply(player.rect.centerx, player.rect.centery)
-    if getattr(player, "overshield", 0) >= 1:   # 흡혈 보호막: 하늘색 고리 (끝나기 1초 전부터 깜빡임)
+    if getattr(player, "overshield", 0) >= 1:   # 흡혈 보호막: 노란 고리 (끝나기 1초 전부터 깜빡임)
         if player.overshield_time > 60 or player.overshield_time % 10 < 5:
-            pygame.draw.circle(surface, (150, 220, 255), (int(sx), int(sy)), 30, 2)
+            pygame.draw.circle(surface, (245, 205, 70), (int(sx), int(sy)), 30, 2)
     w, h = player.rect.size
     if player.is_moving:
         bob = abs(math.sin(player.walk_phase)) * 3
@@ -1432,21 +1432,28 @@ class Player(pygame.sprite.Sprite):
             self.pos_x, self.pos_y = self.rect.center
 
         keys = pygame.key.get_pressed()
+
+        def held(action):
+            bind = KEYS[action]
+            if bind >= 0 or hasattr(keys, "bits"):   # 키보드 키 / 멀티 입력(KeyState)
+                return bool(keys[bind])
+            return binding_held(action)              # 마우스 버튼으로 지정한 이동
+
         # 둔화 상태에서는 속도 감소, 이동속도 아이템 버프 중에는 증가
         current_speed = self.speed * self.slow_multiplier
         if self.speed_buff_time > 0:
             current_speed *= ITEM_BUFF_MULTIPLIER
 
-        if keys[KEYS['up']]:
+        if held('up'):
             self.pos_y -= current_speed
             self.last_direction_y = -1
-        if keys[KEYS['down']]:
+        if held('down'):
             self.pos_y += current_speed
             self.last_direction_y = 1
-        if keys[KEYS['left']]:
+        if held('left'):
             self.pos_x -= current_speed
             self.last_direction_x = -1
-        if keys[KEYS['right']]:
+        if held('right'):
             self.pos_x += current_speed
             self.last_direction_x = 1
 
@@ -1454,10 +1461,10 @@ class Player(pygame.sprite.Sprite):
         self._synced_center = self.rect.center
 
         # 걷기 모션용
-        self.is_moving = bool(keys[KEYS['up']] or keys[KEYS['down']] or keys[KEYS['left']] or keys[KEYS['right']])
+        self.is_moving = bool(held('up') or held('down') or held('left') or held('right'))
         # 이동 방향 (창 돌진 판정용, 멈춰 있으면 None)
-        move_x = int(bool(keys[KEYS['right']])) - int(bool(keys[KEYS['left']]))
-        move_y = int(bool(keys[KEYS['down']])) - int(bool(keys[KEYS['up']]))
+        move_x = int(bool(held('right'))) - int(bool(held('left')))
+        move_y = int(bool(held('down'))) - int(bool(held('up')))
         length = math.hypot(move_x, move_y)
         self.move_dir = (move_x / length, move_y / length) if length else None
         if self.is_moving:
@@ -4496,7 +4503,7 @@ def get_player_buffs(player):
     if player.ability == "damage" and player.health <= player.max_health * 0.5:
         buffs.append(("광전사: 공격력 +25%", "rage", 1, (255, 120, 90)))
     if getattr(player, "overshield", 0) >= 1:
-        buffs.append((f"흡혈 보호막 {int(player.overshield)}", "overshield", player.overshield_time, (150, 220, 255)))
+        buffs.append((f"흡혈 보호막 {int(player.overshield)}", "overshield", player.overshield_time, (245, 205, 70)))
     if player.invuln_time > 20:   # 부활 무적 등 (일섬 직후 0.2초 무적은 너무 짧아서 표시 안 함)
         buffs.append(("무적", "invuln", player.invuln_time, (150, 230, 255)))
     if player.shock_time > 0:
@@ -4524,10 +4531,19 @@ def draw_player_status(surface, player, x=14, y=14):
     hp_color = UI_GOOD if ratio > 0.5 else (255, 200, 60) if ratio > 0.25 else UI_DANGER
     bx, bw = x + 78, w - 90
     shield = getattr(player, "overshield", 0)
-    ui_bar(surface, (bx, y + 12, bw, 26), ratio, hp_color,
-           label=f"{int(max(0, player.health))} / {int(player.max_health)}" + (f"  +{int(shield)}" if shield >= 1 else ""))
-    if shield >= 1:   # 보호막: 체력 바 위에 하늘색 띠
-        pygame.draw.rect(surface, (150, 220, 255), (bx + 2, y + 13, max(3, int((bw - 4) * min(1, shield / player.max_health))), 5), border_radius=2)
+    label = f"{int(max(0, player.health))} / {int(player.max_health)}" + (f"  +{int(shield)}" if shield >= 1 else "")
+    if shield >= 1:
+        # 흡혈 보호막: 초록 체력 바의 끝에서 보호막만큼을 노란색으로 (피해는 노란 부분부터 깎임)
+        ui_bar(surface, (bx, y + 12, bw, 26), ratio, hp_color)
+        hp_end = int(bw * ratio)
+        shield_w = min(hp_end, max(4, int(bw * shield / max(player.max_health, 1))))
+        seg = pygame.Rect(bx + hp_end - shield_w, y + 12, shield_w, 26)
+        pygame.draw.rect(surface, (245, 205, 70), seg, border_radius=6)
+        pygame.draw.rect(surface, (255, 238, 150), (seg.x + 3, seg.y + 2, max(0, seg.w - 6), 6), border_radius=3)
+        pygame.draw.rect(surface, (0, 0, 0), (bx, y + 12, bw, 26), 2, border_radius=6)
+        ui_text(surface, label, font_hud, UI_TEXT, (bx + bw // 2, y + 25), "center")
+    else:
+        ui_bar(surface, (bx, y + 12, bw, 26), ratio, hp_color, label=label)
     ui_bar(surface, (bx, y + 44, bw, 10), player.exp / max(player.exp_to_level, 1), UI_EXP, back=(36, 40, 48), radius=5)
     ui_text(surface, f"EXP {int(player.exp)}/{int(player.exp_to_level)}", font_tiny, UI_SUB, (bx, y + 56), shadow=False)
     if player.ability in ABILITY_LABELS:
@@ -5268,8 +5284,8 @@ def show_upgrade_menu(player, camera):
             ui_quit_event(event)
             if elapsed < 300:
                 continue
-            if event.type == pygame.KEYDOWN and 0 <= pick_index(event.key) < len(selected_upgrades):
-                return selected_upgrades[pick_index(event.key)]
+            if 0 <= pick_from_event(event) < len(selected_upgrades) and not (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1):
+                return selected_upgrades[pick_from_event(event)]
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for upgrade, rect in zip(selected_upgrades, rects):
                     if rect.collidepoint(event.pos):
@@ -5614,7 +5630,7 @@ KEY_ACTIONS = [
 KEY_DEFAULTS = {action: key for action, _, key in KEY_ACTIONS}
 KEYS = dict(KEY_DEFAULTS)
 KEYBIND_PATH = os.path.join(SAVE_DIR, "keybinds.json")
-MOUSE_BINDABLE = {"attack", "skill", "skill2"}          # 마우스 버튼도 지정할 수 있는 동작
+MOUSE_BINDABLE = {action for action, _, _ in KEY_ACTIONS}   # 모든 동작에 마우스 버튼도 지정 가능 (좌/우/휠/옆 4·5)
 MOUSE_BUTTON_NAMES = {1: "좌클릭", 2: "휠 클릭", 3: "우클릭", 6: "마우스4", 7: "마우스5"}
 _MOUSE_PRESSED_INDEX = {1: 0, 2: 1, 3: 2, 6: 3, 7: 4}   # get_pressed(5)에서의 위치
 
@@ -5667,6 +5683,14 @@ def binding_held(action, keys=None):
         return bool(index is not None and index < len(pressed) and pressed[index])
     keys = keys if keys is not None else pygame.key.get_pressed()
     return bool(keys[bind])
+
+
+def pick_from_event(event):
+    """업그레이드 선택 키(또는 마우스 버튼) 이벤트 → 0/1/2 (아니면 -1)"""
+    for i, action in enumerate(("pick1", "pick2", "pick3")):
+        if binding_event(event, action):
+            return i
+    return -1
 
 
 def pick_index(key):
@@ -5724,7 +5748,7 @@ def show_key_settings(background=None):
             hint = ("새 키나 마우스 버튼을 누르세요 (ESC: 취소)" if KEY_ACTIONS[waiting][0] in MOUSE_BINDABLE
                     else "새 키를 누르세요 (ESC: 취소)")
         else:
-            hint = "바꿀 항목을 누르세요 · 겹치는 키는 서로 바뀜 · 공격/스킬은 마우스 버튼도 가능 · ESC: 닫기"
+            hint = "바꿀 항목을 누르세요 · 겹치는 키는 서로 바뀜 · 마우스 버튼도 지정 가능 · ESC: 닫기"
         ui_text(screen, hint, font_desc, UI_DANGER if notice else UI_ACCENT if waiting is not None else UI_SUB,
                 (panel.centerx, panel.y + 74), "midtop", shadow=False)
         mouse = pygame.mouse.get_pos()
@@ -6098,20 +6122,21 @@ def main():
                     execute_weapon_skill(player.weapon.weapon_type, player, mouse_world_x, mouse_world_y,
                                        zombies, bullets, all_sprites, explosions)
 
-            elif event.type == pygame.KEYDOWN:
-                if event.key == KEYS["stack"] and not game_over:
+            elif event.type == pygame.KEYDOWN or (event.type == pygame.MOUSEBUTTONDOWN and
+                                                  (binding_event(event, "stack") or binding_event(event, "teleport"))):
+                if binding_event(event, "stack") and not game_over:
                     # 업그레이드 목록 토글 (기본 TAB)
                     show_stack = not show_stack
-                elif event.key == KEYS["teleport"] and not game_over:
+                elif binding_event(event, "teleport") and not game_over:
                     if player.skills.get("skill_teleport", False) and player.teleport_cooldown <= 0:
                         mouse_screen_x, mouse_screen_y = pygame.mouse.get_pos()
                         player.rect.centerx = mouse_screen_x + camera.x
                         player.rect.centery = mouse_screen_y + camera.y
                         player.teleport_cooldown = player.teleport_cooldown_max
-                elif event.key == pygame.K_SPACE:
+                elif getattr(event, "key", None) == pygame.K_SPACE:
                     if game_over:
                         return "restart"  # 게임 재시작 (main()을 재귀 호출하지 않고 바깥 루프에서 다시 시작)
-                elif event.key == pygame.K_ESCAPE:
+                elif getattr(event, "key", None) == pygame.K_ESCAPE:
                     if not game_over:
                         # 게임 재생 중이면 일시정지 메뉴 표시
                         pause_start = pygame.time.get_ticks()
