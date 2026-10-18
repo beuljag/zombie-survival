@@ -144,7 +144,7 @@
   오의 연섬 (패시브, 레벨 6부터 업그레이드로 획득): 일섬 피해 25%가 고정 피해로 (최소 대상 최대 체력 6%, 방어 무시)
   "연참 데미지 +3%" 업그레이드로 스택당 보너스 증가
   일섬으로 처치한 좀비는 경험치 75%
-- 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (최대 100) (12초)
+- 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (제한 없음) (12초)
 - 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 데미지) (8초)
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
@@ -307,11 +307,10 @@ KATANA_OUGI_RATIO = 0.25
 KATANA_OUGI_HP_RATIO = 0.06
 KATANA_OUGI_MIN_LEVEL = 6
 
-# 도끼 대회전 베기: 크게 한 바퀴 휘두름 (반경 190, 데미지 3.5배) / 흡혈 (준 피해의 10%, 한 번에 최대 100) / 넉백 20
+# 도끼 대회전 베기: 크게 한 바퀴 휘두름 (반경 190, 데미지 3.5배) / 흡혈 (준 피해의 10%, 상한 없음 - 최대 체력까지) / 넉백 20
 AXE_SKILL_RADIUS = 190
 AXE_SKILL_DAMAGE_MULT = 3.5
 AXE_SKILL_LIFESTEAL = 0.10
-AXE_SKILL_LIFESTEAL_CAP = 100
 AXE_SKILL_KNOCKBACK = 20
 # 글록 항공 폭격 (쿨타임 80초): 폭탄 1발 기본 데미지 1000, 공격력이 오른 만큼 같은 비율로 증가
 #  (폭탄 데미지 = 1000 × 현재 공격력 / 글록 기본 공격력)
@@ -2806,9 +2805,9 @@ class GreatSwingSkill(ActiveSkill):
                 dealt += before - max(0.0, zombie.health)
                 push_zombie(zombie, cx, cy, self.knockback)
                 fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS["axe"])
-            # 흡혈: 준 피해의 10% (한 번 휘두를 때 최대 100)
-            if dealt > 0 and player.health < player.max_health and self.healed < AXE_SKILL_LIFESTEAL_CAP:
-                heal = min(AXE_SKILL_LIFESTEAL_CAP - self.healed, dealt * AXE_SKILL_LIFESTEAL, player.max_health - player.health)
+            # 흡혈: 준 피해의 10% (회복량 제한 없음 - 최대 체력까지만)
+            if dealt > 0 and player.health < player.max_health:
+                heal = min(dealt * AXE_SKILL_LIFESTEAL, player.max_health - player.health)
                 player.health += heal
                 self.healed += heal
             if self.frames == self.SWING_FRAMES and self.healed >= 1:
