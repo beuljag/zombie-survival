@@ -154,6 +154,7 @@
 - 기관총: 포탑 설치 - 6초 동안 자동으로 쏘는 포탑 (18초)
 - 샷건: 용의 숨결 - 앞쪽 부채꼴 화염 방사 + 불붙임 (10초)
 - 저격총: 도탄 사격 - 한 발이 맞은 좀비에서 주변 좀비로 10번 튕김 (맞을 때마다 3배 데미지, "도탄 +3회" 업그레이드) (12초)
+  튕길 때마다 기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발 공격) 적용
 - 플라즈마: 블랙홀 - 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발 (18초)
 - 로켓: 미사일 폭격 - 마우스 주변에 미사일 8발 (15초)
 
@@ -2865,7 +2866,17 @@ class RicochetSkill(ActiveSkill):
                 return False
         tx, ty = target.rect.center
         all_sprites.add(LineFlash(self.pos[0], self.pos[1], tx, ty, (180, 240, 255), width=11, duration=24))
-        skill_damage(target, self.damage)
+        # 일반 탄환처럼 기본 공격 업그레이드 적용: 치명타 + 속성탄 + 폭발 공격
+        skill_damage(target, roll_crit_damage(player, self.damage, target))
+        apply_hit_elements(player, target, zombies, self.damage)
+        if player.skills.get("skill_explosion", False) and player.explosion_cooldown <= 0:
+            player.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN
+            boom = Explosion(tx, ty, 70)
+            explosions.add(boom)
+            all_sprites.add(boom)
+            for other in list(zombies):
+                if other is not target and math.hypot(other.rect.centerx - tx, other.rect.centery - ty) < 70:
+                    other.health -= self.damage * EXPLOSION_SKILL_RATIO * get_damage_multiplier(other)
         fx.hit_spark(tx, ty, (150, 230, 255))
         fx.ring(tx, ty, (150, 230, 255), 34, count=12)
         self.hit_count[target] = self.hit_count.get(target, 0) + 1
