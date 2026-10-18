@@ -116,7 +116,7 @@
 - 속도: +0.3 또는 +0.5 이동속도 증가
 - 데미지: +2 또는 +5 모든 무기 데미지 증가
 - 재생: +0.3 또는 +0.5 초당 체력 회복
-- 치명타: 5% 확률로 1.3배 데미지 (중첩 가능, 5%씩 증가)
+- 치명타: 5% 확률로 1.3배 데미지 (중첩 가능, 5%씩 증가) / 저격총 전용 "치명타 데미지 +25%"로 배율 증가 (최대 3.8배)
 - 회피: 5% 확률로 피해 회피 (중첩 가능, 5%씩 증가)
 - 경험치: +20% 좀비 처치 시 경험치 추가
 - 완전 회복: 체력 100% 회복
@@ -154,7 +154,7 @@
 - 기관총: 포탑 설치 - 6초 동안 자동으로 쏘는 포탑 (18초)
 - 샷건: 용의 숨결 - 앞쪽 부채꼴 화염 방사 + 불붙임 (10초)
 - 저격총: 도탄 사격 - 한 발이 맞은 좀비에서 주변 좀비로 10번 튕김 (맞을 때마다 3배 데미지, "도탄 +3회" 업그레이드) (12초)
-  튕길 때마다 기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발 공격) 적용
+  튕길 때마다 기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발 공격) 적용, 도탄은 치명타 확률 +20%
 - 플라즈마: 블랙홀 - 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발 (18초)
 - 로켓: 미사일 폭격 - 마우스 주변에 미사일 8발 (15초)
 
@@ -333,6 +333,11 @@ SPLASH_SLOW_FRAMES = 180          # 3초
 SNIPER_RICOCHET_DAMAGE_MULT = 3.0
 SNIPER_RICOCHET_BOUNCES = 10
 SNIPER_RICOCHET_UPGRADE = 3
+# 치명타 피해 배율: 기본 1.3배, 저격총 전용 "치명타 데미지 +25%" 업그레이드 1회당 +0.25 (최대 10회 = 3.8배)
+CRIT_BASE_MULT = 1.3
+SNIPER_CRIT_DAMAGE_UPGRADE = 0.25
+SNIPER_CRIT_DAMAGE_MAX = 10
+SNIPER_RICOCHET_CRIT_BONUS = 0.20   # 도탄 사격은 치명타 확률 +20% (치명타 업그레이드가 없어도 터짐)
 GLOCK_STRIKE_RANGE_LENGTH = 100
 GLOCK_STRIKE_RANGE_WIDTH = 15
 GLOCK_STRIKE_LENGTH = 850
@@ -1268,7 +1273,7 @@ class Player(pygame.sprite.Sprite):
             # 원거리 무기
             "glock": {"burst": 0, "damage": 0, "fire_rate": 0, "accuracy": 0},  # 연사 탄수, 데미지, 발사 속도, 정확도
             "shotgun": {"range": 0, "damage": 0, "spread": 0, "pellets": 3},  # 범위, 데미지, 퍼짐, 펠릿 수(기본 3발)
-            "sniper": {"pierces": 0, "damage": 0, "range": 0, "penetration": 0},  # 관통 수, 데미지, 사거리, 관통력
+            "sniper": {"pierces": 0, "damage": 0, "range": 0, "penetration": 0, "crit_damage": 0},  # 관통 수, 데미지, 사거리, 관통력
             "machinegun": {"burst": 0, "fire_rate": 0, "damage": 0},  # 연사 탄수, 연사 속도, 데미지
             "plasma": {"range": 0, "damage": 0, "energy": 0, "explosion": 0},  # 범위, 데미지, 에너지 효율, 폭발 범위
             "rocket": {"count": 0, "damage": 0, "explosion": 0, "tracking": 0}  # 로켓 수, 데미지, 폭발 범위, 유도 기능
@@ -2347,12 +2352,17 @@ def apply_player_damage(player, amount):
     player.health -= amount
 
 
-def roll_crit_damage(player, damage, target=None):
-    """치명타 판정 (levels["crit"] * 5% 확률로 1.3배 데미지). target을 주면 치명타 숫자 연출용으로 표시"""
-    if random.random() < player.levels.get("crit", 0) * 0.05:
+def get_crit_multiplier(player):
+    """치명타 피해 배율 (기본 1.3배 + 저격총 "치명타 데미지" 업그레이드)"""
+    return CRIT_BASE_MULT + SNIPER_CRIT_DAMAGE_UPGRADE * player.skill_upgrades["sniper"].get("crit_damage", 0)
+
+
+def roll_crit_damage(player, damage, target=None, bonus_chance=0.0):
+    """치명타 판정 (levels["crit"] * 5% (+ bonus_chance) 확률로 치명타 배율만큼 데미지). target을 주면 치명타 숫자 연출용으로 표시"""
+    if random.random() < player.levels.get("crit", 0) * 0.05 + bonus_chance:
         if target is not None:
             target.crit_marked = True
-        return damage * 1.3
+        return damage * get_crit_multiplier(player)
     return damage
 
 
@@ -2867,7 +2877,14 @@ class RicochetSkill(ActiveSkill):
         tx, ty = target.rect.center
         all_sprites.add(LineFlash(self.pos[0], self.pos[1], tx, ty, (180, 240, 255), width=11, duration=24))
         # 일반 탄환처럼 기본 공격 업그레이드 적용: 치명타 + 속성탄 + 폭발 공격
-        skill_damage(target, roll_crit_damage(player, self.damage, target))
+        was_marked = getattr(target, "crit_marked", False)
+        dealt = roll_crit_damage(player, self.damage, target, SNIPER_RICOCHET_CRIT_BONUS)
+        skill_damage(target, dealt)
+        if dealt > self.damage:   # 치명타: 붉은 섬광 + 글자
+            fx.ring(tx, ty, (255, 80, 80), 46, count=16, size=3)
+            fx.add_text(tx, ty - 30, "치명타!", (255, 90, 90), big=True, life=36)
+        elif not was_marked:
+            target.crit_marked = False
         apply_hit_elements(player, target, zombies, self.damage)
         if player.skills.get("skill_explosion", False) and player.explosion_cooldown <= 0:
             player.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN
@@ -4719,6 +4736,8 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"항공 폭격 범위: 길이 +{counts['glock_skill_burst'] * GLOCK_STRIKE_RANGE_LENGTH}px, 폭 +{counts['glock_skill_burst'] * GLOCK_STRIKE_RANGE_WIDTH}px")
     if counts.get("shotgun_skill_pellets", 0) > 0:
         lines.append(f"샷건 추가 탄환: +{counts['shotgun_skill_pellets']}발")
+    if counts.get("sniper_skill_critdmg", 0) > 0:
+        lines.append(f"치명타 피해: {int(CRIT_BASE_MULT * 100)}% → {int(get_crit_multiplier(player) * 100)}%")
     if counts.get("sniper_skill_pierces", 0) > 0:
         lines.append(f"도탄 사격 튕김: +{counts['sniper_skill_pierces'] * SNIPER_RICOCHET_UPGRADE}회")
     if counts.get("machinegun_skill_burst", 0) > 0:
@@ -4847,6 +4866,8 @@ def is_upgrade_at_limit(player, upgrade_type):
     # 명시적 횟수 제한
     if upgrade_type == "crit":
         return player.levels.get("crit", 0) >= 16  # 최대 80%
+    if upgrade_type == "sniper_skill_critdmg":
+        return player.skill_upgrades["sniper"].get("crit_damage", 0) >= SNIPER_CRIT_DAMAGE_MAX
     if upgrade_type == "dodge":
         return player.levels.get("dodge", 0) >= 20  # 최대 100%
 
@@ -4921,7 +4942,7 @@ def build_upgrade_choices(player):
         {"name": "경험치 +20%", "desc": "좀비 처치 시 경험치 20% 추가", "type": "exp_boost", "color": (255, 255, 100)},
 
         # 특이 능력
-        {"name": "치명타", "desc": "치명타 확률 +5% (1.3배 데미지)", "type": "crit", "color": (255, 50, 50)},
+        {"name": "치명타", "desc": f"치명타 확률 +5% ({get_crit_multiplier(player):.2f}배 데미지)", "type": "crit", "color": (255, 50, 50)},
         {"name": "회피", "desc": "5% 확률로 피해 회피", "type": "dodge", "color": (100, 200, 255)},
 
         # 무기별 추가 보상
@@ -5010,6 +5031,8 @@ def build_upgrade_choices(player):
     elif weapon_type == "sniper":
         weapon_upgrades = [
             {"name": "도탄 +3회", "desc": "도탄 사격이 3번 더 튕김", "type": "sniper_skill_pierces", "color": (100, 150, 255)},
+            {"name": "치명타 데미지 +25%", "desc": f"치명타 피해 {int(get_crit_multiplier(player) * 100)}% → {int((get_crit_multiplier(player) + SNIPER_CRIT_DAMAGE_UPGRADE) * 100)}%",
+             "type": "sniper_skill_critdmg", "color": (255, 90, 90)},
             {"name": "데미지 +8", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 8},
         ]
     elif weapon_type == "machinegun":
@@ -5231,6 +5254,8 @@ def apply_upgrade(player, selected_upgrade):
         player.skill_upgrades["shotgun"]["pellets"] += 1
     elif selected_upgrade["type"] == "shotgun_skill_damage":
         player.skill_upgrades["shotgun"]["damage"] += 1  # 1회당 +8%
+    elif selected_upgrade["type"] == "sniper_skill_critdmg":
+        player.skill_upgrades["sniper"]["crit_damage"] = player.skill_upgrades["sniper"].get("crit_damage", 0) + 1
     elif selected_upgrade["type"] == "sniper_skill_pierces":
         player.skill_upgrades["sniper"]["pierces"] += 1
     elif selected_upgrade["type"] == "machinegun_skill_burst":
@@ -5307,6 +5332,7 @@ def get_upgrade_name(upgrade_type):
         "shotgun_skill_pellets": "기본 발사 탄환 +1발",
         "shotgun_skill_damage": "화염 데미지 +8%",
         "sniper_skill_pierces": "도탄 +3회",
+        "sniper_skill_critdmg": "치명타 데미지 +25%",
         "machinegun_skill_burst": "포탑 지속 +1초",
         "plasma_skill_range": "블랙홀 범위 +15px",
         "plasma_skill_damage": "블랙홀 데미지 +8%",
