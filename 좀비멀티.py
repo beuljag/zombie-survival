@@ -549,7 +549,7 @@ class MatchState:
                     first_hit_zombie, first_hit_distance = zombie, distance_to_zombie
                 melee_hit = True
                 melee.has_hit.add(zombie)   # 휘두르는 동안 다시 맞지 않게
-                zombie.health -= roll_crit_damage(p, melee_damage, zombie) * get_damage_multiplier(zombie)
+                zombie.health -= melee_strike_damage(p, melee_damage, zombie)
                 fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS.get(p.weapon.weapon_type, WHITE))
                 self.apply_elements(p, zombie, melee_damage, 150)
                 zombie_dx = zombie.rect.centerx - p.rect.centerx

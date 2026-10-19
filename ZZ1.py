@@ -149,7 +149,8 @@
 - 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 데미지) (8초)
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
-- 글로브: 러시 - 3초 동안 공격 속도 3배 (15초)
+- 글로브: 초당 공격 7/10/14회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 60%)
+- 글로브: 백열권 - 1.2초 동안 마우스 방향 앞쪽을 주먹으로 마구 두드리고(0.07초마다 0.6배), 마지막 어퍼컷(4배)으로 날려 보내며 1초 기절 (15초)
 - 글록: 항공 폭격 - 비행기가 날아와 조준 방향 직선(약 1000px)에 폭탄을 줄줄이 떨어뜨림
   폭탄 1발 기본 1000 데미지, 공격력이 오르면 같은 비율로 증가 (80초)
 - 기관총: 포탑 설치 - 6초 동안 자동으로 쏘는 포탑 (18초)
@@ -352,6 +353,17 @@ SPLASH_SLOW_FRAMES = 180          # 3초
 SNIPER_RICOCHET_DAMAGE_MULT = 3.0
 SNIPER_RICOCHET_BOUNCES = 10
 SNIPER_RICOCHET_UPGRADE = 3
+# 글로브 백열권: 1.2초 동안 앞쪽 부채꼴(반경 170, ±50°)을 0.07초마다 두드림 (공격력 0.6배) → 마지막 어퍼컷 (4배, 멀리 날림, 1초 기절)
+GLOVES_FLURRY_FRAMES = 72
+GLOVES_FLURRY_RADIUS = 170
+GLOVES_FLURRY_HALF_ARC = 50
+GLOVES_FLURRY_HIT_MULT = 0.6
+GLOVES_UPPERCUT_MULT = 4.0
+GLOVES_UPPERCUT_KNOCKBACK = 22
+GLOVES_UPPERCUT_STUN = 60
+# 글로브 추가 타격: 초당 공격 횟수가 기준 이상이면 한 번 칠 때 몇 대씩 더 때림 (추가 타격은 60% 데미지, 치명타 따로)
+GLOVES_EXTRA_HIT_STEPS = ((14, 3), (10, 2), (7, 1))
+GLOVES_EXTRA_HIT_RATIO = 0.6
 # 치명타 피해 배율: 기본 1.3배, 저격총 전용 "치명타 데미지 +25%" 업그레이드 1회당 +0.25 (최대 10회 = 3.8배)
 CRIT_BASE_MULT = 1.3
 SNIPER_CRIT_DAMAGE_UPGRADE = 0.25
@@ -919,6 +931,33 @@ def draw_spear_art(length, thickness):
     return art
 
 
+_gauntlet_cache = {}
+
+
+def draw_gauntlet_art(scale=1.0):
+    """강철 건틀릿 (오른쪽을 향한 주먹): 붉은 손목 띠 + 금빛 리벳 + 짙은 강철 손등 + 마디 판"""
+    key = round(scale, 2)
+    art = _gauntlet_cache.get(key)
+    if art is not None:
+        return art
+    w, h = int(64 * scale), int(48 * scale)
+    art = pygame.Surface((w, h), pygame.SRCALPHA)
+    u = lambda v: int(v * scale)
+    pygame.draw.rect(art, (150, 30, 40), (0, u(12), u(20), u(24)), border_radius=u(4))            # 붉은 손목 띠
+    pygame.draw.rect(art, (90, 15, 22), (0, u(12), u(20), u(24)), max(1, u(2)), border_radius=u(4))
+    for ry in (16, 24, 32):                                                                       # 금빛 리벳
+        pygame.draw.circle(art, (235, 190, 80), (u(10), u(ry)), max(1, u(2)))
+    pygame.draw.rect(art, (78, 84, 98), (u(16), u(6), u(34), u(36)), border_radius=u(8))           # 손등 강철
+    pygame.draw.rect(art, (125, 132, 150), (u(20), u(9), u(26), u(8)), border_radius=u(3))         # 손등 빛
+    for i in range(4):                                                                            # 마디 판 4개
+        ky = u(7 + i * 9)
+        pygame.draw.rect(art, (150, 158, 176), (u(46), ky, u(16), u(8)), border_radius=u(3))
+        pygame.draw.rect(art, (60, 64, 76), (u(46), ky, u(16), u(8)), max(1, u(1)), border_radius=u(3))
+    pygame.draw.rect(art, (40, 42, 52), (u(16), u(6), u(34), u(36)), max(1, u(2)), border_radius=u(8))
+    _gauntlet_cache[key] = art
+    return art
+
+
 def draw_shadow(surface, sx, sy, width, height):
     shadow_w = max(10, int(width * 0.95))
     shadow_h = max(4, int(width * 0.3))
@@ -1067,7 +1106,10 @@ def draw_player_sprite(surface, camera, player):
     aim_x, aim_y = mx - sx, my - body_y
     dist = math.hypot(aim_x, aim_y) or 1
     ux, uy = aim_x / dist, aim_y / dist
-    if player.weapon is not None and player.weapon.weapon_type == "spear":
+    if player.weapon is not None and player.weapon.weapon_type == "gloves":
+        held = pygame.transform.rotate(draw_gauntlet_art(0.42), -math.degrees(math.atan2(uy, ux)))
+        surface.blit(held, held.get_rect(center=(int(sx + ux * 20), int(body_y + uy * 20))))
+    elif player.weapon is not None and player.weapon.weapon_type == "spear":
         held = pygame.transform.rotate(draw_spear_art(64, 3), -math.degrees(math.atan2(uy, ux)))
         surface.blit(held, held.get_rect(center=(int(sx + ux * 26), int(body_y + uy * 26))))
     elif player.weapon is not None:
@@ -2514,6 +2556,24 @@ def roll_crit_damage(player, damage, target=None, bonus_chance=0.0):
     return damage
 
 
+def gloves_extra_hits(player):
+    """글로브: 공격 속도(초당 공격 횟수)에 따른 추가 타격 수"""
+    if player.weapon is None or player.weapon.weapon_type != "gloves":
+        return 0
+    aps = player.weapon.fire_rate * player.weapon.attack_speed * getattr(player.weapon, "rush_mult", 1.0)
+    return next((extra for need, extra in GLOVES_EXTRA_HIT_STEPS if aps >= need), 0)
+
+
+def melee_strike_damage(player, damage, zombie):
+    """근접 기본 공격 1회 피해 (치명타 + 방어 감소, 글로브는 공격 속도가 빠르면 추가 타격)"""
+    total = roll_crit_damage(player, damage, zombie) * get_damage_multiplier(zombie)
+    extra = gloves_extra_hits(player)
+    for i in range(extra):
+        total += roll_crit_damage(player, damage * GLOVES_EXTRA_HIT_RATIO, zombie) * get_damage_multiplier(zombie)
+        fx.hit_spark(zombie.rect.centerx + fx_random.uniform(-12, 12), zombie.rect.centery + fx_random.uniform(-12, 12), (255, 150, 110))
+    return total
+
+
 def apply_hit_elements(player, zombie, zombies, base_damage, chain_range=150):
     """속성탄 업그레이드 효과 (화염: 불붙임 / 얼음: 둔화 / 전기: 주변 2마리에게 연쇄 피해) - 일섬 등 스킬에도 적용"""
     if player.skills.get("skill_fire_bullets", False):
@@ -2561,7 +2621,7 @@ def melee_sweep(melee, zombies):
         if not in_range:
             continue
         melee.has_hit.add(zombie)
-        zombie.health -= roll_crit_damage(player, melee.damage, zombie) * get_damage_multiplier(zombie)
+        zombie.health -= melee_strike_damage(player, melee.damage, zombie)
         fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS.get(melee.weapon_type, WHITE))
         apply_hit_elements(player, zombie, zombies, melee.damage, 150)
         if dist > 0:
@@ -2690,7 +2750,7 @@ def get_auto_aim_target(player, zombies, max_range=600):
 
 
 # ===== 무기별 우클릭 스킬 =====
-# 나무 방망이: 홈런 / 카타나: 일섬 / 도끼: 대회전 베기 / 창: 물보라 / 해머: 대지 강타 / 글로브: 러시
+# 나무 방망이: 홈런 / 카타나: 일섬 / 도끼: 대회전 베기 / 창: 물보라 / 해머: 대지 강타 / 글로브: 백열권
 # 글록: 항공 폭격 / 기관총: 포탑 설치 / 샷건: 용의 숨결 / 저격총: 도탄 사격 / 플라즈마: 블랙홀 / 로켓: 미사일 폭격
 
 def skill_damage(zombie, amount):
@@ -3157,6 +3217,68 @@ class WaterSplashSkill(ActiveSkill):
         self._place_spear(cy + 12)
 
 
+class FistPop(pygame.sprite.Sprite):
+    """백열권 주먹 잔상: 나타났다가 앞으로 살짝 밀리며 사라짐 (그림 전용)"""
+    def __init__(self, x, y, angle, scale, life=9):
+        super().__init__()
+        self.base = pygame.transform.rotate(draw_gauntlet_art(scale), -math.degrees(angle))
+        self.x, self.y, self.dx, self.dy = x, y, math.cos(angle) * 3, math.sin(angle) * 3
+        self.life = self.max_life = life
+        self.image = self.base
+        self.rect = self.image.get_rect(center=(int(x), int(y)))
+
+    def update(self):
+        self.life -= 1
+        if self.life <= 0:
+            self.kill()
+            return
+        self.x += self.dx
+        self.y += self.dy
+        self.image = self.base.copy()
+        self.image.set_alpha(int(255 * self.life / self.max_life))
+        self.rect = self.image.get_rect(center=(int(self.x), int(self.y)))
+
+
+class FlurrySkill(ActiveSkill):
+    """글로브 백열권: 마우스 방향 앞쪽을 주먹으로 마구 두드리고, 마지막에 큰 어퍼컷으로 날려 보내며 기절"""
+    HIT_EVERY = 4
+
+    def __init__(self, player, all_sprites, damage, aim, frames, radius):
+        super().__init__(frames + 14)
+        self.damage, self.aim, self.flurry_frames, self.radius = damage, aim, frames, radius
+        fx.add_text(player.rect.centerx, player.rect.top - 30, "백열권!", (255, 120, 90), big=True)
+
+    def _cone(self, zombies, cx, cy, radius, half):
+        return zombies_in_cone(zombies, cx, cy, self.aim, half, radius)
+
+    def tick(self, player, zombies, bullets, all_sprites, explosions):
+        cx, cy = player.rect.center
+        half = math.radians(GLOVES_FLURRY_HALF_ARC)
+        if self.frames <= self.flurry_frames:
+            if self.frames % self.HIT_EVERY == 0:
+                for zombie in self._cone(zombies, cx, cy, self.radius, half):
+                    skill_damage(zombie, roll_crit_damage(player, self.damage, zombie))   # 연타 중에는 밀지 않음 (계속 맞도록)
+                    fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (255, 150, 110))
+                for _ in range(3):   # 주먹 잔상 (그림 전용 난수)
+                    a = self.aim + fx_random.uniform(-half * 0.8, half * 0.8)
+                    d = fx_random.uniform(40, self.radius * 0.9)
+                    all_sprites.add(FistPop(cx + math.cos(a) * d, cy + math.sin(a) * d, a, fx_random.uniform(0.75, 1.05)))
+                fx.add_shake(1.5)
+        elif self.frames == self.flurry_frames + 1:
+            # 마무리 어퍼컷: 더 넓게, 큰 피해 + 멀리 날려 보내고 기절
+            reach = self.radius + 50
+            all_sprites.add(ConeFlash(cx, cy, self.aim, half, reach, (255, 120, 80), duration=18))
+            all_sprites.add(FistPop(cx + math.cos(self.aim) * reach * 0.5, cy + math.sin(self.aim) * reach * 0.5, self.aim, 1.6, life=16))
+            for zombie in self._cone(zombies, cx, cy, reach, half):
+                skill_damage(zombie, roll_crit_damage(player, self.damage * GLOVES_UPPERCUT_MULT, zombie))
+                push_zombie(zombie, cx, cy, GLOVES_UPPERCUT_KNOCKBACK * get_knockback_multiplier(player))
+                zombie.slow_time = max(zombie.slow_time, GLOVES_UPPERCUT_STUN)
+                zombie.slow_multiplier = 0.0   # 기절
+            fx.add_text(cx + math.cos(self.aim) * 80, cy + math.sin(self.aim) * 80 - 30, "어퍼컷!", (255, 200, 90), big=True)
+            fx.add_shake(9)
+        return True
+
+
 class TurretSkill(ActiveSkill):
     """기관총 포탑: 설치한 자리에서 가장 가까운 좀비를 자동 사격"""
     def __init__(self, x, y, duration, damage, all_sprites):
@@ -3433,10 +3555,9 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         fx.add_shake(8)
 
     elif weapon_type == "gloves":
-        # 러시: 잠시 동안 공격 속도 3배
-        player.rush_time = 180 + up["strikes"] * 30
-        fx.ring(cx, cy, (255, 160, 200), 90, count=20)
-        fx.add_text(cx, player.rect.top - 30, "러시!", (255, 160, 200), big=True)
+        # 백열권: 마우스 방향으로 주먹을 마구 날리고 마지막에 어퍼컷
+        frames = GLOVES_FLURRY_FRAMES + up["strikes"] * 15
+        player.active_skills.append(FlurrySkill(player, all_sprites, base * GLOVES_FLURRY_HIT_MULT, aim, frames, GLOVES_FLURRY_RADIUS))
 
     elif weapon_type == "glock":
         # 항공 폭격: 비행기가 날아와 조준 방향 직선으로 폭탄을 줄줄이 떨어뜨림
@@ -4203,7 +4324,7 @@ class Melee(pygame.sprite.Sprite):
     # 무기별 휘두르기 방식: swing(빠르게 휘두르고 감속) / heavy(천천히 들었다 내려찍기) / thrust(앞으로 찌르기)
     SWING_STYLES = {"melee": "swing", "katana": "swing", "axe": "heavy", "hammer": "heavy", "spear": "thrust", "gloves": "thrust"}
     TRAIL_COLORS = {"melee": (230, 170, 90), "katana": (200, 225, 255), "axe": (255, 110, 110),
-                    "hammer": (230, 230, 230), "spear": (120, 200, 255), "gloves": (255, 160, 200)}
+                    "hammer": (230, 230, 230), "spear": (120, 200, 255), "gloves": (255, 140, 100)}
     # 공격이 맞는 부채꼴의 반각(도): 조준 방향 ± 이 각도, 반경 attack_range (그려지는 범위와 동일)
     HIT_HALF_ARCS = {"melee": 80, "katana": 90, "axe": 70, "hammer": 75, "spear": 30, "gloves": 45}
     # 이 거리 안에 붙은 좀비는 방향과 상관없이 맞음 (몸에 붙은 좀비를 못 때리는 일 방지)
@@ -4280,12 +4401,8 @@ class Melee(pygame.sprite.Sprite):
             self.swing_angle = 110
             self.attack_range = 155
         elif weapon_type == "gloves":
-            # 글로브 - 주먹 (손목 띠 + 둥근 장갑)
-            self.base_image = pygame.Surface((54, 44), pygame.SRCALPHA)
-            pygame.draw.rect(self.base_image, (200, 60, 110), (0, 12, 18, 20), border_radius=4)      # 손목
-            pygame.draw.circle(self.base_image, (255, 120, 170), (34, 22), 20)                       # 주먹
-            pygame.draw.circle(self.base_image, (190, 50, 100), (34, 22), 20, 3)
-            pygame.draw.arc(self.base_image, (255, 210, 225), (22, 8, 22, 16), 0.3, 2.6, 3)          # 반짝임
+            # 글로브 - 강철 건틀릿 (붉은 손목 띠 + 금빛 리벳 + 강철 마디 판)
+            self.base_image = draw_gauntlet_art(0.9).copy()
             self.duration = 15
             self.knockback_power = 700
             self.swing_angle = 90
@@ -4564,7 +4681,9 @@ def draw_player_status(surface, player, x=14, y=14):
 
     ui_text(surface, player.weapon.name, font_hud, ui_bright(player.weapon.color), (x + 14, y + 86))
     attacks_per_second = player.weapon.fire_rate * player.weapon.attack_speed
-    ui_text(surface, f"피해 {get_weapon_damage(player):.0f} · 초당 {attacks_per_second:.1f}회", font_tiny, UI_SUB,
+    extra_hits = gloves_extra_hits(player)
+    ui_text(surface, f"피해 {get_weapon_damage(player):.0f} · 초당 {attacks_per_second:.1f}회" + (f" · 추가 타격 +{extra_hits}" if extra_hits else ""),
+            font_tiny, UI_SUB,
             (x + w - 12, y + 90), "topright", shadow=False)
 
     now = pygame.time.get_ticks()
@@ -4757,7 +4876,7 @@ def select_weapon():
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
         {"name": "창", "desc": "속도 비례 데미지, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
         {"name": "해머", "desc": "묵직한 한 방, 최강 넉백", "skill": "대지 강타 (기절)", "type": "hammer", "color": (205, 205, 215)},
-        {"name": "글로브", "desc": "초고속, 짧은 사거리", "skill": "러시 (공속 3배)", "type": "gloves", "color": (255, 170, 200)},
+        {"name": "글로브", "desc": "초고속 강철 주먹, 짧은 사거리", "skill": "백열권 (연타 + 어퍼컷)", "type": "gloves", "color": (220, 90, 90)},
     ]
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
     card_h = 172
@@ -4945,7 +5064,7 @@ def build_cumulative_upgrade_lines(player):
     if counts.get("katana_skill_chain", 0) > 0:
         lines.append(f"연참 스택당 데미지: +{5 + counts['katana_skill_chain'] * 3}%")
     if counts.get("gloves_skill_strikes", 0) > 0:
-        lines.append(f"러시 시간: +{counts['gloves_skill_strikes'] * 0.5:.1f}초")
+        lines.append(f"백열권 시간: +{counts['gloves_skill_strikes'] * 0.25:.2f}초")
     if counts.get("spear_skill_pierces", 0) > 0:
         lines.append(f"물보라 범위: +{counts['spear_skill_pierces'] * 30}px")
 
@@ -5209,7 +5328,7 @@ def build_upgrade_choices(player):
         ]
     elif weapon_type == "gloves":
         weapon_upgrades = [
-            {"name": "러시 시간 +0.5초", "desc": "더 오래 러시", "type": "gloves_skill_strikes", "color": (200, 150, 200)},
+            {"name": "백열권 시간 +0.25초", "desc": "더 오래 두드림", "type": "gloves_skill_strikes", "color": (220, 120, 100)},
             {"name": f"{player.weapon.name} 데미지 +2", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 2},
             {"name": "공격 속도 +10%", "desc": "더 빠른 펀치", "type": f"melee_skill_speed_{weapon_type}", "color": (200, 150, 150)},
         ]
@@ -5519,7 +5638,7 @@ def get_upgrade_name(upgrade_type):
         "hammer_skill_range": "대지 강타 범위 +20px",
         "melee_damage_hammer": "해머 데미지 +10",
         "hammer_skill_damage": "대지 강타 피해 +10%",
-        "gloves_skill_strikes": "러시 시간 +0.5초",
+        "gloves_skill_strikes": "백열권 시간 +0.25초",
         "melee_damage_gloves": "글로브 데미지 +2",
         "melee_skill_speed_gloves": "글로브 속도 +10%",
         # 원거리 무기 스킬
@@ -6103,7 +6222,7 @@ def main():
                                     melee_hit = True
                                     melee.has_hit.add(zombie)   # 휘두르는 동안 다시 맞지 않게
                                     # 갑옷/방패 감소 적용 (예전에는 근접 기본 공격만 감소를 무시했음)
-                                    zombie.health -= roll_crit_damage(player, melee_damage, zombie) * get_damage_multiplier(zombie)
+                                    zombie.health -= melee_strike_damage(player, melee_damage, zombie)
                                     fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS.get(player.weapon.weapon_type, WHITE))
 
                                     if player.skills.get("skill_fire_bullets", False):
