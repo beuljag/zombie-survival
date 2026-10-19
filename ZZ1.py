@@ -209,14 +209,26 @@ import os
 import json
 
 # pygame 초기화
+os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "1")   # 화면 확대/축소를 부드럽게 (계단 현상 방지)
 pygame.init()
 
-# 화면 설정
+# 화면 설정: 장치 화면 크기에 맞춰 자동 조절
+#  게임은 높이 900~1080의 "논리 화면"에 그리고 (가로는 장치의 화면비에 맞춤), 그래픽카드가 실제 화면 크기로 확대/축소함
+#  → 4K/QHD에서는 글자·UI가 작아지지 않고, 노트북(768/720)에서는 UI가 꽉 차거나 잘리지 않으며,
+#    어떤 장치든 보이는 게임 범위가 거의 같음 (멀티에서 공평)
+LOGICAL_MIN_HEIGHT = 900
+LOGICAL_MAX_HEIGHT = 1080
 info = pygame.display.Info()
-SCREEN_WIDTH = info.current_w
-SCREEN_HEIGHT = info.current_h
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
-SCREEN_WIDTH, SCREEN_HEIGHT = screen.get_size()   # 실제로 만들어진 화면 크기 기준으로 UI 배치
+NATIVE_WIDTH, NATIVE_HEIGHT = info.current_w, info.current_h
+SCREEN_HEIGHT = max(LOGICAL_MIN_HEIGHT, min(LOGICAL_MAX_HEIGHT, NATIVE_HEIGHT))
+SCREEN_WIDTH = round(SCREEN_HEIGHT * NATIVE_WIDTH / max(1, NATIVE_HEIGHT))
+try:
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
+except pygame.error:
+    # 확대 모드를 못 쓰는 환경이면 예전처럼 장치 해상도 그대로
+    SCREEN_WIDTH, SCREEN_HEIGHT = NATIVE_WIDTH, NATIVE_HEIGHT
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
+SCREEN_WIDTH, SCREEN_HEIGHT = screen.get_size()   # 실제로 만들어진 (논리) 화면 크기 기준으로 UI 배치
 # 한글 입력기(IME)가 켜져 있으면 글자 키가 "조합 중인 글자"로 가로채져 키 입력/키 설정이 안 될 수 있어서 끔
 # (글자를 입력하는 화면 - 멀티 IP 입력 - 에서만 잠깐 켬)
 pygame.key.stop_text_input()
