@@ -149,7 +149,7 @@
 - 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 데미지) (8초)
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
-- 글로브: 초당 공격 7/10/14회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 60%)
+- 글로브: 초당 공격 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 60%)
 - 글로브: 백열권 - 1.2초 동안 마우스 방향 앞쪽을 주먹으로 마구 두드리고(0.07초마다 0.6배), 마지막 어퍼컷(4배)으로 날려 보내며 1초 기절 (15초)
 - 글록: 항공 폭격 - 비행기가 날아와 조준 방향 직선(약 1000px)에 폭탄을 줄줄이 떨어뜨림
   폭탄 1발 기본 1000 데미지, 공격력이 오르면 같은 비율로 증가 (80초)
@@ -362,7 +362,7 @@ GLOVES_UPPERCUT_MULT = 4.0
 GLOVES_UPPERCUT_KNOCKBACK = 22
 GLOVES_UPPERCUT_STUN = 60
 # 글로브 추가 타격: 초당 공격 횟수가 기준 이상이면 한 번 칠 때 몇 대씩 더 때림 (추가 타격은 60% 데미지, 치명타 따로)
-GLOVES_EXTRA_HIT_STEPS = ((14, 3), (10, 2), (7, 1))
+GLOVES_EXTRA_HIT_STEPS = ((9, 3), (7, 2), (5.5, 1))   # 초당 5.5회 이상 +1, 7회 +2, 9회 +3
 GLOVES_EXTRA_HIT_RATIO = 0.6
 # 치명타 피해 배율: 기본 1.3배, 저격총 전용 "치명타 데미지 +25%" 업그레이드 1회당 +0.25 (최대 10회 = 3.8배)
 CRIT_BASE_MULT = 1.3
@@ -935,25 +935,26 @@ _gauntlet_cache = {}
 
 
 def draw_gauntlet_art(scale=1.0):
-    """강철 건틀릿 (오른쪽을 향한 주먹): 붉은 손목 띠 + 금빛 리벳 + 짙은 강철 손등 + 마디 판"""
+    """복싱 글러브 (오른쪽을 향한 주먹): 통통하고 광택 있는 진한 빨강 + 엄지 + 흰 손목 커프와 끈"""
     key = round(scale, 2)
     art = _gauntlet_cache.get(key)
     if art is not None:
         return art
-    w, h = int(64 * scale), int(48 * scale)
+    w, h = int(66 * scale), int(52 * scale)
     art = pygame.Surface((w, h), pygame.SRCALPHA)
-    u = lambda v: int(v * scale)
-    pygame.draw.rect(art, (150, 30, 40), (0, u(12), u(20), u(24)), border_radius=u(4))            # 붉은 손목 띠
-    pygame.draw.rect(art, (90, 15, 22), (0, u(12), u(20), u(24)), max(1, u(2)), border_radius=u(4))
-    for ry in (16, 24, 32):                                                                       # 금빛 리벳
-        pygame.draw.circle(art, (235, 190, 80), (u(10), u(ry)), max(1, u(2)))
-    pygame.draw.rect(art, (78, 84, 98), (u(16), u(6), u(34), u(36)), border_radius=u(8))           # 손등 강철
-    pygame.draw.rect(art, (125, 132, 150), (u(20), u(9), u(26), u(8)), border_radius=u(3))         # 손등 빛
-    for i in range(4):                                                                            # 마디 판 4개
-        ky = u(7 + i * 9)
-        pygame.draw.rect(art, (150, 158, 176), (u(46), ky, u(16), u(8)), border_radius=u(3))
-        pygame.draw.rect(art, (60, 64, 76), (u(46), ky, u(16), u(8)), max(1, u(1)), border_radius=u(3))
-    pygame.draw.rect(art, (40, 42, 52), (u(16), u(6), u(34), u(36)), max(1, u(2)), border_radius=u(8))
+    u = lambda v: max(1, int(v * scale))
+    red, dark, light = (205, 30, 45), (120, 12, 24), (255, 120, 120)
+    pygame.draw.rect(art, (240, 236, 228), (0, u(13), u(20), u(26)), border_radius=u(5))           # 흰 손목 커프
+    pygame.draw.rect(art, (170, 165, 158), (0, u(13), u(20), u(26)), u(2), border_radius=u(5))
+    for lx in (6, 12):                                                                           # 끈
+        pygame.draw.line(art, (150, 30, 40), (u(lx), u(16)), (u(lx + 4), u(36)), u(2))
+    pygame.draw.ellipse(art, red, (u(14), u(3), u(50), u(42)))                                   # 주먹 (통통한 몸통)
+    pygame.draw.ellipse(art, dark, (u(14), u(3), u(50), u(42)), u(2))
+    pygame.draw.ellipse(art, red, (u(22), u(32), u(26), u(16)))                                  # 엄지
+    pygame.draw.ellipse(art, dark, (u(22), u(32), u(26), u(16)), u(2))
+    pygame.draw.arc(art, dark, (u(44), u(10), u(16), u(28)), -1.2, 1.2, u(2))                    # 주먹 마디 선
+    pygame.draw.ellipse(art, light, (u(24), u(8), u(26), u(10)))                                 # 광택
+    pygame.draw.ellipse(art, (255, 205, 205), (u(28), u(9), u(12), u(5)))
     _gauntlet_cache[key] = art
     return art
 
@@ -4401,7 +4402,7 @@ class Melee(pygame.sprite.Sprite):
             self.swing_angle = 110
             self.attack_range = 155
         elif weapon_type == "gloves":
-            # 글로브 - 강철 건틀릿 (붉은 손목 띠 + 금빛 리벳 + 강철 마디 판)
+            # 글로브 - 복싱 글러브 (광택 있는 진한 빨강 + 흰 커프)
             self.base_image = draw_gauntlet_art(0.9).copy()
             self.duration = 15
             self.knockback_power = 700
@@ -4876,7 +4877,7 @@ def select_weapon():
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
         {"name": "창", "desc": "속도 비례 데미지, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
         {"name": "해머", "desc": "묵직한 한 방, 최강 넉백", "skill": "대지 강타 (기절)", "type": "hammer", "color": (205, 205, 215)},
-        {"name": "글로브", "desc": "초고속 강철 주먹, 짧은 사거리", "skill": "백열권 (연타 + 어퍼컷)", "type": "gloves", "color": (220, 90, 90)},
+        {"name": "글로브", "desc": "초고속 연타, 짧은 사거리", "skill": "백열권 (연타 + 어퍼컷)", "type": "gloves", "color": (220, 60, 70)},
     ]
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
     card_h = 172
