@@ -8,3 +8,5 @@ dist/
 *.spec
 zombie_save.json
 keybinds.json
+# 받은 원본 에셋 팩 (게임은 assets 폴더를 씀)
+game_assets_*/
