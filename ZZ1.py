@@ -116,7 +116,7 @@
 - 속도: +0.3 또는 +0.5 이동속도 증가
 - 데미지: +2 또는 +5 모든 무기 데미지 증가
 - 재생: +0.3 또는 +0.5 초당 체력 회복
-- 치명타: 5% 확률로 1.3배 데미지 (중첩 가능, 5%씩 증가) / 저격총 전용 "치명타 데미지 +25%"로 배율 증가 (최대 3.8배)
+- 치명타: 5% 확률로 1.3배 데미지 (중첩 가능, 5%씩 증가) / 저격총 전용 "치명타 피해 +25%"로 배율 증가 (최대 3.8배)
 - 회피: 5% 확률로 피해 회피 (중첩 가능, 5%씩 증가)
 - 경험치: +20% 좀비 처치 시 경험치 추가
 - 완전 회복: 체력 100% 회복
@@ -140,24 +140,24 @@
   적을 처치하면 쿨타임 초기화 + 다음 일섬 데미지 +5% (연참, 중첩), 처치에 실패하거나 1초 안에 다시 쓰지 않으면 원래대로
   일섬으로 처치한 좀비 1마리당 체력 1 회복
   기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발)가 일섬에도 적용됨
-  "카타나 데미지 +3" 강화 1회당 일섬 데미지 +10% 추가
+  "카타나 공격력 +3" 강화 1회당 일섬 피해 +10% 추가
   오의 연섬 (패시브, 레벨 6부터 업그레이드로 획득): 일섬 피해 25%가 고정 피해로 (최소 대상 최대 체력 6%, 방어 무시)
-  "연참 데미지 +3%" 업그레이드로 스택당 보너스 증가
+  "연참 피해 +3%" 업그레이드로 스택당 보너스 증가
   일섬으로 처치한 좀비는 경험치 75%
 - 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (제한 없음) (12초)
   체력이 가득 차서 넘친 흡혈량의 50%는 5초 동안 흡혈 보호막 (최대 체력의 50%까지, 피해를 먼저 받음)
-- 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 데미지) (8초)
+- 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 피해) (8초)
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 일렉 기타: 공격 속도가 빠를수록 박자도 빨라짐, 박자 맞출 때마다 기타 멜로디가 한 음씩 이어짐
 - 일렉 기타: 박자 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +50%, 2초 동안 못 맞추면 사라짐)
 - 일렉 기타: 앙코르 - 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% · 상태 이상 정화/면역,
-  팀원 스킬 쿨타임 -3초 + 내 주변 음파 + 넓은 범위 좀비 불협화음 (5초 동안 받는 피해 +25%, 40% 느려짐) (20초)
+  팀 전체 남은 스킬 쿨타임 -10% (팀원은 추가로 -3초) + 내 주변 음파 + 넓은 범위 좀비 불협화음 (5초 동안 받는 피해 +25%, 40% 느려짐) (20초)
 - 글로브: 초당 공격 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 60%)
 - 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공속 +2% (최대 +50%),
   10콤보마다 강타 충격파 (3배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동), 백열권은 콤보당 +3% 후 어퍼컷에서 콤보 소모
 - 글로브: 백열권 - 1.2초 동안 마우스 방향 앞쪽을 주먹으로 마구 두드리고(0.07초마다 0.6배), 마지막 어퍼컷(4배)으로 날려 보내며 1초 기절 (15초)
 - 글록: 항공 폭격 - 비행기가 날아와 조준 방향 직선(약 1000px)에 폭탄을 줄줄이 떨어뜨림
-  폭탄 1발 기본 1000 데미지, 공격력이 오르면 같은 비율로 증가 (80초)
+  폭탄 1발 기본 1000 피해, 공격력이 오르면 같은 비율로 증가 (80초)
 - 기관총: 포탑 설치 - 6초 동안 자동으로 쏘는 포탑 (18초)
 - 샷건: 용의 숨결 - 앞쪽 부채꼴 화염 방사 + 불붙임 (10초)
 - 저격총: 도탄 사격 - 한 발이 맞은 좀비에서 주변 좀비로 10번 튕김 (맞을 때마다 3배 데미지, "도탄 +3회" 업그레이드) (12초)
@@ -213,6 +213,7 @@ import math
 import sys
 import os
 import json
+import time
 
 # pygame 초기화
 os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "1")   # 화면 확대/축소를 부드럽게 (계단 현상 방지)
@@ -322,8 +323,8 @@ KATANA_CHAIN_BONUS = 0.05        # 연속 1회당 +5%
 KATANA_DASH_EXP_RATIO = 0.75     # 일섬으로 처치한 좀비의 경험치 비율 (75%)
 KATANA_CHAIN_WINDOW = 60         # 연참: 쿨타임 초기화 후 1초 안에 다시 쓰지 않으면 스택 초기화
 KATANA_KILL_HEAL = 1             # 일섬으로 처치한 좀비 1마리당 체력 회복
-KATANA_CHAIN_UPGRADE = 0.03      # "연참 데미지" 업그레이드 1회당 스택당 보너스 +3%
-KATANA_DASH_UPGRADE_BONUS = 0.10 # "카타나 데미지 +3" 강화 1회당 일섬 데미지 추가 +10% (공격력 증가와 별도로)
+KATANA_CHAIN_UPGRADE = 0.03      # "연참 피해" 업그레이드 1회당 스택당 보너스 +3%
+KATANA_DASH_UPGRADE_BONUS = 0.10 # "카타나 공격력 +3" 강화 1회당 일섬 데미지 추가 +10% (공격력 증가와 별도로)
 # 오의 연섬 (카타나 패시브, 레벨 6부터 업그레이드로 1회 획득): 일섬 피해의 25%를 고정 피해로 바꿈
 #  고정 피해 = max(떼어낸 25%, 대상 최대 체력의 6%) - 갑옷/방패/수호 오라 감소를 무시
 KATANA_OUGI_RATIO = 0.25
@@ -343,7 +344,7 @@ OVERHEAL_SHIELD_MAX = 0.5
 #  (폭탄 데미지 = 1000 × 현재 공격력 / 글록 기본 공격력)
 #  "폭격 범위" 업그레이드 1회당: 폭격 길이 +100px, 폭발 반경(폭) +15px
 GLOCK_STRIKE_BASE_DAMAGE = 1000
-# 창: 데미지가 이동속도에 비례 (기본 속도 7 기준) / 들고 달리면 정면 좀비에게 돌진 피해 + 넉백 / 스킬 물보라
+# 창: 공격력이 이동속도에 비례 (기본 속도 7 기준) / 들고 달리면 정면 좀비에게 돌진 피해 + 넉백 / 스킬 물보라
 SPEAR_BASE_SPEED = 7
 SPEAR_CHARGE_RATIO = 0.8          # 돌진 피해 = 현재 창 공격력의 80%
 SPEAR_CHARGE_REACH = 100          # 정면 이 거리 안
@@ -398,6 +399,7 @@ RHYTHM_GOOD_MS = 120
 RHYTHM_PERFECT_MULT = 2.0
 RHYTHM_GOOD_MULT = 1.4
 RHYTHM_MISS_MULT = 0.6
+RHYTHM_DOUBLE_MULT = 0.3   # 같은 박자에 두 번 이상 치면 (연타 방지)
 GROOVE_MAX = 10
 GROOVE_BONUS = 0.05
 BEAT_BUFF_FRAMES = 120
@@ -409,6 +411,10 @@ BEAT_BUFF_UPGRADE_CAP = 0.05
 BEAT_BUFF_UPGRADE_MAX = 10
 BEAT_BUFF_TIME_UPGRADE = 30    # 전용 업그레이드 "박자 버프 지속 +0.5초" (최대 8회 → 6초)
 BEAT_BUFF_TIME_UPGRADE_MAX = 8
+# 전용 업그레이드 "판정 범위 증가" (최대 5회): PERFECT +8ms(박자의 1.6%), GOOD +12ms(박자의 2%) 씩 넓어짐
+JUDGE_UPGRADE_PERFECT_MS, JUDGE_UPGRADE_PERFECT_FRAC = 8, 0.016
+JUDGE_UPGRADE_GOOD_MS, JUDGE_UPGRADE_GOOD_FRAC = 12, 0.02
+JUDGE_UPGRADE_MAX = 5
 ENCORE_FRAMES = 360
 ENCORE_DEFENSE = 0.25        # 받는 피해 -25% ("앙코르 방어 +5%" 업그레이드로 증가, 최대 60%)
 ENCORE_DEFENSE_MAX = 0.60
@@ -417,6 +423,7 @@ ENCORE_SPEED = 0.20
 ENCORE_WAVE_RADIUS = 200
 ENCORE_WAVE_MULT = 1.5
 ENCORE_COOLDOWN_CUT = 3000     # 팀원 스킬 쿨타임 3초 감소
+ENCORE_COOLDOWN_RATIO = 0.10   # 앙코르를 쓰는 순간 팀 전체(나 포함) 남은 스킬 쿨타임 10% 감소
 ENCORE_DEBUFF_RADIUS = 320     # 불협화음 범위
 ENCORE_DEBUFF_FRAMES = 300     # 5초
 ENCORE_DEBUFF_TAKEN = 1.25     # 받는 피해 +25%
@@ -424,7 +431,7 @@ ENCORE_DEBUFF_SLOW = 0.6       # 40% 느려짐
 TEAM_PROVIDER = None   # 멀티에서 "팀 전체" 플레이어 목록을 돌려주는 함수 (1인용은 None → 나만)
 LOCAL_PLAYER = None    # 멀티: 이 PC의 플레이어 (소리는 내 것만) / 1인용은 None
 RHYTHM_SOUND_ON_JUDGE = True   # 1인용: 판정할 때 소리 / 멀티: 클릭한 순간 내 PC에서 바로 소리 (판정은 늦게 오므로)
-# 치명타 피해 배율: 기본 1.3배, 저격총 전용 "치명타 데미지 +25%" 업그레이드 1회당 +0.25 (최대 10회 = 3.8배)
+# 치명타 피해 배율: 기본 1.3배, 저격총 전용 "치명타 피해 +25%" 업그레이드 1회당 +0.25 (최대 10회 = 3.8배)
 CRIT_BASE_MULT = 1.3
 SNIPER_CRIT_DAMAGE_UPGRADE = 0.25
 SNIPER_CRIT_DAMAGE_MAX = 10
@@ -475,7 +482,7 @@ def tick_katana_chain(player):
 
 
 def get_katana_chain_bonus(player):
-    """연참 스택 1개당 데미지 보너스 (기본 5% + 연참 데미지 업그레이드)"""
+    """연참 스택 1개당 데미지 보너스 (기본 5% + 연참 피해 업그레이드)"""
     return KATANA_CHAIN_BONUS + KATANA_CHAIN_UPGRADE * player.skill_upgrades["katana"].get("chain", 0)
 
 # 투사체 관통 업그레이드 최대 레벨
@@ -571,6 +578,35 @@ def _render_cached(font, text, color, shadow=False):
             base = merged
         entry = _text_cache[key] = (base, w, h)
     return entry
+
+
+_FONT_INFO = {}      # 글꼴 → (크기, 굵게) : 칸에 안 들어가는 글자를 작은 글꼴로 바꿀 때 사용
+_fit_font_cache = {}
+
+
+def _register_fonts():
+    for font, size, bold in ((font_large, 48, False), (font_small, 36, False), (font_medium, 28, False), (font_desc, 20, False),
+                             (font_control, 24, False), (font_title, 54, True), (font_hud_big, 32, True), (font_hud, 19, True),
+                             (font_tiny, 15, False)):
+        _FONT_INFO[id(font)] = (size, bold)
+
+
+def ui_fit_font(font, text, max_width):
+    """글자가 칸(max_width)보다 넓으면 들어갈 때까지 작은 글꼴로 (최소 12)"""
+    if font.size(str(text))[0] <= max_width:
+        return font
+    if not _FONT_INFO:
+        _register_fonts()
+    size, bold = _FONT_INFO.get(id(font), (font.get_height() * 3 // 4, False))
+    while size > 12:
+        size -= 2
+        key = (size, bold)
+        smaller = _fit_font_cache.get(key)
+        if smaller is None:
+            smaller = _fit_font_cache[key] = pygame.font.SysFont('malgun gothic', size, bold=bold)
+        if smaller.size(str(text))[0] <= max_width:
+            return smaller
+    return smaller
 
 
 def ui_wrap(text, font, width):
@@ -701,7 +737,8 @@ def ui_card(surface, rect, accent, hover=False, title="", lines=(), badge=None, 
     if badge:
         ui_text(surface, badge, font_tiny, accent if hover else UI_DIM, (rect.right - 10, rect.bottom - 6), "bottomright", shadow=False)
     if title:
-        y = ui_text(surface, title, title_font or font_medium, title_color, (x, y)).bottom + 4
+        font = ui_fit_font(title_font or font_medium, title, rect.w - 30)   # 긴 제목은 작게 (칸 밖으로 안 나가게)
+        y = ui_text(surface, title, font, title_color, (x, y)).bottom + 4
     line_font = line_font or font_desc
     for entry in lines:
         text, color = (entry, UI_SUB) if isinstance(entry, str) else entry
@@ -802,6 +839,7 @@ class EffectManager:
         self.burst(x, y, color, 5, speed=(2.5, 6.5), size=(1.5, 2.5), life=(4, 8), drag=0.8, angle=angle, spread=0.8)
 
     def death_burst(self, x, y, color, size):
+        sfx("death", x, y, 0.7)
         count = min(40, 10 + size // 3)
         self.burst(x, y, color, count, speed=(1.5, 5.5), size=(2, 5), life=(18, 34), drag=0.88)
         dark = tuple(max(0, c // 2) for c in color)
@@ -867,6 +905,7 @@ class EffectManager:
             del self.texts[:len(self.texts) - self.MAX_TEXTS]
 
     def add_damage_text(self, x, y, amount, crit=False):
+        sfx("crit" if crit else "hit", x, y, 0.8)
         if crit:
             self.add_text(x, y, f"{amount:.0f}!", (255, 220, 60), big=True, life=50)
         else:
@@ -878,6 +917,7 @@ class EffectManager:
 
     def add_hurt(self, amount):
         self.hurt = min(1.0, self.hurt + amount)
+        sfx("hurt")
 
     def shake_offset(self):
         if self.shake <= 0:
@@ -1248,6 +1288,7 @@ def fire_muzzle_flash(player, target_x, target_y, kick=0.0):
     ux, uy = dx / dist, dy / dist
     color = FX_WEAPON_COLORS.get(player.weapon.weapon_type, YELLOW)
     fx.muzzle_flash(player.rect.centerx + ux * 28, player.rect.centery + uy * 28, ux, uy, color)
+    sfx(f"shot_{player.weapon.weapon_type}", player.rect.centerx, player.rect.centery)
     if kick:
         fx.add_shake(kick)
 
@@ -1528,6 +1569,7 @@ class Player(pygame.sprite.Sprite):
         self.beat_buff_power = 0.0
         self.beat_pos = 0.0      # 일렉 기타 박자 시계 (박자 단위, 공속에 따라 빨라짐)
         self.beat_hist = []      # 최근 박자 위치 (멀티: 클릭한 순간 기준 판정용)
+        self.last_judged_beat = None   # 판정한 박자 번호 (박자 하나에 판정 한 번)
         self.invuln_time = 0     # 무적 남은 시간 (카타나 일섬 직후)
         self.overshield = 0.0    # 흡혈 보호막 (도끼 대회전 베기로 넘친 회복량)
         self.overshield_time = 0
@@ -1565,7 +1607,7 @@ class Player(pygame.sprite.Sprite):
             "katana": {"strikes": 0, "speed": 0, "damage": 0, "cooldown": 0, "chain": 0, "ougi": 0},  # 연격 수, 공격속도, 데미지, 쿨타임 감소
             "axe": {"range": 0, "knockback": 0, "damage": 0, "area": 0},  # 범위, 넉백 강화, 데미지, 지진파 범위
             "spear": {"pierces": 0, "speed": 0, "range": 0, "damage": 0},  # 관통 수, 공격속도, 사거리, 데미지
-            "hammer": {"range": 0, "damage": 0, "cooldown": 0, "stun": 0, "beat": 0, "beat_time": 0},  # 앙코르 시간, 앙코르 방어, 쿨타임, (안 씀), 박자 버프 증가
+            "hammer": {"range": 0, "damage": 0, "cooldown": 0, "stun": 0, "beat": 0, "beat_time": 0, "judge": 0},  # 앙코르 시간, 앙코르 방어, 쿨타임, (안 씀), 박자 버프 증가
             "gloves": {"strikes": 0, "speed": 0, "damage": 0, "combo": 0},  # 연격 수, 공격속도, 데미지, 콤보 게이지
             # 원거리 무기
             "glock": {"burst": 0, "damage": 0, "fire_rate": 0, "accuracy": 0},  # 연사 탄수, 데미지, 발사 속도, 정확도
@@ -2606,6 +2648,7 @@ class Explosion(pygame.sprite.Sprite):
     def __init__(self, x, y, radius=100):
         super().__init__()
         self.radius = int(radius)
+        sfx("explosion", x, y, min(1.0, 0.45 + radius / 250))
         size = self.radius * 2 + 6
         self.image = pygame.Surface((size, size), pygame.SRCALPHA)
         self.rect = self.image.get_rect()
@@ -2674,7 +2717,7 @@ def apply_player_damage(player, amount, explosion=False):
 
 
 def get_crit_multiplier(player):
-    """치명타 피해 배율 (기본 1.3배 + 저격총 "치명타 데미지" 업그레이드)"""
+    """치명타 피해 배율 (기본 1.3배 + 저격총 "치명타 피해" 업그레이드)"""
     return CRIT_BASE_MULT + SNIPER_CRIT_DAMAGE_UPGRADE * player.skill_upgrades["sniper"].get("crit_damage", 0)
 
 
@@ -2774,27 +2817,61 @@ def rhythm_offset(player, frames_ago=0):
     return (frac if frac < 0.5 else frac - 1.0) * beat_ms_of(player.weapon)
 
 
-def rhythm_grade(player, frames_ago=0):
-    """친 순간이 박자에 얼마나 맞았는지: "perfect" / "good" / "miss" (frames_ago: 몇 프레임 전 박자 위치로 판정)"""
+def beat_pos_at(player, frames_ago=0):
     hist = player.beat_hist
-    pos = hist[-1 - frames_ago] if 0 <= frames_ago < len(hist) else player.beat_pos
+    return hist[-1 - frames_ago] if 0 <= frames_ago < len(hist) else player.beat_pos
+
+
+def rhythm_grade(player, frames_ago=0):
+    """친 순간이 박자에 얼마나 맞았는지: "perfect" / "good" / "miss" / "double"(이미 판정한 박자에 또 침)
+    맞히면 가장 가까운 박자, 놓치면 방금 지나간 박자를 차지함 → 박자 하나에 판정은 한 번 (연타 방지)"""
+    grade = _rhythm_base_grade(player, frames_ago)
+    if _beat_claim(player, grade, frames_ago) == getattr(player, "last_judged_beat", None):
+        return "double"
+    return grade
+
+
+def _beat_claim(player, grade, frames_ago):
+    pos = beat_pos_at(player, frames_ago)
+    return int(round(pos)) if grade in ("perfect", "good") else int(math.floor(pos))
+
+
+def _rhythm_base_grade(player, frames_ago=0):
+    pos = beat_pos_at(player, frames_ago)
     beat_ms = beat_ms_of(player.weapon)
     frac = pos % 1.0
     off = min(frac, 1.0 - frac) * beat_ms
-    if off <= min(RHYTHM_PERFECT_MS, beat_ms * 0.12):
+    perfect, good = rhythm_windows(player, beat_ms)
+    if off <= perfect:
         return "perfect"
-    if off <= min(RHYTHM_GOOD_MS, beat_ms * 0.24):
+    if off <= good:
         return "good"
     return "miss"
+
+
+def rhythm_windows(player, beat_ms):
+    """판정 범위(ms): 박자가 빨라지면 좁아지고, 전용 업그레이드 "판정 범위 증가"로 넓어짐"""
+    lv = player.skill_upgrades["hammer"].get("judge", 0)
+    perfect = min(RHYTHM_PERFECT_MS + JUDGE_UPGRADE_PERFECT_MS * lv, beat_ms * (0.12 + JUDGE_UPGRADE_PERFECT_FRAC * lv))
+    good = min(RHYTHM_GOOD_MS + JUDGE_UPGRADE_GOOD_MS * lv, beat_ms * (0.24 + JUDGE_UPGRADE_GOOD_FRAC * lv))
+    return perfect, good
 
 
 def rhythm_judge(player, frames_ago=0):
     """일렉 기타: 박자 판정 → 데미지 배율 (그루브 포함), 판정 글자 + 팀 박자 버프"""
     grade = rhythm_grade(player, frames_ago)
-    if RHYTHM_SOUND_ON_JUDGE:
-        play_rhythm_sound(grade, player)
+    if grade != "double":
+        player.last_judged_beat = _beat_claim(player, grade, frames_ago)
+    if RHYTHM_SOUND_ON_JUDGE or (LOCAL_PLAYER is not None and player is not LOCAL_PLAYER):
+        play_rhythm_sound(grade, player)   # 1인용: 판정 때 / 멀티: 팀원 기타 소리 (내 것은 클릭할 때 이미 남)
     x, y = player.rect.centerx, player.rect.top - 44
     offset = rhythm_offset(player, frames_ago)
+    if grade == "double":   # 같은 박자에 연타: 아주 약하고 그루브 끊김 (마구 누르는 것보다 박자 맞추는 게 강하게)
+        if player.groove >= 3:
+            fx.add_text(x, y - 18, "그루브 끊김", (170, 160, 150), life=24)
+        player.groove = 0
+        fx.add_text(x, y, "연타!", (150, 150, 160), life=18)
+        return RHYTHM_DOUBLE_MULT
     if grade != "perfect" or abs(offset) >= 20:   # 빠름/느림 (PERFECT는 20ms 이상 어긋났을 때만)
         early = offset < 0
         fx.add_text(x, y + 22, f"{'빠름' if early else '느림'} {abs(offset):.0f}ms",
@@ -2968,6 +3045,7 @@ def get_sfx(name):
     if name in _sfx:
         return _sfx[name]
     if not _ensure_mixer():
+        _sfx[name] = None
         return None
     try:
         rate, div = _synth_rate()
@@ -2984,13 +3062,162 @@ def get_sfx(name):
         elif name.startswith("note"):
             data = _synth_pluck(rate, [_midi_hz(int(name[4:]))])
         else:
-            return None
+            data = _synth_game_sfx(name, rate)
+            if data is None:
+                return None
+            peak = max(abs(v) for v in data) or 1.0   # 소리마다 크기 맞춤
+            target = SFX_PEAKS.get(name, 0.6)
+            data = [v * target / peak for v in data]
         sound = _make_sound(data, div)
         _sfx[name] = sound
         return sound
     except Exception:
         _sfx[name] = None   # 이 소리만 포기 (다른 소리는 계속)
         return None
+
+
+# ---------- 게임 효과음 (총/근접/타격/처치/폭발/레벨업 등) ----------
+SFX_VOLUME = [0.7]          # 전체 효과음 크기
+SFX_MUTED = [False]         # M 키로 켜기/끄기
+SFX_LISTENER = [None]       # 듣는 위치 (내 플레이어) - 멀리서 난 소리는 작게
+_sfx_last = {}              # 같은 소리가 너무 자주 겹치지 않게 (실제 시간 기준)
+SFX_MIN_GAP = {"hit": 0.045, "crit": 0.06, "death": 0.05, "explosion": 0.08, "swing": 0.05, "pickup": 0.05,
+               "shot_machinegun": 0.05, "shot_glock": 0.04, "shot_shotgun": 0.06, "shot_plasma": 0.05,
+               "shot_sniper": 0.05, "shot_rocket": 0.06, "skill": 0.1, "hurt": 0.12}
+
+
+SFX_PEAKS = {"hurt": 0.3, "click": 0.25, "pickup": 0.4, "levelup": 0.45, "upgrade": 0.45, "wave": 0.5,
+             "shot_machinegun": 0.45, "swing": 0.5, "hit": 0.5, "death": 0.55, "explosion": 0.8, "shot_sniper": 0.75}
+
+
+def _lowpass(data, amount):
+    out, v = [], 0.0
+    for x in data:
+        v += (x - v) * amount
+        out.append(v)
+    return out
+
+
+def _env_noise(rate, sec, decay, vol, lp=1.0, attack=0.0):
+    n, out = int(rate * sec), []
+    for i in range(n):
+        t = i / rate
+        env = math.exp(-t * decay) * (min(1.0, t / attack) if attack else 1.0)
+        out.append(_sfx_rng.uniform(-1, 1) * env * vol)
+    return _lowpass(out, lp) if lp < 1.0 else out
+
+
+def _sweep(rate, sec, f0, f1, decay, vol, shape="sine"):
+    n, out, phase = int(rate * sec), [], 0.0
+    for i in range(n):
+        t = i / rate
+        f = f0 + (f1 - f0) * (i / n)
+        phase += 2 * math.pi * f / rate
+        v = math.sin(phase)
+        if shape == "square":
+            v = 1.0 if v >= 0 else -1.0
+        out.append(v * math.exp(-t * decay) * vol)
+    return out
+
+
+def _mix(*parts):
+    n = max(len(p) for p in parts)
+    return [sum(p[i] for p in parts if i < len(p)) for i in range(n)]
+
+
+def _notes(rate, freqs, each, vol, decay=14):
+    out = []
+    for f in freqs:
+        out += _sweep(rate, each, f, f, decay, vol)
+    return out
+
+
+def _synth_game_sfx(name, rate):
+    """게임 효과음 합성 (파일 없이) - 없는 이름이면 None"""
+    if name == "shot_glock":
+        return _mix(_env_noise(rate, 0.09, 55, 0.55, lp=0.5), _sweep(rate, 0.06, 900, 200, 40, 0.3))
+    if name == "shot_machinegun":
+        return _mix(_env_noise(rate, 0.06, 70, 0.45, lp=0.55), _sweep(rate, 0.04, 600, 150, 50, 0.2))
+    if name == "shot_shotgun":
+        return _mix(_env_noise(rate, 0.22, 20, 0.7, lp=0.3), _sweep(rate, 0.12, 160, 50, 25, 0.5))
+    if name == "shot_sniper":
+        return _mix(_env_noise(rate, 0.3, 14, 0.6, lp=0.25), _sweep(rate, 0.2, 120, 40, 14, 0.6),
+                    _sweep(rate, 0.05, 2400, 900, 60, 0.15))
+    if name == "shot_plasma":
+        return _mix(_sweep(rate, 0.16, 1300, 260, 16, 0.45), _env_noise(rate, 0.1, 40, 0.1, lp=0.6))
+    if name == "shot_rocket":
+        return _env_noise(rate, 0.35, 8, 0.6, lp=0.12, attack=0.05)
+    if name == "swing":
+        return _env_noise(rate, 0.16, 18, 0.55, lp=0.18, attack=0.05)
+    if name == "hit":
+        return _mix(_sweep(rate, 0.07, 190, 90, 45, 0.55), _env_noise(rate, 0.05, 70, 0.3, lp=0.4))
+    if name == "crit":
+        return _mix(_sweep(rate, 0.08, 220, 100, 40, 0.55), _sweep(rate, 0.12, 1600, 1500, 30, 0.22))
+    if name == "death":
+        return _mix(_env_noise(rate, 0.22, 16, 0.45, lp=0.15), _sweep(rate, 0.2, 140, 45, 14, 0.4))
+    if name == "explosion":
+        return _mix(_env_noise(rate, 0.7, 6, 0.8, lp=0.08), _sweep(rate, 0.45, 70, 30, 7, 0.7))
+    if name == "hurt":
+        return _sweep(rate, 0.16, 320, 140, 16, 0.25, shape="square")
+    if name == "levelup":
+        return _notes(rate, [523, 659, 784, 1047], 0.08, 0.35, decay=10)
+    if name == "pickup":
+        return _notes(rate, [880, 1320], 0.06, 0.3, decay=18)
+    if name == "skill":
+        return _mix(_sweep(rate, 0.22, 300, 950, 8, 0.3), _env_noise(rate, 0.22, 10, 0.2, lp=0.25, attack=0.04))
+    if name == "upgrade":
+        return _mix(_sweep(rate, 0.35, 659, 659, 7, 0.22), _sweep(rate, 0.35, 988, 988, 7, 0.18),
+                    _sweep(rate, 0.35, 1319, 1319, 7, 0.14))
+    if name == "wave":
+        return _mix(_sweep(rate, 0.8, 110, 110, 3, 0.4, shape="square"), _sweep(rate, 0.8, 165, 165, 3, 0.25))
+    if name == "click":
+        return _sweep(rate, 0.03, 1200, 900, 80, 0.25)
+    return None
+
+
+def set_sfx_listener(player):
+    """듣는 위치 = 내 플레이어 (매 프레임 화면 그릴 때)"""
+    SFX_LISTENER[0] = (player.rect.centerx, player.rect.centery)
+
+
+def toggle_mute():
+    SFX_MUTED[0] = not SFX_MUTED[0]
+    pygame.mixer.pause() if SFX_MUTED[0] and pygame.mixer.get_init() else None
+    if not SFX_MUTED[0] and pygame.mixer.get_init():
+        pygame.mixer.unpause()
+
+
+def sfx(name, x=None, y=None, volume=1.0):
+    """효과음 재생: 위치를 주면 내 플레이어에서 멀수록 작게, 같은 소리는 너무 자주 겹치지 않게"""
+    if SFX_MUTED[0]:
+        return
+    now = time.perf_counter()
+    gap = SFX_MIN_GAP.get(name, 0.03)
+    if now - _sfx_last.get(name, -1.0) < gap:
+        return
+    if x is not None and SFX_LISTENER[0] is not None:
+        d = math.hypot(x - SFX_LISTENER[0][0], y - SFX_LISTENER[0][1])
+        volume *= 1.0 if d < 350 else max(0.0, 1 - (d - 350) / 650)
+        if volume < 0.05:
+            return
+    sound = get_sfx(name)
+    if sound is None or not _ensure_mixer():
+        return
+    _sfx_last[name] = now
+    try:
+        channel = pygame.mixer.find_channel(True)   # 빈 채널이 없으면 가장 오래된 것을 씀 (소리가 빠지지 않게)
+        if channel is not None:
+            channel.set_volume(min(1.0, volume * SFX_VOLUME[0]))
+            channel.play(sound)
+    except Exception:
+        pass
+
+
+def warm_up_game_sfx():
+    """게임 시작 때 효과음을 미리 만들어 둠 (처음 쏠 때 멈칫하지 않게)"""
+    for name in ("shot_glock", "shot_machinegun", "shot_shotgun", "shot_sniper", "shot_plasma", "shot_rocket",
+                 "swing", "hit", "crit", "death", "explosion", "hurt", "levelup", "pickup", "skill", "upgrade", "wave", "click"):
+        get_sfx(name)
 
 
 def warm_up_sfx():
@@ -3000,8 +3227,11 @@ def warm_up_sfx():
 
 
 def play_sfx(name, player=None):
-    """소리 재생 (멀티에서는 내 플레이어 것만)"""
+    """리듬 소리 재생 (드럼/효과) - 다른 플레이어 것은 거리에 따라 작게"""
+    if SFX_MUTED[0]:
+        return
     if player is not None and LOCAL_PLAYER is not None and player is not LOCAL_PLAYER:
+        sfx(name, player.rect.centerx, player.rect.centery)
         return
     if name in ("kick", "snare", "hat"):
         _play_on("drum", get_sfx(name), 0.55)
@@ -3010,10 +3240,24 @@ def play_sfx(name, player=None):
 
 
 def play_rhythm_sound(grade, player=None):
-    """박자 맞추면 노래의 다음 음 (PERFECT는 크게), 틀리면 막힌 줄 긁는 소리"""
-    if player is not None and LOCAL_PLAYER is not None and player is not LOCAL_PLAYER:
+    """박자 맞추면 노래의 다음 음 (PERFECT는 크게), 틀리면 막힌 줄 긁는 소리 - 팀원 기타는 거리에 따라 작게"""
+    if SFX_MUTED[0]:
         return
-    if grade == "miss":
+    if player is not None and LOCAL_PLAYER is not None and player is not LOCAL_PLAYER:
+        # 팀원의 기타: 팀원 자신의 노래 진행으로, 멀수록 작게
+        if grade in ("miss", "double"):
+            sfx("miss", player.rect.centerx, player.rect.centery, 0.6)
+            return
+        pos = getattr(player, "song_fx_pos", 0)
+        player.song_fx_pos = pos + 1
+        volume = 0.8 if grade == "perfect" else 0.5
+        if SFX_LISTENER[0] is not None:
+            d = math.hypot(player.rect.centerx - SFX_LISTENER[0][0], player.rect.centery - SFX_LISTENER[0][1])
+            volume *= 1.0 if d < 350 else max(0.0, 1 - (d - 350) / 650)
+        if volume >= 0.05:
+            _play_on("note", get_sfx(f"note{SONG[pos % len(SONG)]}"), volume * SFX_VOLUME[0] / 0.7)
+        return
+    if grade in ("miss", "double"):
         play_sfx("miss")
         return
     sound = get_sfx(f"note{SONG[_song_pos[0] % len(SONG)]}")
@@ -3039,7 +3283,8 @@ def play_metronome(player):
     if beat == _last_beat_played[0]:
         return
     _last_beat_played[0] = beat
-    play_sfx(("kick", "hat", "snare", "hat")[beat % 4])
+    if not SFX_MUTED[0]:
+        play_sfx(("kick", "hat", "snare", "hat")[beat % 4])
 
 
 def draw_beat_ui(surface, player):
@@ -3928,6 +4173,8 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
     # 쿨타임 체크
     if player.skill_cooldowns[weapon_type] > current_time:
         return
+    if weapon_type != "hammer":   # 앙코르는 파워 코드 소리가 따로 남
+        sfx("skill", player.rect.centerx, player.rect.centery)
 
     # 미리 계산할 방향
     dx = mouse_world_x - player.rect.centerx
@@ -4051,8 +4298,10 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
             mate.encore_time = max(mate.encore_time, frames)
             cleanse(mate)
             if mate is not player and mate.weapon is not None and mate.weapon.weapon_type in mate.skill_cooldowns:
-                key = mate.weapon.weapon_type   # 팀원 스킬 쿨타임 3초 감소
-                mate.skill_cooldowns[key] = max(now, mate.skill_cooldowns[key] - ENCORE_COOLDOWN_CUT)
+                key = mate.weapon.weapon_type   # 팀원: 남은 스킬 쿨타임 10% 감소 후 3초 더 감소
+                remain = max(0, mate.skill_cooldowns[key] - now)
+                remain = remain * (1 - ENCORE_COOLDOWN_RATIO) - ENCORE_COOLDOWN_CUT
+                mate.skill_cooldowns[key] = now + max(0, int(remain))
             fx.ring(mate.rect.centerx, mate.rect.centery, (220, 120, 255), 70, count=22, size=4)
             fx.add_text(mate.rect.centerx, mate.rect.top - 34, "앙코르!", (230, 150, 255), big=True, life=50)
         fx.ring(cx, cy, (255, 110, 210), ENCORE_WAVE_RADIUS, count=40, size=4)
@@ -4123,6 +4372,8 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
                                                      base * 1.2 * (1 + 0.05 * up["damage"]), radius))
 
     player.skill_cooldowns[weapon_type] = current_time + int(SKILL_COOLDOWNS[weapon_type] * (1 - player.skill_cooldown_reduction))
+    if weapon_type == "hammer":   # 앙코르: 시전자도 팀 전체 쿨타임 10% 감소를 받음
+        player.skill_cooldowns[weapon_type] = current_time + int((player.skill_cooldowns[weapon_type] - current_time) * (1 - ENCORE_COOLDOWN_RATIO))
     if reset_cooldown:
         player.skill_cooldowns[weapon_type] = current_time  # 바로 다시 사용 가능
 
@@ -4152,8 +4403,8 @@ class Weapon:
 
     def can_fire(self):
         current_time = pygame.time.get_ticks()
-        if self.weapon_type == "hammer":   # 일렉 기타: 박자 앞뒤 판정 때문에 박자 간격의 절반이면 다시 칠 수 있음
-            return current_time - self.last_shot_time >= beat_ms_of(self) * 0.5
+        if self.weapon_type == "hammer":   # 일렉 기타: 박자 앞뒤 판정 때문에 박자 간격의 30%만 지나면 다시 칠 수 있음
+            return current_time - self.last_shot_time >= beat_ms_of(self) * 0.3
         return current_time - self.last_shot_time >= self.get_attack_interval()
 
     def fire(self):
@@ -4853,6 +5104,8 @@ class Melee(pygame.sprite.Sprite):
         super().__init__()
         self.owner = owner  # 휘두르는 동안 플레이어를 따라감
         self.weapon_type = weapon_type
+        if weapon_type != "hammer":   # 일렉 기타는 기타 소리가 따로 남
+            sfx("swing", x, y, 0.8)
         self.damage = damage
         self.knockback_power = 800  # 넉백 힘
         self.created_time = pygame.time.get_ticks()
@@ -4959,24 +5212,18 @@ class Melee(pygame.sprite.Sprite):
         self.has_hit = set()  # 이미 공격한 좀비들을 추적
         self._render(0.0)
 
-    def _render(self, progress):
-        """플레이어를 중심으로 한 캔버스에 무기 + 휘두른 궤적(잔상)을 그림 (그리기 전용)"""
-        if self.owner is not None:
-            self.player_x, self.player_y = self.owner.rect.center
-        if self.style == "thrust":
-            # 찌르기: 앞으로 쭉 뻗었다가 돌아옴
-            extend = math.sin(min(1.0, progress) * math.pi)
-            angle = self.base_angle
-            reach = self.offset_distance * (0.55 + 0.8 * extend)
-            start_angle = angle
-        else:
-            if self.style == "heavy":
-                eased = progress ** 2.2              # 천천히 들었다가 빠르게 내려침
-            else:
-                eased = 1 - (1 - progress) ** 3      # 빠르게 휘두르고 끝에서 감속
-            start_angle = self.base_angle + self.swing_angle / 2
-            angle = start_angle - self.swing_angle * eased
-            reach = self.offset_distance
+    @property
+    def image(self):
+        if self._image is None:
+            self._image = self._draw_canvas(*self._draw_args)
+        return self._image
+
+    @image.setter
+    def image(self, value):
+        self._image = value
+
+    def _draw_canvas(self, progress, angle, reach, start_angle):
+        """캔버스에 무기 + 휘두른 궤적(잔상) + 맞는 범위를 그림"""
         half = self.canvas_half
         canvas = pygame.Surface((half * 2, half * 2), pygame.SRCALPHA)
         # 실제로 맞는 범위(부채꼴)를 옅게 표시
@@ -5016,8 +5263,32 @@ class Melee(pygame.sprite.Sprite):
         wx = half + math.cos(rad) * reach
         wy = half - math.sin(rad) * reach
         canvas.blit(rotated, rotated.get_rect(center=(int(wx), int(wy))))
-        self.image = canvas
-        self.rect = canvas.get_rect(center=(int(self.player_x), int(self.player_y)))
+        return canvas
+
+    def _render(self, progress):
+        """플레이어를 중심으로 한 캔버스에 무기 + 휘두른 궤적(잔상)을 그림 (그리기 전용)"""
+        if self.owner is not None:
+            self.player_x, self.player_y = self.owner.rect.center
+        if self.style == "thrust":
+            # 찌르기: 앞으로 쭉 뻗었다가 돌아옴
+            extend = math.sin(min(1.0, progress) * math.pi)
+            angle = self.base_angle
+            reach = self.offset_distance * (0.55 + 0.8 * extend)
+            start_angle = angle
+        else:
+            if self.style == "heavy":
+                eased = progress ** 2.2              # 천천히 들었다가 빠르게 내려침
+            else:
+                eased = 1 - (1 - progress) ** 3      # 빠르게 휘두르고 끝에서 감속
+            start_angle = self.base_angle + self.swing_angle / 2
+            angle = start_angle - self.swing_angle * eased
+            reach = self.offset_distance
+        half = self.canvas_half
+        # 그림은 화면에 그릴 때만 만듦 (화면 밖 휘두르기나 멀티 계산에서는 큰 캔버스를 매번 그리지 않음)
+        self._draw_args = (progress, angle, reach, start_angle)
+        self._image = None
+        self.rect = pygame.Rect(0, 0, half * 2, half * 2)
+        self.rect.center = (int(self.player_x), int(self.player_y))
 
         # 무거운 무기는 내려찍는 순간 땅이 울림
         if self.style == "heavy" and not self.impact_done and progress > 0.8:
@@ -5142,8 +5413,12 @@ def get_player_buffs(player):
         bonus = int(round(get_katana_chain_bonus(player) * player.katana_chain * 100))
         buffs.append((f"연참 x{player.katana_chain} (다음 일섬 +{bonus}%)", "chain", player.katana_chain_timer, (150, 230, 255)))
     if getattr(player, "encore_time", 0) > 0:
-        buffs.append((f"앙코르 (재생·방어 {int(player.encore_power * 100)}%·면역)", "encore",
-                      player.encore_time, (220, 140, 255)))
+        regen = int(ENCORE_REGEN * 100)
+        for text, key in ((f"앙코르 - 재생 (초당 {regen}%)", "encore_regen"),
+                          (f"앙코르 - 이동속도 +{int(ENCORE_SPEED * 100)}%", "encore_speed"),
+                          (f"앙코르 - 받는 피해 -{int(player.encore_power * 100)}%", "encore_def"),
+                          ("앙코르 - 상태 이상 면역", "encore_immune")):
+            buffs.append((text, key, player.encore_time, (220, 140, 255)))
     if getattr(player, "beat_buff_time", 0) > 0:
         buffs.append((f"박자 버프 (공격 +{player.beat_buff_power * 100:.1f}%)", "beat",
                       player.beat_buff_time, (255, 200, 90)))
@@ -5279,6 +5554,7 @@ def draw_controls_bar(surface, text):
 
 
 def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies, show_stack):
+    set_sfx_listener(player)
     width, height = surface.get_size()
     draw_player_status(surface, player)
     wave_box = draw_wave_panel(surface, wave, wave_progress, wave_interval)
@@ -5290,7 +5566,7 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
     panel = ui_panel(surface, (width - pw - 14, 14, pw, 130 + (24 if melee else 0)), alpha=175)
     ui_text(surface, "점수", font_tiny, UI_SUB, (panel.x + 14, panel.y + 18), shadow=False)
     ui_text(surface, f"{score:,}", font_hud_big, UI_TEXT, (panel.right - 14, panel.y + 6), "topright")
-    stats = [("체력", player.levels["health"], (255, 110, 110)), ("데미지", player.levels["damage"], (255, 220, 90)),
+    stats = [("체력", player.levels["health"], (255, 110, 110)), ("공격력", player.levels["damage"], (255, 220, 90)),
              ("속도", player.levels["speed"], (110, 230, 255)), ("재생", player.levels["regen"], (120, 230, 140))]
     cell_w = (pw - 34) // 2
     for i, (label, level, color) in enumerate(stats):
@@ -5308,9 +5584,12 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
         box = pygame.Rect(width - 314, panel.bottom + 10, 300, height - panel.bottom - 70)
         ui_panel(surface, box, alpha=210)
         ui_text(surface, f"획득한 업그레이드 ({len(names)})", font_hud, UI_ACCENT, (box.x + 14, box.y + 10))
-        max_items = max(1, (box.h - 60) // 24)
+        max_items = max(1, (box.h - 52) // 24)
+        if len(names) > max_items:
+            max_items = max(1, (box.h - 44 - 36) // 24)   # 아래 안내 줄 자리를 비움 (겹치지 않게)
         for i, name in enumerate(names[-max_items:] if len(names) > max_items else names):
-            ui_text(surface, f"• {name}", font_tiny, UI_TEXT, (box.x + 16, box.y + 44 + i * 24), shadow=False)
+            text = f"• {name}"
+            ui_text(surface, text, ui_fit_font(font_tiny, text, box.w - 28), UI_TEXT, (box.x + 16, box.y + 44 + i * 24), shadow=False)
         if len(names) > max_items:
             ui_text(surface, f"(최근 {max_items}개 · 전체는 ESC → 능력 확인)", font_tiny, UI_ACCENT, (box.x + 16, box.bottom - 26), shadow=False)
 
@@ -5348,7 +5627,7 @@ def select_ability():
     abilities = [
         {"name": "속도형", "up": "이동속도 +50%", "down": "체력 -20%", "tip": "치고 빠지기, 원거리 무기와 잘 맞음", "type": "speed", "color": (110, 185, 205)},
         {"name": "탱커형", "up": "체력 +50%", "down": "이동속도 -30%", "tip": "버티면서 근접 무기로 싸우기 좋음", "type": "tank", "color": (135, 150, 225)},
-        {"name": "공격형", "up": "데미지 +60%", "down": "체력 -10%", "tip": "빠르게 처치해서 위험을 줄임", "type": "damage", "color": (232, 180, 90)},
+        {"name": "공격형", "up": "공격력 +60%", "down": "체력 -10%", "tip": "빠르게 처치해서 위험을 줄임", "type": "damage", "color": (232, 180, 90)},
     ]
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
     while True:
@@ -5400,7 +5679,7 @@ def select_weapon():
         {"name": "나무 방망이", "desc": "기본 근접", "skill": "홈런", "type": "melee", "color": (210, 140, 70)},
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
-        {"name": "창", "desc": "속도 비례 데미지, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
+        {"name": "창", "desc": "속도 비례 공격력, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
         {"name": "일렉 기타", "desc": "박자 맞춰 치면 강해짐 (리듬)", "skill": "앙코르 (팀 재생·방어)", "type": "hammer", "color": (220, 60, 150)},
         {"name": "글로브", "desc": "초고속 연타, 짧은 사거리", "skill": "백열권 (연타 + 어퍼컷)", "type": "gloves", "color": (220, 60, 70)},
     ]
@@ -5435,6 +5714,136 @@ def select_weapon():
 
 
 # 일시정지 메뉴
+# ---------- F1: 내 직업(능력 + 무기) 상세 설명 ----------
+ABILITY_HELP = {
+    "speed": ("속도형", ["이동속도 10 (기본 7), 체력 80"]),
+    "tank": ("탱커형", ["체력 150, 이동속도 5"]),
+    "damage": ("공격형", ["무기 공격력 1.6배, 체력 90"]),
+    None: ("능력 없음", ["체력 100, 이동속도 7"]),
+}
+WEAPON_HELP = {
+    "glock": (["균형 잡힌 기본 권총."],
+              ["항공 폭격: 조준 방향에 예고선이 뜨고 비행기가 날아와 그 직선에 폭탄을 떨어뜨림.",
+               "폭탄 1발 기본 1000 피해 (반경 75), 공격력이 오르면 같은 비율로 증가.",
+               "업그레이드 \"폭격 범위 증가\": 길이 +100px, 폭 +15px. 쿨타임 80초."]),
+    "machinegun": (["누르고 있으면 연사. 한 발은 약하지만 매우 빠름."],
+                   ["포탑 설치: 6초 동안 가까운 좀비를 자동으로 쏘는 포탑. 쿨타임 18초."]),
+    "shotgun": (["한 번에 3발 산탄. 사거리 380 (근거리 전용)."],
+                ["용의 숨결: 앞쪽 부채꼴로 불을 뿜어 피해 + 불붙임. 쿨타임 10초."]),
+    "sniper": (["강한 한 발. 기본 공격이 무한 관통 (사거리 끝까지)."],
+               ["도탄 사격: 처음 맞은 좀비에서 주변 좀비로 10번 튕김 (맞을 때마다 3배).",
+                "튕길 때마다 치명타 · 속성탄 · 폭발 공격 적용, 도탄은 치명타 확률 +20%.",
+                "업그레이드 \"도탄 +3회\", 전용 \"치명타 피해 +25%\" (최대 380%). 쿨타임 12초."]),
+    "plasma": (["맞으면 작은 폭발 (주변 40%)."],
+               ["블랙홀: 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
+    "rocket": (["느리지만 큰 폭발 (주변 40%)."],
+               ["미사일 폭격: 마우스 주변에 미사일 8발. 쿨타임 15초."]),
+    "melee": (["초보자용 근접 무기. 조준 방향 부채꼴 안의 좀비를 모두 때림."],
+              ["홈런: 앞쪽 좀비를 크게 날려 보냄. 쿨타임 8초."]),
+    "katana": (["가장 높은 근접 공격력, 빠른 베기."],
+               ["일섬: 마우스 방향으로 순간 돌진하며 베기, 끝난 뒤 0.2초 무적.",
+                "처치하면 쿨타임 초기화 + 다음 일섬 +5% (연참), 1초 안에 다시 안 쓰면 연참 초기화.",
+                "처치 1마리당 체력 1 회복. 치명타 · 속성탄 · 폭발 공격도 적용, 카타나 강화 1회당 일섬 +10%.",
+                "레벨 6부터 \"오의 연섬\": 일섬 피해 25%가 방어 무시 고정 피해 (최소 대상 최대 체력 6%). 쿨타임 6초."]),
+    "axe": (["강한 한 방과 넉백."],
+            ["대회전 베기: 반경 190을 한 바퀴 휘둘러 공격력 3.5배, 멀리 날려 보냄.",
+             "준 피해의 10%만큼 회복, 넘친 회복량의 50%는 5초 동안 보호막 (최대 체력 50%까지). 쿨타임 12초."]),
+    "spear": (["가장 긴 사거리. 공격력이 이동속도에 비례.",
+               "창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해(80%) + 넉백."],
+              ["물보라: 큰 창이 떨어진 뒤 물결이 퍼져 좀비를 튕겨 내고 3초 동안 50% 느리게 (2배). 쿨타임 8초."]),
+    "hammer": (["리듬 무기: 박자에 맞춰 치면 PERFECT 2배 / GOOD 1.4배 / MISS 0.6배.",
+                "PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +5%), MISS면 그루브 0.",
+                "박자를 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +50%, 2초 동안 못 맞추면 사라짐).",
+                "공격 속도가 빠를수록 박자도 빨라짐. 판정 밑에 빠름/느림 표시, 박자를 맞추면 기타 멜로디가 이어짐.",
+                "전용 업그레이드: 박자 버프 증가 / 박자 버프 지속 +0.5초 / 판정 범위 증가."],
+               ["앙코르: 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% · 상태 이상 정화 + 면역.",
+                "팀 전체 남은 스킬 쿨타임 -10% (팀원은 추가로 -3초), 주변 음파 (1.5배, 넉백).",
+                "반경 320 좀비에게 불협화음: 5초 동안 받는 피해 +25%, 40% 느려짐. 쿨타임 20초."]),
+    "gloves": (["초고속 연타. 공격 속도가 초당 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림.",
+                "콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공격 속도 +2% (최대 +50%).",
+                "10콤보마다 강타 충격파 (3배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동)."],
+               ["백열권: 1.2초 동안 앞쪽을 마구 두드린 뒤 어퍼컷 (4배, 멀리 날림, 1초 기절).",
+                "콤보당 +3% (최대 +90%) 강해지고 어퍼컷에서 콤보를 모두 터뜨림. 쿨타임 15초."]),
+}
+
+
+def class_live_lines(player):
+    """지금 내 상태 (공격력, 공격 속도, 쿨타임 등)"""
+    weapon = player.weapon
+    rate = 1000.0 / max(1.0, weapon.get_attack_interval())
+    cooldown = SKILL_COOLDOWNS[weapon.weapon_type] * (1 - player.skill_cooldown_reduction) / 1000
+    lines = [f"체력 {int(player.health)}/{int(player.max_health)} · 이동속도 {player.speed:.1f} · 레벨 {player.level}",
+             f"공격력 {get_weapon_damage(player):.1f} · 초당 공격 {rate:.2f}회 · 스킬 쿨타임 {cooldown:.1f}초"]
+    if weapon.weapon_type == "hammer":
+        beat_ms = beat_ms_of(weapon)
+        perfect, good = rhythm_windows(player, beat_ms)
+        lines.append(f"박자 {60000 / beat_ms:.0f} BPM · 판정 PERFECT ±{perfect:.0f}ms / GOOD ±{good:.0f}ms · 그루브 {player.groove}")
+        level = player.skill_upgrades["hammer"].get("beat", 0)
+        duration = (BEAT_BUFF_FRAMES + BEAT_BUFF_TIME_UPGRADE * player.skill_upgrades["hammer"].get("beat_time", 0)) / FPS
+        lines.append(f"박자 버프: PERFECT마다 +{BEAT_BUFF_PERFECT * 100 * (1 + BEAT_BUFF_UPGRADE * level):.2f}% · "
+                     f"최대 +{(BEAT_BUFF_MAX + BEAT_BUFF_UPGRADE_CAP * level) * 100:.0f}% · 유지 {duration:.1f}초")
+    elif weapon.weapon_type == "gloves":
+        lines.append(f"콤보 {player.glove_combo} · 한 번에 추가 타격 {gloves_extra_hits(player)}대")
+    elif weapon.weapon_type == "katana":
+        lines.append(f"연참 x{player.katana_chain}")
+    return lines
+
+
+def draw_class_help(surface, player):
+    """F1 화면: 내 능력 + 무기 + 스킬 상세 설명 (글자는 칸 폭에 맞춰 줄바꿈)"""
+    ui_overlay(surface, 190)
+    width, height = surface.get_size()
+    panel = pygame.Rect(0, 0, min(1100, width - 60), min(820, height - 60))
+    panel.center = (width // 2, height // 2)
+    ui_panel(surface, panel, alpha=240, radius=16)
+    name, base = ABILITY_HELP.get(player.ability, ABILITY_HELP[None])
+    weapon = player.weapon
+    ui_text(surface, f"{name} · {weapon.name}", font_large, UI_TEXT, (panel.centerx, panel.y + 18), "midtop")
+    inner = panel.width - 64
+    y = panel.y + 90
+
+    def section(title, lines, color):
+        nonlocal y
+        if y > panel.bottom - 70:
+            return
+        ui_text(surface, title, font_hud, color, (panel.x + 32, y), shadow=False)
+        y += 28
+        for line in lines:
+            for part in ui_wrap(line, font_desc, inner - 18):
+                if y > panel.bottom - 64:
+                    ui_text(surface, "…", font_desc, UI_SUB, (panel.x + 44, y), shadow=False)
+                    return
+                ui_text(surface, part, font_desc, UI_TEXT, (panel.x + 44, y), shadow=False)
+                y += 25
+        y += 10
+
+    trait = ABILITY_TRAITS.get(player.ability)
+    ability_lines = list(base) + ([f"특성 {trait[0]}: " + ", ".join(trait[1])] if trait else [])
+    section("능력", ability_lines, (130, 190, 255))
+    section("지금 내 상태", class_live_lines(player), (140, 220, 150))
+    basic, skill = WEAPON_HELP.get(weapon.weapon_type, ([], []))
+    section(f"{weapon.name} - 기본 공격", basic, ui_bright(weapon.color))
+    section("우클릭 스킬", skill, UI_ACCENT)
+    draw_controls_bar(surface, f"{binding_label('help')} / ESC: 닫기")
+
+
+def show_class_help(player):
+    """1인용: F1을 누르면 게임을 멈추고 설명 화면 (다시 F1 / ESC로 닫기)"""
+    background = ui_snapshot()
+    pygame.event.clear()
+    while True:
+        screen.blit(background, (0, 0))
+        draw_class_help(screen, player)
+        pygame.display.flip()
+        clock.tick(FPS)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE) or binding_event(event, "help"):
+                return
+
+
 def show_pause_menu(player):
     """게임 일시정지 메뉴 표시 (뒤에 멈춘 게임 화면이 비쳐 보임)"""
     background = ui_snapshot()
@@ -5584,11 +5993,11 @@ def build_cumulative_upgrade_lines(player):
     if counts.get("katana_skill_strikes", 0) > 0:
         lines.append(f"일섬 거리: +{counts['katana_skill_strikes'] * 40}px")
     if counts.get("melee_damage_katana", 0) > 0:
-        lines.append(f"일섬 추가 데미지 (카타나 강화): +{counts['melee_damage_katana'] * 10}%")
+        lines.append(f"일섬 추가 피해 (카타나 강화): +{counts['melee_damage_katana'] * 10}%")
     if counts.get("katana_skill_ougi", 0) > 0:
         lines.append(f"오의 연섬: 일섬 피해 {int(KATANA_OUGI_RATIO * 100)}% → 고정 피해 (최소 대상 최대 체력 {int(KATANA_OUGI_HP_RATIO * 100)}%)")
     if counts.get("katana_skill_chain", 0) > 0:
-        lines.append(f"연참 스택당 데미지: +{5 + counts['katana_skill_chain'] * 3}%")
+        lines.append(f"연참 스택당 피해: +{5 + counts['katana_skill_chain'] * 3}%")
     if counts.get("gloves_skill_strikes", 0) > 0:
         lines.append(f"백열권 시간: +{counts['gloves_skill_strikes'] * 0.25:.2f}초")
     if counts.get("spear_skill_pierces", 0) > 0:
@@ -5600,6 +6009,11 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"대회전 베기 범위: +{counts['axe_skill_range'] * 25}px")
     if counts.get("hammer_skill_range", 0) > 0:
         lines.append(f"앙코르 시간: +{counts['hammer_skill_range']}초")
+    if counts.get("hammer_skill_damage", 0) > 0:
+        lines.append(f"앙코르 받는 피해: -{int(min(ENCORE_DEFENSE_MAX, ENCORE_DEFENSE + 0.05 * counts['hammer_skill_damage']) * 100)}%")
+    if counts.get("hammer_judge", 0) > 0:
+        lv = counts["hammer_judge"]
+        lines.append(f"판정 범위: PERFECT ±{RHYTHM_PERFECT_MS + JUDGE_UPGRADE_PERFECT_MS * lv}ms / GOOD ±{RHYTHM_GOOD_MS + JUDGE_UPGRADE_GOOD_MS * lv}ms")
     if counts.get("hammer_beat_time", 0) > 0:
         lines.append(f"박자 버프 지속: {(BEAT_BUFF_FRAMES + BEAT_BUFF_TIME_UPGRADE * counts['hammer_beat_time']) / FPS:.1f}초")
     if counts.get("hammer_beat_buff", 0) > 0:
@@ -5709,6 +6123,10 @@ def is_upgrade_at_limit(player, upgrade_type):
     # 명시적 횟수 제한
     if upgrade_type == "crit":
         return player.levels.get("crit", 0) >= 16  # 최대 80%
+    if upgrade_type == "hammer_skill_damage":   # 앙코르 방어: 25% + 5% x 7 = 60%에서 끝
+        return ENCORE_DEFENSE + 0.05 * player.skill_upgrades["hammer"]["damage"] >= ENCORE_DEFENSE_MAX - 1e-9
+    if upgrade_type == "hammer_judge":
+        return player.skill_upgrades["hammer"].get("judge", 0) >= JUDGE_UPGRADE_MAX
     if upgrade_type == "hammer_beat_time":
         return player.skill_upgrades["hammer"].get("beat_time", 0) >= BEAT_BUFF_TIME_UPGRADE_MAX
     if upgrade_type == "hammer_beat_buff":
@@ -5791,7 +6209,7 @@ def build_upgrade_choices(player):
         {"name": "경험치 +20%", "desc": "좀비 처치 시 경험치 20% 추가", "type": "exp_boost", "color": (255, 255, 100)},
 
         # 특이 능력
-        {"name": "치명타", "desc": f"치명타 확률 +5% ({get_crit_multiplier(player):.2f}배 데미지)", "type": "crit", "color": (255, 50, 50)},
+        {"name": "치명타", "desc": f"치명타 확률 +5% ({get_crit_multiplier(player):.2f}배 피해)", "type": "crit", "color": (255, 50, 50)},
         {"name": "회피", "desc": "5% 확률로 피해 회피", "type": "dodge", "color": (100, 200, 255)},
 
         # 무기별 추가 보상
@@ -5831,75 +6249,76 @@ def build_upgrade_choices(player):
     if weapon_type == "melee":
         weapon_upgrades = [
             {"name": "홈런 범위 +12px", "desc": "홈런 범위 확대", "type": "melee_skill_range", "color": (150, 200, 150)},
-            {"name": f"{player.weapon.name} 데미지 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
+            {"name": f"{player.weapon.name} 공격력 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
             {"name": "공격 속도 +8%", "desc": "더 빠른 공격", "type": f"melee_skill_speed_{weapon_type}", "color": (200, 150, 150)},
         ]
     elif weapon_type == "katana":
         weapon_upgrades = [
             {"name": "일섬 거리 +40px", "desc": "더 멀리 돌진", "type": "katana_skill_strikes", "color": (255, 200, 100)},
-            {"name": "연참 데미지 +3%", "desc": "연참 스택당 데미지 증가", "type": "katana_skill_chain", "color": (150, 230, 255)},
+            {"name": "연참 피해 +3%", "desc": "연참 스택당 피해 증가", "type": "katana_skill_chain", "color": (150, 230, 255)},
             {"name": "오의 연섬 (패시브)", "desc": "일섬 피해 25%가 고정 피해로 (최소 대상 최대 체력 6%, 방어 무시)",
              "type": "katana_skill_ougi", "color": (230, 70, 70)},
-            {"name": f"{player.weapon.name} 데미지 +3", "desc": "공격력 증가 + 일섬 데미지 +10%", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 3},
+            {"name": f"{player.weapon.name} 공격력 +3", "desc": "공격력 증가 + 일섬 피해 +10%", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 3},
             {"name": "공격 속도 +12%", "desc": "더 빠른 공격", "type": f"melee_skill_speed_{weapon_type}", "color": (200, 150, 150)},
         ]
     elif weapon_type == "axe":
         weapon_upgrades = [
             {"name": "대회전 범위 +25px", "desc": "대회전 베기 범위 확대", "type": "axe_skill_range", "color": (150, 100, 200)},
-            {"name": f"{player.weapon.name} 데미지 +8", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 8},
+            {"name": f"{player.weapon.name} 공격력 +8", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 8},
             {"name": "대회전 넉백 +12%", "desc": "대회전 베기 넉백 강화", "type": "axe_skill_knockback", "color": (200, 100, 200)},
         ]
     elif weapon_type == "spear":
         weapon_upgrades = [
             {"name": "물보라 범위 +30px", "desc": "물보라가 더 넓게 퍼짐", "type": "spear_skill_pierces", "color": (100, 150, 200)},
-            {"name": f"{player.weapon.name} 데미지 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
+            {"name": f"{player.weapon.name} 공격력 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
             {"name": "물보라 둔화 +8%", "desc": "물보라에 맞은 좀비가 더 느려짐", "type": f"melee_skill_speed_{weapon_type}", "color": (150, 150, 200)},
         ]
     elif weapon_type == "hammer":
         weapon_upgrades = [
             {"name": "앙코르 시간 +1초", "desc": "팀 버프가 더 오래", "type": "hammer_skill_range", "color": (200, 140, 255)},
-            {"name": f"{player.weapon.name} 데미지 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
+            {"name": f"{player.weapon.name} 공격력 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
             {"name": "앙코르 방어 +5%", "desc": "팀 받는 피해 감소", "type": "hammer_skill_damage", "color": (255, 120, 210)},
             {"name": "박자 버프 증가", "desc": "박자마다 쌓이는 팀 공격력 +50%, 최대치 +5%", "type": "hammer_beat_buff", "color": (255, 200, 90)},
+            {"name": "판정 범위 증가", "desc": "PERFECT/GOOD 판정이 넓어짐", "type": "hammer_judge", "color": (140, 230, 255)},
             {"name": "박자 버프 지속 +0.5초", "desc": "박자를 놓쳐도 팀 버프가 더 오래 유지", "type": "hammer_beat_time", "color": (255, 170, 120)},
         ]
     elif weapon_type == "gloves":
         weapon_upgrades = [
             {"name": "백열권 시간 +0.25초", "desc": "더 오래 두드림", "type": "gloves_skill_strikes", "color": (220, 120, 100)},
-            {"name": f"{player.weapon.name} 데미지 +2", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 2},
+            {"name": f"{player.weapon.name} 공격력 +2", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 2},
             {"name": "공격 속도 +10%", "desc": "더 빠른 펀치", "type": f"melee_skill_speed_{weapon_type}", "color": (200, 150, 150)},
         ]
     elif weapon_type == "glock":
         weapon_upgrades = [
             {"name": "폭격 범위 증가", "desc": "항공 폭격 길이 +100px, 폭 +15px", "type": "glock_skill_burst", "color": (255, 200, 100)},
-            {"name": "데미지 +2", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 2},
+            {"name": "공격력 +2", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 2},
         ]
     elif weapon_type == "shotgun":
         weapon_upgrades = [
             {"name": "기본 발사 탄환 +1발", "desc": "3발 → 4발", "type": "shotgun_skill_pellets", "color": (255, 150, 100)},
-            {"name": "화염 데미지 +8%", "desc": "용의 숨결 강화", "type": "shotgun_skill_damage", "color": (255, 100, 100)},
+            {"name": "화염 피해 +8%", "desc": "용의 숨결 강화", "type": "shotgun_skill_damage", "color": (255, 100, 100)},
         ]
     elif weapon_type == "sniper":
         weapon_upgrades = [
             {"name": "도탄 +3회", "desc": "도탄 사격이 3번 더 튕김", "type": "sniper_skill_pierces", "color": (100, 150, 255)},
-            {"name": "치명타 데미지 +25%", "desc": f"치명타 피해 {int(get_crit_multiplier(player) * 100)}% → {int((get_crit_multiplier(player) + SNIPER_CRIT_DAMAGE_UPGRADE) * 100)}%",
+            {"name": "치명타 피해 +25%", "desc": f"치명타 피해 {int(get_crit_multiplier(player) * 100)}% → {int((get_crit_multiplier(player) + SNIPER_CRIT_DAMAGE_UPGRADE) * 100)}%",
              "type": "sniper_skill_critdmg", "color": (255, 90, 90)},
-            {"name": "데미지 +8", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 8},
+            {"name": "공격력 +8", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 8},
         ]
     elif weapon_type == "machinegun":
         weapon_upgrades = [
             {"name": "포탑 지속 +1초", "desc": "포탑이 더 오래 유지", "type": "machinegun_skill_burst", "color": (150, 150, 200)},
-            {"name": "데미지 +1", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 1},
+            {"name": "공격력 +1", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 1},
         ]
     elif weapon_type == "plasma":
         weapon_upgrades = [
             {"name": "블랙홀 범위 +15px", "desc": "블랙홀 범위 확대", "type": "plasma_skill_range", "color": (100, 255, 255)},
-            {"name": "블랙홀 데미지 +8%", "desc": "블랙홀 강화", "type": "plasma_skill_damage", "color": (100, 200, 255)},
+            {"name": "블랙홀 피해 +8%", "desc": "블랙홀 강화", "type": "plasma_skill_damage", "color": (100, 200, 255)},
         ]
     elif weapon_type == "rocket":
         weapon_upgrades = [
             {"name": "로켓 범위 +15px", "desc": "폭발 범위 확대", "type": "rocket_skill_count", "color": (255, 100, 100)},
-            {"name": "폭격 데미지 +5%", "desc": "미사일 폭격 강화", "type": "rocket_skill_damage", "color": (255, 150, 100)},
+            {"name": "폭격 피해 +5%", "desc": "미사일 폭격 강화", "type": "rocket_skill_damage", "color": (255, 150, 100)},
         ]
     else:
         weapon_upgrades = []
@@ -5964,6 +6383,8 @@ def show_upgrade_menu(player, camera):
 
 # 메인 게임 루프
 def apply_upgrade(player, selected_upgrade):
+    if LOCAL_PLAYER is None or player is LOCAL_PLAYER:
+        sfx("upgrade")
     """고른 업그레이드를 플레이어에게 적용 (1인/멀티 공용)"""
     # 획득한 업그레이드에 추가
     upgrade_record = {
@@ -6096,6 +6517,8 @@ def apply_upgrade(player, selected_upgrade):
         player.skill_upgrades["hammer"]["range"] += 20
     elif selected_upgrade["type"] == "hammer_skill_damage":
         player.skill_upgrades["hammer"]["damage"] += 1  # 앙코르 방어 +5%
+    elif selected_upgrade["type"] == "hammer_judge":
+        player.skill_upgrades["hammer"]["judge"] = player.skill_upgrades["hammer"].get("judge", 0) + 1
     elif selected_upgrade["type"] == "hammer_beat_time":
         player.skill_upgrades["hammer"]["beat_time"] = player.skill_upgrades["hammer"].get("beat_time", 0) + 1
     elif selected_upgrade["type"] == "hammer_beat_buff":
@@ -6159,42 +6582,43 @@ def get_upgrade_name(upgrade_type):
         "skill_slowdown": "시간감속",
         "skill_explosion": "폭발 공격",
         # 무기 기본 업그레이드
-        "weapon_damage": "데미지 +",
+        "weapon_damage": "공격력 +",
         "weapon_firerate": "발사 속도 +",
         # 근접 무기 스킬
         "melee_skill_range": "홈런 범위 +12px",
-        "melee_damage_melee": "나무 방망이 데미지 +4",
+        "melee_damage_melee": "나무 방망이 공격력 +4",
         "melee_skill_speed_melee": "나무 방망이 속도 +8%",
         "katana_skill_strikes": "일섬 거리 +40px",
-        "katana_skill_chain": "연참 데미지 +3%",
+        "katana_skill_chain": "연참 피해 +3%",
         "katana_skill_ougi": "오의 연섬",
-        "melee_damage_katana": "카타나 데미지 +3",
+        "melee_damage_katana": "카타나 공격력 +3",
         "melee_skill_speed_katana": "카타나 속도 +12%",
         "axe_skill_range": "대회전 범위 +25px",
-        "melee_damage_axe": "도끼 데미지 +8",
+        "melee_damage_axe": "도끼 공격력 +8",
         "axe_skill_knockback": "대회전 넉백 +12%",
         "spear_skill_pierces": "물보라 범위 +30px",
-        "melee_damage_spear": "창 데미지 +4",
+        "melee_damage_spear": "창 공격력 +4",
         "melee_skill_speed_spear": "물보라 둔화 +8%",
         "hammer_skill_range": "앙코르 시간 +1초",
-        "melee_damage_hammer": "일렉 기타 데미지 +4",
+        "melee_damage_hammer": "일렉 기타 공격력 +4",
         "hammer_skill_damage": "앙코르 방어 +5%",
         "hammer_beat_buff": "박자 버프 증가",
         "hammer_beat_time": "박자 버프 지속 +0.5초",
+        "hammer_judge": "판정 범위 증가",
         "gloves_skill_strikes": "백열권 시간 +0.25초",
-        "melee_damage_gloves": "글로브 데미지 +2",
+        "melee_damage_gloves": "글로브 공격력 +2",
         "melee_skill_speed_gloves": "글로브 속도 +10%",
         # 원거리 무기 스킬
         "glock_skill_burst": "폭격 범위 증가",
         "shotgun_skill_pellets": "기본 발사 탄환 +1발",
-        "shotgun_skill_damage": "화염 데미지 +8%",
+        "shotgun_skill_damage": "화염 피해 +8%",
         "sniper_skill_pierces": "도탄 +3회",
-        "sniper_skill_critdmg": "치명타 데미지 +25%",
+        "sniper_skill_critdmg": "치명타 피해 +25%",
         "machinegun_skill_burst": "포탑 지속 +1초",
         "plasma_skill_range": "블랙홀 범위 +15px",
-        "plasma_skill_damage": "블랙홀 데미지 +8%",
+        "plasma_skill_damage": "블랙홀 피해 +8%",
         "rocket_skill_count": "로켓 범위 +15px",
-        "rocket_skill_damage": "폭격 데미지 +5%",
+        "rocket_skill_damage": "폭격 피해 +5%",
     }
     return upgrade_names.get(upgrade_type, upgrade_type)
 
@@ -6299,6 +6723,8 @@ KEY_ACTIONS = [
     ("pick1", "업그레이드 선택 1", [pygame.K_1]),
     ("pick2", "업그레이드 선택 2", [pygame.K_2]),
     ("pick3", "업그레이드 선택 3", [pygame.K_3]),
+    ("mute", "소리 켜기/끄기", [pygame.K_m]),
+    ("help", "내 직업 설명", [pygame.K_F1]),
 ]
 MAX_BINDINGS = 3
 KEY_DEFAULTS = {action: list(keys) for action, _, keys in KEY_ACTIONS}
@@ -6340,6 +6766,13 @@ def load_keybinds():
         skill = loaded.setdefault("skill", list(KEY_DEFAULTS["skill"][:1]))
         if extra not in skill and len(skill) < MAX_BINDINGS:
             skill.append(extra)
+    for action in KEY_DEFAULTS:
+        if action in loaded:
+            continue
+        used = {k for keys in loaded.values() for k in keys}
+        free = [k for k in KEY_DEFAULTS[action] if k not in used]
+        if free != KEY_DEFAULTS[action]:
+            loaded[action] = free   # 이미 다른 동작이 쓰는 키는 빼고 (없으면 지정 안 됨 - 키 설정에서 추가)
     KEYS.update(loaded)
 
 
@@ -6629,7 +7062,155 @@ def show_continue_menu(data):
         clock.tick(60)
 
 
+# ---------- 자동 업데이트 (exe로 실행할 때만) ----------
+#  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
+GAME_BUILD = 2026102101          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
+UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
+_update_info = {"state": "idle"}  # idle / checking / none / available / failed
+# 게임이 끝나길 기다렸다가 새 exe로 바꾸고 다시 실행 (경로는 인자로 받아서 한글 경로도 안전, 1분 동안 안 되면 포기)
+UPDATE_BATCH = ("@echo off\r\nset n=0\r\n:wait\r\nping -n 2 127.0.0.1 >nul\r\n"
+                "move /y \"%~1\" \"%~2\" >nul 2>&1 && goto ok\r\nset /a n+=1\r\nif %n% lss 60 goto wait\r\nexit /b 1\r\n"
+                ":ok\r\nstart \"\" \"%~2\"\r\n(goto) 2>nul & del \"%~f0\"\r\n")
+
+
+def _check_update_worker():
+    try:
+        import urllib.request
+        with urllib.request.urlopen(UPDATE_BASE + "version.json", timeout=4) as response:
+            info = json.loads(response.read().decode("utf-8"))
+        if int(info.get("build", 0)) > GAME_BUILD:
+            _update_info.update(info)
+            _update_info["state"] = "available"
+        else:
+            _update_info["state"] = "none"
+    except Exception:
+        _update_info["state"] = "failed"
+
+
+def start_update_check():
+    """exe로 실행 중이면 뒤에서 새 버전 확인 시작 (게임은 기다리지 않음)"""
+    if not getattr(sys, "frozen", False) or _update_info["state"] != "idle":
+        return
+    _update_info["state"] = "checking"
+    import threading
+    threading.Thread(target=_check_update_worker, daemon=True).start()
+
+
+def _download_update(path, progress):
+    import urllib.request
+    with urllib.request.urlopen(UPDATE_BASE + UPDATE_ASSET, timeout=15) as response:
+        total = int(response.headers.get("Content-Length") or 0)
+        done = 0
+        with open(path, "wb") as f:
+            while True:
+                chunk = response.read(256 * 1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+                done += len(chunk)
+                progress[0] = done / total if total else 0.0
+    with open(path, "rb") as f:
+        if f.read(2) != b"MZ" or os.path.getsize(path) < 1_000_000:   # exe가 아니면 버림
+            raise ValueError("bad download")
+
+
+def maybe_offer_update():
+    """새 버전이 있으면 물어보고, 업데이트를 고르면 내려받아 exe를 바꾸고 다시 실행 (exe 실행일 때만)"""
+    if not getattr(sys, "frozen", False) or _update_info.get("asked"):
+        return
+    start_update_check()
+    waited = 0
+    while _update_info["state"] == "checking" and waited < 2500:   # 최대 2.5초만 기다림
+        screen.fill((20, 18, 16))
+        ui_text(screen, "새 버전 확인 중...", font_desc, UI_SUB, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), "center")
+        pygame.display.flip()
+        pygame.event.pump()
+        waited += clock.tick(30)
+    if _update_info["state"] != "available":
+        return
+    _update_info["asked"] = True   # "나중에"를 고르면 이번 실행에서는 다시 묻지 않음
+    buttons = [pygame.Rect(0, 0, 260, 70), pygame.Rect(0, 0, 260, 70)]
+    buttons[0].center = (SCREEN_WIDTH // 2 - 145, SCREEN_HEIGHT // 2 + 90)
+    buttons[1].center = (SCREEN_WIDTH // 2 + 145, SCREEN_HEIGHT // 2 + 90)
+    notes = str(_update_info.get("notes", ""))
+    choice = None
+    while choice is None:
+        mouse = pygame.mouse.get_pos()
+        screen.fill((20, 18, 16))
+        panel = pygame.Rect(0, 0, 760, 360)
+        panel.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+        ui_panel(screen, panel, alpha=240, radius=16)
+        ui_text(screen, "새 버전이 있어요", font_large, UI_TEXT, (panel.centerx, panel.y + 26), "midtop")
+        y = panel.y + 100
+        for line in ui_wrap(notes or "업데이트하면 최신 버전으로 바뀌고 다시 실행됩니다.", font_desc, panel.width - 80)[:4]:
+            ui_text(screen, line, font_desc, UI_SUB, (panel.centerx, y), "midtop", shadow=False)
+            y += 26
+        ui_button(screen, buttons[0], "업데이트", (128, 196, 132), buttons[0].collidepoint(mouse), "Enter")
+        ui_button(screen, buttons[1], "나중에", (150, 150, 150), buttons[1].collidepoint(mouse), "ESC")
+        pygame.display.flip()
+        clock.tick(30)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                choice = "update"
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                choice = "later"
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if buttons[0].collidepoint(event.pos):
+                    choice = "update"
+                elif buttons[1].collidepoint(event.pos):
+                    choice = "later"
+    if choice != "update":
+        return
+    exe = sys.executable
+    new_path = exe + ".new"
+    progress, result = [0.0], {}
+    import threading
+
+    def work():
+        try:
+            _download_update(new_path, progress)
+            result["ok"] = True
+        except Exception as e:
+            result["error"] = str(e)
+    thread = threading.Thread(target=work, daemon=True)
+    thread.start()
+    while thread.is_alive():
+        pygame.event.pump()
+        screen.fill((20, 18, 16))
+        ui_text(screen, f"내려받는 중... {int(progress[0] * 100)}%", font_medium, UI_TEXT, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 30), "center")
+        ui_bar(screen, (SCREEN_WIDTH // 2 - 250, SCREEN_HEIGHT // 2 + 10, 500, 14), progress[0], UI_ACCENT, back=(40, 40, 50), radius=7)
+        pygame.display.flip()
+        clock.tick(30)
+    if not result.get("ok"):
+        try:
+            os.remove(new_path)
+        except OSError:
+            pass
+        message = "업데이트 실패 - 인터넷 연결을 확인하세요 (그대로 시작합니다)"
+        for _ in range(90):
+            pygame.event.pump()
+            screen.fill((20, 18, 16))
+            ui_text(screen, message, font_desc, (240, 150, 130), (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), "center")
+            pygame.display.flip()
+            clock.tick(30)
+        return
+    # 이 프로그램이 끝나면 새 exe로 바꾸고 다시 실행하는 작은 배치 파일
+    import tempfile, subprocess
+    bat = os.path.join(tempfile.gettempdir(), f"zombie_update_{os.getpid()}.bat")
+    with open(bat, "w", encoding="ascii", newline="") as f:
+        f.write(UPDATE_BATCH)
+    subprocess.Popen(["cmd", "/c", bat, new_path, exe], creationflags=0x08000000, close_fds=True)   # 창 없이 따로 실행
+    pygame.quit()
+    sys.exit(0)
+
+
 def main():
+    maybe_offer_update()   # exe 실행이면 새 버전 확인 (처음 한 번)
+    warm_up_game_sfx()   # 효과음 미리 만들기 (0.2초)
     # 저장된 게임이 있으면 이어하기 / 새 게임 선택
     save_data = load_save()
     if save_data is not None and show_continue_menu(save_data) != "continue":
@@ -6646,6 +7227,12 @@ def main():
                 setattr(player, field, value)
         for field, value in save_data["weapon"].items():
             setattr(player.weapon, field, value)
+        if player.weapon.weapon_type == "hammer" and abs(player.weapon.fire_rate - 1.25) < 1e-6:
+            # 예전 해머(데미지 80, 초당 1.25회) 저장: 일렉 기타 기본값 + 받은 강화 횟수만큼(+4씩)으로 다시 계산
+            stats = WEAPON_STATS["hammer"]
+            player.weapon.fire_rate = stats["rate"]
+            base = stats["dmg"] * (1.6 if player.ability == "damage" else 1.0)
+            player.weapon.damage = base + 4 * player.weapon_upgrades["hammer"].get("damage", 0)
     else:
         # 능력 선택
         selected_ability = select_ability()
@@ -6656,7 +7243,7 @@ def main():
         # 플레이어를 원점에 생성
         player = Player(0, 0, selected_ability)
         player.weapon = Weapon(selected_weapon)
-        # 공격형 능력: "데미지 +60%"가 실제 무기 공격력에 반영되도록 (예전에는 거의 쓰이지 않는 player.damage만 올랐음)
+        # 공격형 능력: "공격력 +60%"가 실제 무기 공격력에 반영되도록 (예전에는 거의 쓰이지 않는 player.damage만 올랐음)
         if selected_ability == "damage":
             player.weapon.damage *= 1.6
     camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -6873,8 +7460,18 @@ def main():
                                        zombies, bullets, all_sprites, explosions)
 
             elif event.type == pygame.KEYDOWN or (event.type == pygame.MOUSEBUTTONDOWN and
-                                                  (binding_event(event, "stack") or binding_event(event, "teleport"))):
-                if binding_event(event, "stack") and not game_over:
+                                                  (binding_event(event, "stack") or binding_event(event, "teleport") or binding_event(event, "mute")
+                                                   or binding_event(event, "help"))):
+                if binding_event(event, "help") and not game_over:
+                    pause_start = pygame.time.get_ticks()
+                    show_class_help(player)
+                    paused_ms = pygame.time.get_ticks() - pause_start
+                    wave_timer_start += paused_ms
+                    compensate_paused_time(player, paused_ms)
+                elif binding_event(event, "mute"):
+                    toggle_mute()
+                    fx.add_text(player.rect.centerx, player.rect.top - 40, "소리 끔" if SFX_MUTED[0] else "소리 켬", (230, 230, 230))
+                elif binding_event(event, "stack") and not game_over:
                     # 업그레이드 목록 토글 (기본 TAB)
                     show_stack = not show_stack
                 elif binding_event(event, "teleport") and not game_over:
@@ -6959,6 +7556,7 @@ def main():
             if levels_gained > 0:
                 fx.ring(player.rect.centerx, player.rect.centery, (255, 230, 90), 140, count=36, size=4)
                 fx.add_text(player.rect.centerx, player.rect.top - 30, "LEVEL UP!", (255, 230, 90), big=True, life=70)
+                sfx("levelup")
             for _ in range(levels_gained):
                 menu_start = pygame.time.get_ticks()
                 selected_upgrade = show_upgrade_menu(player, camera)
@@ -7366,6 +7964,7 @@ def main():
             # 플레이어-아이템 충돌
             hit_items = pygame.sprite.spritecollide(player, items, True)
             for item in hit_items:
+                sfx("pickup")
                 fx.ring(item.rect.centerx, item.rect.centery, ITEM_COLORS[item.item_type], 70, count=18)
                 fx.add_text(player.rect.centerx, player.rect.top - 20, item.effect, ITEM_COLORS[item.item_type], life=50)
                 if item.item_type == "health":
@@ -7520,6 +8119,7 @@ def main():
             elapsed_time = pygame.time.get_ticks() - wave_timer_start
             if elapsed_time >= wave_interval:
                 wave += 1
+                sfx("wave")
                 wave_timer_start = pygame.time.get_ticks()  # 타이머 리셋
                 boss_spawned = False
                 num_zombies = 3 + wave * 2  # 웨이브 시작 시 한꺼번에 나오는 좀비 (웨이브마다 +2)

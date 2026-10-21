@@ -673,6 +673,8 @@ class MatchState:
         if gained:
             fx.ring(p.rect.centerx, p.rect.centery, (255, 230, 90), 140, count=36, size=4)
             fx.add_text(p.rect.centerx, p.rect.top - 30, "LEVEL UP!", (255, 230, 90), big=True, life=70)
+            if p.pid == self.local_pid:
+                sfx("levelup")
 
     # ----- 보스 소환 -----
     def boss_summons(self):
@@ -810,6 +812,8 @@ class MatchState:
     def player_collisions(self, p):
         zombies, bullets, items, explosions, all_sprites = self.zombies, self.bullets, self.items, self.explosions, self.all_sprites
         for item in pygame.sprite.spritecollide(p, items, True):
+            if p.pid == self.local_pid:
+                sfx("pickup")
             fx.ring(item.rect.centerx, item.rect.centery, ITEM_COLORS[item.item_type], 70, count=18)
             fx.add_text(p.rect.centerx, p.rect.top - 20, item.effect, ITEM_COLORS[item.item_type], life=50)
             if item.item_type == "health":
@@ -897,6 +901,7 @@ class MatchState:
 
         if pygame.time.get_ticks() - self.wave_timer_start >= self.wave_interval:
             self.wave += 1
+            sfx("wave")
             self.wave_timer_start = pygame.time.get_ticks()
             boss_spawned = False
             for _ in range(self.scaled(3 + self.wave * 2)):
@@ -1177,14 +1182,14 @@ def draw_upgrade_summary(local, top):
     screen.set_clip(box.inflate(-6, -6))
     for line in lines:
         pygame.draw.circle(screen, UI_GOOD, (box.x + 20, y + 10), 3)
-        ui_text(screen, line, font_tiny, UI_TEXT, (box.x + 30, y), shadow=False)
+        ui_text(screen, line, ui_fit_font(font_tiny, line, box.w - 40), UI_TEXT, (box.x + 30, y), shadow=False)
         y += 24
     if recent:
         y += 8
         ui_text(screen, "최근 얻은 것", font_tiny, UI_SUB, (box.x + 14, y), shadow=False)
         y += 22
         for name in reversed(recent):
-            ui_text(screen, f"· {name}", font_tiny, (200, 195, 185), (box.x + 20, y), shadow=False)
+            ui_text(screen, f"· {name}", ui_fit_font(font_tiny, f"· {name}", box.w - 30), (200, 195, 185), (box.x + 20, y), shadow=False)
             y += 22
     screen.set_clip(None)
 
@@ -1281,6 +1286,9 @@ def draw_match(state, camera, ui):
             ui_bar(screen, bar, ratio, UI_GOOD if ratio > 0.5 else (255, 200, 60) if ratio > 0.25 else UI_DANGER, radius=5)
     draw_controls_bar(screen, controls_hint(f" · ESC 메뉴  |  좀비 수 {state.n_players}명 x {MOB_FACTOR}"))
     draw_beat_ui(screen, local)
+    set_sfx_listener(local)
+    if ui.get("help"):
+        draw_class_help(screen, local)
     if state.n_players > 1:
         draw_minimap(state, camera, local)
         draw_teammate_markers(state, camera, local)
@@ -1333,7 +1341,10 @@ def run_match(lockstep, seed, roster, local_pid):
     state = MatchState(seed, roster, local_pid)
     camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
     local = state.by_pid[local_pid]
-    g.LOCAL_PLAYER = local                # 소리는 내 플레이어 것만
+    g.LOCAL_PLAYER = local                # 소리 기준 (내 플레이어)
+    warm_up_game_sfx()
+    if any(p.weapon.weapon_type == "hammer" for p in state.players):
+        warm_up_sfx()                     # 팀원 기타 소리도 미리 (처음 칠 때 멈칫하지 않게)
     g.RHYTHM_SOUND_ON_JUDGE = False       # 일렉 기타 소리는 클릭한 순간 바로 (판정은 입력 지연 뒤)
     pygame.time.get_ticks = lambda: int(state.sim_frame * 1000 / 60)   # 게임 시간은 프레임 기준 (모든 PC 동일)
     pygame.key.get_pressed = lambda: _current_keys[0]
@@ -1355,12 +1366,18 @@ def run_match(lockstep, seed, roster, local_pid):
                 if event.type == pygame.KEYDOWN:
                     if state.game_over and event.key in (pygame.K_SPACE, pygame.K_ESCAPE):
                         return
-                    if event.key == pygame.K_ESCAPE:
+                    if event.key == pygame.K_ESCAPE and ui.get("help"):
+                        ui["help"] = False          # 설명 화면이 떠 있으면 ESC는 설명만 닫음
+                    elif event.key == pygame.K_ESCAPE:
                         ui["menu"] = not ui["menu"]
                     elif ui["menu"] and event.key == pygame.K_q:
                         return
                     elif binding_event(event, "teleport"):
                         clicks["e"] = 1
+                    elif binding_event(event, "mute"):
+                        toggle_mute()
+                    elif binding_event(event, "help"):
+                        ui["help"] = not ui.get("help", False)   # 멀티는 게임이 멈추지 않음
                     elif binding_event(event, "attack") and not ui["menu"]:
                         clicks["l"] = 1
                         clicks["b"] = state.sim_frame
@@ -1383,6 +1400,10 @@ def run_match(lockstep, seed, roster, local_pid):
                         clicks["r"] = 1
                     elif binding_event(event, "teleport"):          # 마우스 버튼으로 지정한 순간이동 등
                         clicks["e"] = 1
+                    elif binding_event(event, "mute"):
+                        toggle_mute()
+                    elif binding_event(event, "help"):
+                        ui["help"] = not ui.get("help", False)
                     elif binding_event(event, "stack"):
                         ui["stack"] = not ui.get("stack", False)
                     elif pick_from_event(event) >= 0 and local.pending_choices:
@@ -1440,6 +1461,8 @@ def run_match(lockstep, seed, roster, local_pid):
                 ui["pred"] = (0, 0)
             else:
                 speed = local.speed * local.slow_multiplier * (ITEM_BUFF_MULTIPLIER if local.speed_buff_time > 0 else 1)
+                if local.encore_time > 0:
+                    speed *= 1 + ENCORE_SPEED   # 앙코르 (Player.update와 같게)
                 px = py = 0.0
                 for bits in my_moves.values():
                     px += speed * (((bits >> 3) & 1) - ((bits >> 1) & 1))
@@ -1780,6 +1803,8 @@ def multiplayer_menu():
 
 if __name__ == "__main__":
     try:
+        g.UPDATE_ASSET = "ZombieMulti.exe"
+        maybe_offer_update()   # exe 실행이면 새 버전 확인
         multiplayer_menu()
     except Exception as e:
         print(f"Error occurred: {e}")
