@@ -568,7 +568,7 @@ class MatchState:
             if melee_hit and p.skills.get("skill_explosion", False) and p.explosion_cooldown <= 0:
                 p.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN
                 boom_x, boom_y = first_hit_zombie.rect.center
-                explosion = Explosion(boom_x, boom_y, 80)
+                explosion = Explosion(boom_x, boom_y, 80, "upgrade")
                 explosions.add(explosion)
                 all_sprites.add(explosion)
                 for other in list(zombies):
@@ -770,7 +770,7 @@ class MatchState:
                     radius = WEAPON_STATS["rocket"]["splash_radius"] + owner.skill_upgrades["rocket"]["explosion"]
                     ratio = WEAPON_STATS["rocket"]["splash_ratio"]
                     knock = get_knockback_multiplier(owner)
-                    explosion = Explosion(bullet.rect.centerx, bullet.rect.centery, radius)
+                    explosion = Explosion(bullet.rect.centerx, bullet.rect.centery, radius, "rocket")
                     explosions.add(explosion)
                     all_sprites.add(explosion)
                     for other in list(zombies):
@@ -785,7 +785,7 @@ class MatchState:
                 zombie.health -= roll_crit_damage(owner, bullet.damage, zombie) * damage_multiplier
                 fx.hit_spark(bullet.rect.centerx, bullet.rect.centery, FX_WEAPON_COLORS.get(bullet.weapon_type, YELLOW))
                 if bullet.splash_radius > 0:
-                    splash = Explosion(bullet.rect.centerx, bullet.rect.centery, bullet.splash_radius)
+                    splash = Explosion(bullet.rect.centerx, bullet.rect.centery, bullet.splash_radius, "plasma")
                     explosions.add(splash)
                     all_sprites.add(splash)
                     for other in list(zombies):
@@ -796,7 +796,7 @@ class MatchState:
                 self.apply_elements(owner, zombie, bullet.damage, 160)
                 if owner.skills.get("skill_explosion", False) and owner.explosion_cooldown <= 0:
                     owner.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN
-                    explosion = Explosion(bullet.rect.centerx, bullet.rect.centery, 70)
+                    explosion = Explosion(bullet.rect.centerx, bullet.rect.centery, 70, "upgrade")
                     explosions.add(explosion)
                     all_sprites.add(explosion)
                     for other in list(zombies):
@@ -831,7 +831,7 @@ class MatchState:
                 if zombie.health > 0:
                     zombie.health = 0
                     zombie.no_reward = True
-                    boom = Explosion(zombie.rect.centerx, zombie.rect.centery, 50)
+                    boom = Explosion(zombie.rect.centerx, zombie.rect.centery, 50, "imp")
                     explosions.add(boom)
                     all_sprites.add(boom)
                     apply_player_damage(p, 6, explosion=True)
@@ -1021,7 +1021,7 @@ class MatchState:
             elif death_type in ("bomber", "mine", "flame", "acid", "toxic", "nuclear"):
                 radius = {"bomber": 140, "mine": 170, "flame": 180, "acid": 160, "toxic": 175, "nuclear": 220}[death_type]
                 damage = {"bomber": 30.0, "mine": 40.0, "flame": 35.0, "acid": 32.0, "toxic": 38.0, "nuclear": 50.0}[death_type]
-                boom = Explosion(dx_, dy_, radius)
+                boom = Explosion(dx_, dy_, radius, death_type)
                 all_sprites.add(boom)
                 explosions.add(boom)
                 damage_players(radius, damage * 0.5)

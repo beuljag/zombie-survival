@@ -2966,8 +2966,12 @@ _explosion_frames = {}
 
 # 폭발 클래스 (로켓/스킬/폭탄좀비 폭발 공용) - 판정과는 무관한 연출
 class Explosion(pygame.sprite.Sprite):
-    def __init__(self, x, y, radius=100):
+    # kind: 폭발 종류 (그림만 다름) - assets/effects/explosion_<kind>.png 가 있으면 그것, 없으면 explosion.png
+    #  rocket / plasma / upgrade(폭발 공격 업그레이드) / airstrike / missile / blackhole / imp(자폭)
+    #  bomber / mine / flame / acid / toxic / nuclear (좀비가 죽으며 터짐)
+    def __init__(self, x, y, radius=100, kind="default"):
         super().__init__()
+        self.kind = kind
         self.radius = int(radius)
         sfx("explosion", x, y, min(1.0, 0.45 + radius / 250))
         size = self.radius * 2 + 6
@@ -2985,18 +2989,21 @@ class Explosion(pygame.sprite.Sprite):
 
     def _draw_frame(self):
         # 같은 크기 폭발의 같은 프레임은 한 번만 그려 두고 같이 씀 (예전에는 폭발마다 매 프레임 새로 그렸음)
-        sheet = load_asset("effects/explosion.png")
+        rel = f"effects/explosion_{self.kind}.png"
+        if load_asset(rel) is None:
+            rel = "effects/explosion.png"
+        sheet = load_asset(rel)
         if sheet is not None:
-            # 도트 폭발 (8프레임): 폭발 크기에 맞춰 픽셀 그대로 늘림
+            # 도트 폭발 (정사각형 프레임 가로 시트): 폭발 크기에 맞춰 픽셀 그대로 늘림
             count = max(1, sheet.get_width() // sheet.get_height())
             index = min(count - 1, self.frames * count // self.duration)
-            key = ("sprite", self.radius, index)
+            key = ("sprite", rel, self.radius, index)
             image = _explosion_frames.get(key)
             if image is None:
                 if len(_explosion_frames) > 2000:
                     _explosion_frames.clear()
                 size = self.image.get_width()
-                frame = sprite_frame("effects/explosion.png", index, None, frames=count)
+                frame = sprite_frame(rel, index, None, frames=count)
                 image = pygame.transform.scale(frame, (size, size))
                 _explosion_frames[key] = image
             self.image = image
@@ -3783,7 +3790,7 @@ def compensate_paused_time(player, paused_ms):
 
 
 def trigger_bomb_explosion(zombie, player, zombies, all_sprites, explosions, radius, damage, player_damage=None):
-    explosion = Explosion(zombie.rect.centerx, zombie.rect.centery, radius)
+    explosion = Explosion(zombie.rect.centerx, zombie.rect.centery, radius, zombie.zombie_type)
     all_sprites.add(explosion)
     if explosions is not None:
         explosions.add(explosion)
@@ -4140,7 +4147,7 @@ class AirStrikeSkill(ActiveSkill):
             fx.trail(bomb[0], bomb[1] - bomb[2] * 6, (60, 60, 60), 3, 3)                       # 떨어지는 폭탄
             if bomb[2] <= 0:
                 bx, by = bomb[0], bomb[1]
-                boom = Explosion(bx, by, self.blast_radius)
+                boom = Explosion(bx, by, self.blast_radius, "airstrike")
                 explosions.add(boom)
                 all_sprites.add(boom)
                 for zombie in list(zombies):
@@ -4199,7 +4206,7 @@ class RicochetSkill(ActiveSkill):
         apply_hit_elements(player, target, zombies, self.damage)
         if player.skills.get("skill_explosion", False) and player.explosion_cooldown <= 0:
             player.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN
-            boom = Explosion(tx, ty, 70)
+            boom = Explosion(tx, ty, 70, "upgrade")
             explosions.add(boom)
             all_sprites.add(boom)
             for other in list(zombies):
@@ -4468,7 +4475,7 @@ class BlackHoleSkill(ActiveSkill):
             return
         damage = self.damage * self.KILL_BONUS * self.kills
         radius = int(self.radius * 1.2)
-        boom = Explosion(self.x, self.y, radius)
+        boom = Explosion(self.x, self.y, radius, "blackhole")
         explosions.add(boom)
         all_sprites.add(boom)
         fx.ring(self.x, self.y, (180, 120, 255), radius, count=40, size=4)
@@ -4539,7 +4546,7 @@ class BombardmentSkill(ActiveSkill):
             return
         bx = self.x + random.uniform(-150, 150)
         by = self.y + random.uniform(-150, 150)
-        boom = Explosion(bx, by, self.radius)
+        boom = Explosion(bx, by, self.radius, "missile")
         explosions.add(boom)
         all_sprites.add(boom)
         for zombie in list(zombies):
@@ -4625,7 +4632,7 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         if first_hit is not None and player.skills.get("skill_explosion", False) and player.explosion_cooldown <= 0:
             player.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN
             boom_x, boom_y = first_hit.rect.center
-            boom = Explosion(boom_x, boom_y, 80)
+            boom = Explosion(boom_x, boom_y, 80, "upgrade")
             explosions.add(boom)
             all_sprites.add(boom)
             for other in list(zombies):
@@ -5235,6 +5242,7 @@ class HolyExplosionEffect(pygame.sprite.Sprite):
         self.created_time = pygame.time.get_ticks()
         self.duration = 800  # 800ms
 
+        self.pixel = fx.anim("effects/explosion_holy.png", x, y, radius * 2 / 64, 5) if load_asset("effects/explosion_holy.png") else False
         # 신성한 빛 이펙트 (흰색, 노랑, 금색)
         self.base_image = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
 
@@ -5275,6 +5283,9 @@ class HolyExplosionEffect(pygame.sprite.Sprite):
 
         if elapsed >= self.duration:
             self.kill()
+            return
+        if self.pixel:   # 도트 신성 폭발 그림이 대신 보임
+            self.image = _EMPTY_IMAGE
             return
 
         # 깜빡이는 효과 (신성한 느낌)
@@ -7846,7 +7857,7 @@ def main():
                                 explosion_radius = 80
                                 # 플레이어 주변이 아니라 가장 가까이 맞은 좀비 위치에서 폭발
                                 boom_x, boom_y = first_hit_zombie.rect.center
-                                explosion = Explosion(boom_x, boom_y, explosion_radius)
+                                explosion = Explosion(boom_x, boom_y, explosion_radius, "upgrade")
                                 explosions.add(explosion)
                                 all_sprites.add(explosion)
 
@@ -8312,7 +8323,7 @@ def main():
                         rocket_radius = WEAPON_STATS["rocket"]["splash_radius"] + player.skill_upgrades["rocket"]["explosion"]
                         rocket_splash_ratio = WEAPON_STATS["rocket"]["splash_ratio"]
                         rocket_knockback_mult = get_knockback_multiplier(player)
-                        explosion = Explosion(bullet.rect.centerx, bullet.rect.centery, rocket_radius)
+                        explosion = Explosion(bullet.rect.centerx, bullet.rect.centery, rocket_radius, "rocket")
                         explosions.add(explosion)
                         all_sprites.add(explosion)
 
@@ -8346,7 +8357,7 @@ def main():
 
                         # 착탄 폭발 (플라즈마): 맞은 좀비 주변에 폭발 피해
                         if is_player_bullet and bullet.splash_radius > 0:
-                            splash = Explosion(bullet.rect.centerx, bullet.rect.centery, bullet.splash_radius)
+                            splash = Explosion(bullet.rect.centerx, bullet.rect.centery, bullet.splash_radius, "plasma")
                             explosions.add(splash)
                             all_sprites.add(splash)
                             for other_zombie in list(zombies):
@@ -8387,7 +8398,7 @@ def main():
                             if player.skills.get("skill_explosion", False) and bullet.bullet_type != "rocket" and player.explosion_cooldown <= 0:
                                 player.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN
                                 explosion_radius = 70
-                                explosion = Explosion(bullet.rect.centerx, bullet.rect.centery, explosion_radius)
+                                explosion = Explosion(bullet.rect.centerx, bullet.rect.centery, explosion_radius, "upgrade")
                                 explosions.add(explosion)
                                 all_sprites.add(explosion)
                                 for other_zombie in list(zombies):
@@ -8428,7 +8439,7 @@ def main():
                     if zombie.health > 0:
                         zombie.health = 0
                         zombie.no_reward = True
-                        boom = Explosion(zombie.rect.centerx, zombie.rect.centery, 50)
+                        boom = Explosion(zombie.rect.centerx, zombie.rect.centery, 50, "imp")
                         explosions.add(boom)
                         all_sprites.add(boom)
                         apply_player_damage(player, 6, explosion=True)
