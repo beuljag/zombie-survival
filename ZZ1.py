@@ -150,7 +150,8 @@
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 일렉 기타: 공격 속도가 빠를수록 박자도 빨라짐, 박자 맞출 때마다 기타 멜로디가 한 음씩 이어짐
 - 일렉 기타: 박자 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +50%, 2초 동안 못 맞추면 사라짐)
-- 일렉 기타: 앙코르 - 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% + 내 주변 음파 (20초)
+- 일렉 기타: 앙코르 - 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% · 상태 이상 정화/면역,
+  팀원 스킬 쿨타임 -3초 + 내 주변 음파 + 넓은 범위 좀비 불협화음 (5초 동안 받는 피해 +25%, 40% 느려짐) (20초)
 - 글로브: 초당 공격 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 60%)
 - 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공속 +2% (최대 +50%),
   10콤보마다 강타 충격파 (3배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동), 백열권은 콤보당 +3% 후 어퍼컷에서 콤보 소모
@@ -215,7 +216,7 @@ import json
 
 # pygame 초기화
 os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "1")   # 화면 확대/축소를 부드럽게 (계단 현상 방지)
-pygame.mixer.pre_init(44100, -16, 2, 512)   # 소리 지연을 짧게 (리듬 무기)
+pygame.mixer.pre_init(44100, -16, 2, 1024)   # 소리 지연을 짧게 (리듬 무기) - 너무 작으면 소리가 끊김
 pygame.init()
 
 # 화면 설정: 장치 화면 크기에 맞춰 자동 조절
@@ -387,7 +388,8 @@ GLOVE_SKILL_COMBO_MAX = 0.9
 #  박자에 맞출 때마다 노래(기타 멜로디)가 한 음씩 이어서 연주됨
 #  PERFECT(±60ms) 2배 / GOOD(±120ms) 1.4배 / MISS 0.6배, PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +5%), MISS면 그루브 0
 #  박자 버프: 박자에 맞춰 칠 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +50%), 2초 동안 못 맞추면 사라짐
-#  스킬 앙코르: 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% + 주변 음파 (1.5배, 넉백)
+#  스킬 앙코르: 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% · 상태 이상 정화+면역,
+#             팀원 스킬 쿨타임 3초 감소 + 주변 음파 (1.5배, 넉백) + 넓은 범위 좀비에게 "불협화음" (5초 동안 받는 피해 +25%, 40% 느려짐)
 BEAT_MS = 500             # 기본 박자 (가장 느림)
 BEAT_MS_MIN = 240         # 가장 빠른 박자
 BEAT_PER_ATTACK = 1.25    # 박자 = 공격 간격 x 1.25
@@ -405,6 +407,8 @@ BEAT_BUFF_MAX = 0.50
 BEAT_BUFF_UPGRADE = 0.5        # 전용 업그레이드 "박자 버프 증가": 1회당 쌓이는 양 +50% (PERFECT +0.25%p), 최대치 +5%p
 BEAT_BUFF_UPGRADE_CAP = 0.05
 BEAT_BUFF_UPGRADE_MAX = 10
+BEAT_BUFF_TIME_UPGRADE = 30    # 전용 업그레이드 "박자 버프 지속 +0.5초" (최대 8회 → 6초)
+BEAT_BUFF_TIME_UPGRADE_MAX = 8
 ENCORE_FRAMES = 360
 ENCORE_DEFENSE = 0.25        # 받는 피해 -25% ("앙코르 방어 +5%" 업그레이드로 증가, 최대 60%)
 ENCORE_DEFENSE_MAX = 0.60
@@ -412,6 +416,11 @@ ENCORE_REGEN = 0.03          # 초당 최대 체력의 3% 회복 (0.5초마다 �
 ENCORE_SPEED = 0.20
 ENCORE_WAVE_RADIUS = 200
 ENCORE_WAVE_MULT = 1.5
+ENCORE_COOLDOWN_CUT = 3000     # 팀원 스킬 쿨타임 3초 감소
+ENCORE_DEBUFF_RADIUS = 320     # 불협화음 범위
+ENCORE_DEBUFF_FRAMES = 300     # 5초
+ENCORE_DEBUFF_TAKEN = 1.25     # 받는 피해 +25%
+ENCORE_DEBUFF_SLOW = 0.6       # 40% 느려짐
 TEAM_PROVIDER = None   # 멀티에서 "팀 전체" 플레이어 목록을 돌려주는 함수 (1인용은 None → 나만)
 LOCAL_PLAYER = None    # 멀티: 이 PC의 플레이어 (소리는 내 것만) / 1인용은 None
 RHYTHM_SOUND_ON_JUDGE = True   # 1인용: 판정할 때 소리 / 멀티: 클릭한 순간 내 PC에서 바로 소리 (판정은 늦게 오므로)
@@ -1124,6 +1133,9 @@ def draw_zombie_sprite(surface, camera, zombie, player):
         if fx.frame % 3 == 0:
             fx.burst(zombie.rect.centerx + fx_random.uniform(-w / 2, w / 2), zombie.rect.centery + fx_random.uniform(-h / 2, h / 2),
                      fx_random.choice(ELEMENT_COLORS["ice"]), 1, speed=(0.1, 0.5), size=(1.5, 2.5), life=(14, 22), drag=0.95)
+    if getattr(zombie, "discord_time", 0) > 0 and fx.frame % 4 == 0:   # 불협화음: 보랏빛 음파 조각
+        fx.burst(zombie.rect.centerx + fx_random.uniform(-w / 2, w / 2), zombie.rect.top + h * fx_random.uniform(0.1, 0.6),
+                 (200, 110, 255), 1, speed=(0.3, 0.9), size=(2, 3.5), life=(12, 20), drag=0.93, gravity=-0.08)
     if burning:
         fx.burst(zombie.rect.centerx + fx_random.uniform(-w / 2.5, w / 2.5), zombie.rect.top + h * fx_random.uniform(0.2, 0.7),
                  fx_random.choice(ELEMENT_COLORS["fire"]), 1, speed=(0.3, 1.2), size=(2, 5), life=(10, 20),
@@ -1553,7 +1565,7 @@ class Player(pygame.sprite.Sprite):
             "katana": {"strikes": 0, "speed": 0, "damage": 0, "cooldown": 0, "chain": 0, "ougi": 0},  # 연격 수, 공격속도, 데미지, 쿨타임 감소
             "axe": {"range": 0, "knockback": 0, "damage": 0, "area": 0},  # 범위, 넉백 강화, 데미지, 지진파 범위
             "spear": {"pierces": 0, "speed": 0, "range": 0, "damage": 0},  # 관통 수, 공격속도, 사거리, 데미지
-            "hammer": {"range": 0, "damage": 0, "cooldown": 0, "stun": 0, "beat": 0},  # 앙코르 시간, 앙코르 방어, 쿨타임, (안 씀), 박자 버프 증가
+            "hammer": {"range": 0, "damage": 0, "cooldown": 0, "stun": 0, "beat": 0, "beat_time": 0},  # 앙코르 시간, 앙코르 방어, 쿨타임, (안 씀), 박자 버프 증가
             "gloves": {"strikes": 0, "speed": 0, "damage": 0, "combo": 0},  # 연격 수, 공격속도, 데미지, 콤보 게이지
             # 원거리 무기
             "glock": {"burst": 0, "damage": 0, "fire_rate": 0, "accuracy": 0},  # 연사 탄수, 데미지, 발사 속도, 정확도
@@ -1718,6 +1730,7 @@ class Zombie(pygame.sprite.Sprite):
         self.slow_time = 0
         self.slow_multiplier = 1.0
         self.burn_time = 0
+        self.discord_time = 0   # 불협화음 (앙코르): 받는 피해 +25%
         self.burn_damage_cooldown = 0
 
         # 소환자 좀비 추적 (왕좀비가 소환한 좀비 등)
@@ -2034,6 +2047,8 @@ class Zombie(pygame.sprite.Sprite):
         else:
             self.slow_multiplier = 1.0
 
+        if self.discord_time > 0:
+            self.discord_time -= 1
         if self.burn_time > 0:
             self.burn_time -= 1
             self.burn_damage_cooldown -= 1
@@ -2729,6 +2744,7 @@ def tick_glove_combo(player):
             player.glove_combo = 0
     if getattr(player, "encore_time", 0) > 0:
         player.encore_time -= 1
+        cleanse(player)   # 앙코르 중 상태 이상 면역
         if player.encore_time % 30 == 0 and not getattr(player, "dead", False):   # 앙코르 재생: 0.5초마다
             player.health = min(player.max_health, player.health + player.max_health * ENCORE_REGEN / 2)
     if getattr(player, "beat_buff_time", 0) > 0:
@@ -2748,6 +2764,14 @@ def beat_ms_of(weapon):
     """일렉 기타 박자 간격(ms): 공격 간격 x 1.25 (기본 0.5초, 공속이 빨라지면 최대 0.24초까지)"""
     attack_ms = 1000.0 / (weapon.fire_rate * weapon.attack_speed * getattr(weapon, "rush_mult", 1.0))
     return max(BEAT_MS_MIN, min(BEAT_MS, attack_ms * BEAT_PER_ATTACK))
+
+
+def rhythm_offset(player, frames_ago=0):
+    """박자와 친 순간의 차이(ms): 음수 = 박자보다 빠름, 양수 = 느림"""
+    hist = player.beat_hist
+    pos = hist[-1 - frames_ago] if 0 <= frames_ago < len(hist) else player.beat_pos
+    frac = pos % 1.0
+    return (frac if frac < 0.5 else frac - 1.0) * beat_ms_of(player.weapon)
 
 
 def rhythm_grade(player, frames_ago=0):
@@ -2770,6 +2794,11 @@ def rhythm_judge(player, frames_ago=0):
     if RHYTHM_SOUND_ON_JUDGE:
         play_rhythm_sound(grade, player)
     x, y = player.rect.centerx, player.rect.top - 44
+    offset = rhythm_offset(player, frames_ago)
+    if grade != "perfect" or abs(offset) >= 20:   # 빠름/느림 (PERFECT는 20ms 이상 어긋났을 때만)
+        early = offset < 0
+        fx.add_text(x, y + 22, f"{'빠름' if early else '느림'} {abs(offset):.0f}ms",
+                    (120, 200, 255) if early else (255, 150, 110), life=24)
     if grade == "perfect":
         player.groove = min(GROOVE_MAX, player.groove + 1)
         mult = RHYTHM_PERFECT_MULT * (1 + GROOVE_BONUS * player.groove)
@@ -2789,16 +2818,27 @@ def rhythm_judge(player, frames_ago=0):
     return mult
 
 
+def cleanse(player):
+    """상태 이상 제거 (독 / 둔화 / 감전 / 부식)"""
+    player.poison_time = 0
+    player.shock_time = 0
+    player.corrode_time = 0
+    if player.slow_time > 0:
+        player.slow_time = 0
+        player.slow_multiplier = 1.0
+
+
 def give_beat_buff(player, amount):
     """박자 맞춘 한 방: 팀 전체 공격력 버프가 조금씩 쌓임 (최대 +50%), 2초 안에 다시 맞추지 못하면 사라짐"""
     level = player.skill_upgrades["hammer"].get("beat", 0)   # 전용 업그레이드 "박자 버프 증가"
     amount *= 1 + BEAT_BUFF_UPGRADE * level
     cap = BEAT_BUFF_MAX + BEAT_BUFF_UPGRADE_CAP * level
+    duration = BEAT_BUFF_FRAMES + BEAT_BUFF_TIME_UPGRADE * player.skill_upgrades["hammer"].get("beat_time", 0)
     for mate in team_of(player):
         if mate.beat_buff_time <= 0:
             mate.beat_buff_power = 0.0
         mate.beat_buff_power = min(max(cap, mate.beat_buff_power), mate.beat_buff_power + amount)
-        mate.beat_buff_time = BEAT_BUFF_FRAMES
+        mate.beat_buff_time = max(mate.beat_buff_time, duration)
 
 
 def team_of(player):
@@ -2809,6 +2849,39 @@ def team_of(player):
 # ---------- 소리: 파일 없이 코드로 합성 (드럼 박자 / 기타 멜로디 / 앙코르 파워 코드) ----------
 _sfx = {}
 _sfx_failed = [False]
+# 소리가 가끔 안 나던 문제: 기본 채널 8개가 모두 쓰이면 새 소리가 그냥 무시됨
+#  → 채널을 넉넉히 만들고 종류별로 전용 채널을 돌려 씀 (가장 오래된 소리를 끊고 새 소리를 반드시 재생)
+SFX_CHANNELS = {"drum": (0, 1, 2), "note": (3, 4, 5, 6, 7, 8, 9, 10), "fx": (11, 12, 13, 14)}
+_sfx_next = {"drum": 0, "note": 0, "fx": 0}
+_sfx_mixer_ok = [None]
+
+
+def _ensure_mixer():
+    """믹서 준비 (처음 한 번 - 실패하면 다시 시도하지 않음)"""
+    if _sfx_mixer_ok[0] is None:
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init(44100, -16, 2, 1024)
+            pygame.mixer.set_num_channels(32)
+            pygame.mixer.set_reserved(15)   # 0~14번은 리듬 소리 전용
+            _sfx_mixer_ok[0] = True
+        except Exception:
+            _sfx_mixer_ok[0] = False
+    return _sfx_mixer_ok[0]
+
+
+def _play_on(kind, sound, volume=1.0):
+    """종류별 전용 채널에 돌아가며 재생 (이전 소리가 남아 있으면 끊고 재생 - 절대 무시되지 않음)"""
+    if sound is None or not _ensure_mixer():
+        return
+    try:
+        ids = SFX_CHANNELS[kind]
+        channel = pygame.mixer.Channel(ids[_sfx_next[kind] % len(ids)])
+        _sfx_next[kind] += 1
+        channel.set_volume(volume)
+        channel.play(sound)
+    except Exception:
+        pass
 _sfx_rng = random.Random(20260521)   # 소리 합성 전용 난수 (게임 난수와 별개)
 _last_beat_played = [-1]
 _song_pos = [0]
@@ -2892,14 +2965,11 @@ def _midi_hz(note):
 
 def get_sfx(name):
     """소리 하나 (처음 쓸 때 만듦) - 소리 장치가 없으면 None"""
-    if _sfx_failed[0]:
-        return None
     if name in _sfx:
         return _sfx[name]
+    if not _ensure_mixer():
+        return None
     try:
-        if not _sfx_rate():
-            _sfx_failed[0] = True
-            return None
         rate, div = _synth_rate()
         if name == "kick":
             data = _synth_kick(rate)
@@ -2916,12 +2986,10 @@ def get_sfx(name):
         else:
             return None
         sound = _make_sound(data, div)
-        if name in ("kick", "snare", "hat"):
-            sound.set_volume(0.55)
         _sfx[name] = sound
         return sound
     except Exception:
-        _sfx_failed[0] = True
+        _sfx[name] = None   # 이 소리만 포기 (다른 소리는 계속)
         return None
 
 
@@ -2935,12 +3003,10 @@ def play_sfx(name, player=None):
     """소리 재생 (멀티에서는 내 플레이어 것만)"""
     if player is not None and LOCAL_PLAYER is not None and player is not LOCAL_PLAYER:
         return
-    sound = get_sfx(name)
-    if sound is not None:
-        try:
-            sound.play()
-        except Exception:
-            pass
+    if name in ("kick", "snare", "hat"):
+        _play_on("drum", get_sfx(name), 0.55)
+    else:
+        _play_on("fx", get_sfx(name))
 
 
 def play_rhythm_sound(grade, player=None):
@@ -2952,13 +3018,7 @@ def play_rhythm_sound(grade, player=None):
         return
     sound = get_sfx(f"note{SONG[_song_pos[0] % len(SONG)]}")
     _song_pos[0] += 1
-    if sound is not None:
-        try:
-            channel = sound.play()
-            if channel is not None:
-                channel.set_volume(1.0 if grade == "perfect" else 0.6)
-        except Exception:
-            pass
+    _play_on("note", sound, 1.0 if grade == "perfect" else 0.6)
 
 
 def rhythm_click_sound(player):
@@ -2973,7 +3033,7 @@ def play_metronome(player):
     """일렉 기타를 든 내 화면에서만 박자마다 드럼 (쿵 - 칙 - 탁 - 칙)"""
     if player.weapon is None or player.weapon.weapon_type != "hammer":
         return
-    if not _sfx:
+    if "kick" not in _sfx:
         warm_up_sfx()
     beat = int(player.beat_pos)
     if beat == _last_beat_played[0]:
@@ -3126,6 +3186,8 @@ def get_damage_multiplier(zombie):
         mult = zombie.shield_reduction
     elif zombie.zombie_type == "iron":
         mult = 0.75  # 철갑옷: 받는 피해 25% 감소
+    if getattr(zombie, "discord_time", 0) > 0:
+        mult *= ENCORE_DEBUFF_TAKEN   # 불협화음 (앙코르)
     return mult * getattr(zombie, "guard_mult", 1.0)
 
 
@@ -3983,9 +4045,14 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         # 앙코르: 파워 코드 한 방 → 팀 전체 재생/이동속도/방어 버프 + 내 주변 음파
         frames = ENCORE_FRAMES + (up["range"] // 20) * 60                          # "앙코르 시간 +1초"
         power = min(ENCORE_DEFENSE_MAX, ENCORE_DEFENSE + 0.05 * up["damage"])      # "앙코르 방어 +5%"
+        now = pygame.time.get_ticks()
         for mate in team_of(player):
             mate.encore_power = max(mate.encore_power if mate.encore_time > 0 else 0, power)
             mate.encore_time = max(mate.encore_time, frames)
+            cleanse(mate)
+            if mate is not player and mate.weapon is not None and mate.weapon.weapon_type in mate.skill_cooldowns:
+                key = mate.weapon.weapon_type   # 팀원 스킬 쿨타임 3초 감소
+                mate.skill_cooldowns[key] = max(now, mate.skill_cooldowns[key] - ENCORE_COOLDOWN_CUT)
             fx.ring(mate.rect.centerx, mate.rect.centery, (220, 120, 255), 70, count=22, size=4)
             fx.add_text(mate.rect.centerx, mate.rect.top - 34, "앙코르!", (230, 150, 255), big=True, life=50)
         fx.ring(cx, cy, (255, 110, 210), ENCORE_WAVE_RADIUS, count=40, size=4)
@@ -3995,6 +4062,12 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
             if zombie.health > 0 and math.hypot(zombie.rect.centerx - cx, zombie.rect.centery - cy) < ENCORE_WAVE_RADIUS:
                 skill_damage(zombie, base * ENCORE_WAVE_MULT)
                 push_zombie(zombie, cx, cy, 16)
+        fx.ring(cx, cy, (200, 110, 255), ENCORE_DEBUFF_RADIUS, count=48, size=3)
+        for zombie in list(zombies):   # 불협화음: 받는 피해 +25%, 느려짐
+            if zombie.health > 0 and math.hypot(zombie.rect.centerx - cx, zombie.rect.centery - cy) < ENCORE_DEBUFF_RADIUS:
+                zombie.discord_time = max(zombie.discord_time, ENCORE_DEBUFF_FRAMES)
+                zombie.slow_time = max(zombie.slow_time, ENCORE_DEBUFF_FRAMES)
+                zombie.slow_multiplier = min(zombie.slow_multiplier, ENCORE_DEBUFF_SLOW)
         fx.add_shake(6)
 
     elif weapon_type == "gloves":
@@ -5069,7 +5142,7 @@ def get_player_buffs(player):
         bonus = int(round(get_katana_chain_bonus(player) * player.katana_chain * 100))
         buffs.append((f"연참 x{player.katana_chain} (다음 일섬 +{bonus}%)", "chain", player.katana_chain_timer, (150, 230, 255)))
     if getattr(player, "encore_time", 0) > 0:
-        buffs.append((f"앙코르 (재생·방어 {int(player.encore_power * 100)}%)", "encore",
+        buffs.append((f"앙코르 (재생·방어 {int(player.encore_power * 100)}%·면역)", "encore",
                       player.encore_time, (220, 140, 255)))
     if getattr(player, "beat_buff_time", 0) > 0:
         buffs.append((f"박자 버프 (공격 +{player.beat_buff_power * 100:.1f}%)", "beat",
@@ -5527,6 +5600,8 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"대회전 베기 범위: +{counts['axe_skill_range'] * 25}px")
     if counts.get("hammer_skill_range", 0) > 0:
         lines.append(f"앙코르 시간: +{counts['hammer_skill_range']}초")
+    if counts.get("hammer_beat_time", 0) > 0:
+        lines.append(f"박자 버프 지속: {(BEAT_BUFF_FRAMES + BEAT_BUFF_TIME_UPGRADE * counts['hammer_beat_time']) / FPS:.1f}초")
     if counts.get("hammer_beat_buff", 0) > 0:
         lv = counts["hammer_beat_buff"]
         lines.append(f"박자 버프: PERFECT +{BEAT_BUFF_PERFECT * 100 * (1 + BEAT_BUFF_UPGRADE * lv):.2f}% / 최대 +{int((BEAT_BUFF_MAX + BEAT_BUFF_UPGRADE_CAP * lv) * 100)}%")
@@ -5634,6 +5709,8 @@ def is_upgrade_at_limit(player, upgrade_type):
     # 명시적 횟수 제한
     if upgrade_type == "crit":
         return player.levels.get("crit", 0) >= 16  # 최대 80%
+    if upgrade_type == "hammer_beat_time":
+        return player.skill_upgrades["hammer"].get("beat_time", 0) >= BEAT_BUFF_TIME_UPGRADE_MAX
     if upgrade_type == "hammer_beat_buff":
         return player.skill_upgrades["hammer"].get("beat", 0) >= BEAT_BUFF_UPGRADE_MAX
     if upgrade_type == "sniper_skill_critdmg":
@@ -5784,6 +5861,7 @@ def build_upgrade_choices(player):
             {"name": f"{player.weapon.name} 데미지 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
             {"name": "앙코르 방어 +5%", "desc": "팀 받는 피해 감소", "type": "hammer_skill_damage", "color": (255, 120, 210)},
             {"name": "박자 버프 증가", "desc": "박자마다 쌓이는 팀 공격력 +50%, 최대치 +5%", "type": "hammer_beat_buff", "color": (255, 200, 90)},
+            {"name": "박자 버프 지속 +0.5초", "desc": "박자를 놓쳐도 팀 버프가 더 오래 유지", "type": "hammer_beat_time", "color": (255, 170, 120)},
         ]
     elif weapon_type == "gloves":
         weapon_upgrades = [
@@ -6018,6 +6096,8 @@ def apply_upgrade(player, selected_upgrade):
         player.skill_upgrades["hammer"]["range"] += 20
     elif selected_upgrade["type"] == "hammer_skill_damage":
         player.skill_upgrades["hammer"]["damage"] += 1  # 앙코르 방어 +5%
+    elif selected_upgrade["type"] == "hammer_beat_time":
+        player.skill_upgrades["hammer"]["beat_time"] = player.skill_upgrades["hammer"].get("beat_time", 0) + 1
     elif selected_upgrade["type"] == "hammer_beat_buff":
         player.skill_upgrades["hammer"]["beat"] = player.skill_upgrades["hammer"].get("beat", 0) + 1
     elif selected_upgrade["type"] == "gloves_skill_strikes":
@@ -6100,6 +6180,7 @@ def get_upgrade_name(upgrade_type):
         "melee_damage_hammer": "일렉 기타 데미지 +4",
         "hammer_skill_damage": "앙코르 방어 +5%",
         "hammer_beat_buff": "박자 버프 증가",
+        "hammer_beat_time": "박자 버프 지속 +0.5초",
         "gloves_skill_strikes": "백열권 시간 +0.25초",
         "melee_damage_gloves": "글로브 데미지 +2",
         "melee_skill_speed_gloves": "글로브 속도 +10%",
