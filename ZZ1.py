@@ -38,7 +38,7 @@
 - 카타나: 데미지 26, 초당 4회, 범위 120, 가장 높은 근접 DPS
 - 도끼: 데미지 65, 초당 1.5회, 범위 125, 강한 넉백
 - 창: 데미지 36, 초당 2회, 범위 165 (가장 긴 근접 사거리)
-- 해머: 데미지 80, 초당 1.25회, 범위 155, 가장 강한 넉백
+- 일렉 기타 (예전 해머 자리): 데미지 30, 초당 2.5회, 범위 150 - 박자(0.5초)에 맞춰 치면 PERFECT 2배 / GOOD 1.4배 / MISS 0.6배
 - 글로브: 데미지 18, 초당 5회, 범위 100
 
 【원거리 무기 (6가지)】
@@ -148,7 +148,7 @@
   체력이 가득 차서 넘친 흡혈량의 50%는 5초 동안 흡혈 보호막 (최대 체력의 50%까지, 피해를 먼저 받음)
 - 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 데미지) (8초)
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
-- 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
+- 일렉 기타: 앙코르 - 팀 전체 6초 동안 공격력 +30% · 이동속도 +20% · 공격 속도 +20% + 내 주변 음파 (20초)
 - 글로브: 초당 공격 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 60%)
 - 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공속 +2% (최대 +50%),
   10콤보마다 강타 충격파 (3배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동), 백열권은 콤보당 +3% 후 어퍼컷에서 콤보 소모
@@ -190,7 +190,7 @@
 - 피격: 좀비 하얀 번쩍임, 데미지 숫자 (치명타는 노란색 큰 숫자), 타격 불꽃
 - 처치: 몸 색 파편 + 쓰러지며 사라짐, 보스/거대 좀비는 화면 흔들림
 - 무기: 총구 화염, 총알이 날아가는 방향으로 회전, 로켓 연기/플라즈마 잔광/저격 궤적
-- 근접: 방망이·카타나는 빠르게 휘두르고, 도끼·해머는 들었다 내려찍고(땅 울림), 창·글로브는 찌르기 + 잔상
+- 근접: 방망이·카타나는 빠르게 휘두르고, 도끼는 들었다 내려찍고(땅 울림), 일렉 기타는 박자에 맞춰 휘두르고, 창·글로브는 찌르기 + 잔상
 - 폭발: 퍼지면서 사라지는 불꽃 + 파편, 큰 폭발은 화면 흔들림
 - 좀비/플레이어: 걸을 때 흔들림, 그림자, 눈이 상대를 바라봄 / 피격 시 화면 가장자리 붉은 경고
 - 아이템: 둥실 떠 있음, 획득 시 반짝임 + 효과 글자 / 레벨업 고리 + "LEVEL UP!"
@@ -302,13 +302,13 @@ WEAPON_STATS = {
     "katana": {"name": "카타나",      "dmg": 26, "rate": 4.0,  "color": (255, 215, 0)},  # DPS 104  범위 120
     "axe":    {"name": "도끼",        "dmg": 65, "rate": 1.5,  "color": (139, 35, 69)},  # DPS 98   범위 125, 강한 넉백
     "spear":  {"name": "창",          "dmg": 36, "rate": 2.0,  "color": (128, 128, 0)},  # DPS 72   범위 165 (가장 김)
-    "hammer": {"name": "해머",        "dmg": 80, "rate": 1.25, "color": (192, 192, 192)},  # DPS 100  범위 155, 가장 강한 넉백
+    "hammer": {"name": "일렉 기타",   "dmg": 30, "rate": 2.5,  "color": (220, 60, 150)},  # 박자에 맞춰 치면 강해짐 (PERFECT 2배) - 내부 이름은 예전 해머 그대로
     "gloves": {"name": "글로브",      "dmg": 18, "rate": 5.0,  "color": (255, 192, 203)},  # DPS 90   범위 100
 }
 
 # 우클릭 스킬 기본 쿨타임(ms) - "스킬 쿨타임 감소" 업그레이드가 모든 무기에 똑같이 적용됨
 SKILL_COOLDOWNS = {
-    "melee": 8000, "katana": 6000, "axe": 12000, "spear": 8000, "hammer": 12000, "gloves": 15000,
+    "melee": 8000, "katana": 6000, "axe": 12000, "spear": 8000, "hammer": 20000, "gloves": 15000,
     "glock": 80000, "machinegun": 18000, "shotgun": 10000, "sniper": 12000, "plasma": 18000, "rocket": 15000,
 }
 
@@ -380,6 +380,23 @@ GLOVE_WAVE_MULT = 0.8
 GLOVE_WAVE_RANGE = 220
 GLOVE_SKILL_COMBO_BONUS = 0.03
 GLOVE_SKILL_COMBO_MAX = 0.9
+# 일렉 기타 (리듬 무기): 120BPM (0.5초마다 박자) - 박자에 맞춰 치면 강해짐
+#  PERFECT(±60ms) 2배 / GOOD(±120ms) 1.4배 / MISS 0.6배, PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +5%), MISS면 그루브 0
+#  스킬 앙코르: 팀 전체 6초 동안 공격력 +30% · 이동속도 +20% · 공격 속도 +20% + 주변 음파 (1.5배, 넉백)
+BEAT_MS = 500
+RHYTHM_PERFECT_MS = 60
+RHYTHM_GOOD_MS = 120
+RHYTHM_PERFECT_MULT = 2.0
+RHYTHM_GOOD_MULT = 1.4
+RHYTHM_MISS_MULT = 0.6
+GROOVE_MAX = 10
+GROOVE_BONUS = 0.05
+ENCORE_FRAMES = 360
+ENCORE_DAMAGE = 0.30
+ENCORE_SPEED = 0.20
+ENCORE_WAVE_RADIUS = 200
+ENCORE_WAVE_MULT = 1.5
+TEAM_PROVIDER = None   # 멀티에서 "팀 전체" 플레이어 목록을 돌려주는 함수 (1인용은 None → 나만)
 # 치명타 피해 배율: 기본 1.3배, 저격총 전용 "치명타 데미지 +25%" 업그레이드 1회당 +0.25 (최대 10회 = 3.8배)
 CRIT_BASE_MULT = 1.3
 SNIPER_CRIT_DAMAGE_UPGRADE = 0.25
@@ -695,7 +712,7 @@ font_damage_big = pygame.font.SysFont('malgun gothic', 26, bold=True)
 FX_WEAPON_COLORS = {
     "glock": (255, 230, 90), "shotgun": (255, 170, 50), "sniper": (230, 235, 255), "machinegun": (255, 130, 70),
     "plasma": (90, 255, 255), "rocket": (255, 150, 40), "spear": (130, 210, 255), "gloves": (255, 170, 200),
-    "melee": (230, 170, 90), "katana": (210, 230, 255), "axe": (255, 120, 120), "hammer": (230, 230, 230),
+    "melee": (230, 170, 90), "katana": (210, 230, 255), "axe": (255, 120, 120), "hammer": (255, 110, 210),
 }
 # 속성탄 색 (화염 / 얼음 / 전기)
 ELEMENT_COLORS = {
@@ -975,6 +992,40 @@ def draw_gauntlet_art(scale=1.0):
     return art
 
 
+_guitar_cache = {}
+
+
+def draw_guitar_art(scale=1.0):
+    """일렉 기타 (오른쪽이 몸통): 넥을 잡고 몸통으로 내려침 - 자홍색 몸통, 흰 픽가드, 프렛, 줄"""
+    key = round(scale, 2)
+    art = _guitar_cache.get(key)
+    if art is not None:
+        return art
+    u = lambda v: max(1, int(v * scale))
+    art = pygame.Surface((u(140), u(60)), pygame.SRCALPHA)
+    cy = u(30)
+    pygame.draw.rect(art, (40, 30, 30), (0, cy - u(6), u(16), u(12)), border_radius=u(3))           # 헤드
+    for px in (3, 8, 13):
+        pygame.draw.circle(art, (220, 220, 230), (u(px), cy - u(7)), u(2))                          # 줄감개
+    pygame.draw.rect(art, (120, 72, 40), (u(14), cy - u(4), u(62), u(8)))                           # 넥
+    for fx_ in range(20, 74, 8):
+        pygame.draw.line(art, (210, 200, 170), (u(fx_), cy - u(4)), (u(fx_), cy + u(3)), 1)          # 프렛
+    body, dark = (220, 50, 140), (110, 20, 70)
+    pygame.draw.ellipse(art, body, (u(70), u(4), u(40), u(52)))                                      # 몸통 (위/아래 두 덩어리)
+    pygame.draw.ellipse(art, body, (u(92), u(8), u(46), u(44)))
+    pygame.draw.ellipse(art, dark, (u(70), u(4), u(40), u(52)), u(2))
+    pygame.draw.ellipse(art, dark, (u(92), u(8), u(46), u(44)), u(2))
+    pygame.draw.ellipse(art, (245, 240, 235), (u(88), u(16), u(30), u(26)))                          # 픽가드
+    for py in (-2, 2):
+        pygame.draw.rect(art, (30, 30, 34), (u(96), cy + u(py) - u(1), u(14), u(3)))                # 픽업
+    pygame.draw.rect(art, (200, 200, 210), (u(118), cy - u(6), u(6), u(12)))                         # 브리지
+    for sy in (-3, -1, 1, 3):
+        pygame.draw.line(art, (235, 235, 245), (u(4), cy + u(sy)), (u(120), cy + u(sy)), 1)          # 줄
+    pygame.draw.ellipse(art, (255, 150, 210), (u(104), u(12), u(16), u(6)))                          # 광택
+    _guitar_cache[key] = art
+    return art
+
+
 def draw_shadow(surface, sx, sy, width, height):
     shadow_w = max(10, int(width * 0.95))
     shadow_h = max(4, int(width * 0.3))
@@ -1098,6 +1149,14 @@ def draw_zombie_sprite(surface, camera, zombie, player):
 def draw_player_sprite(surface, camera, player):
     """플레이어: 걸을 때 흔들리고, 조준 방향으로 총구/무기가 향함"""
     sx, sy = camera.apply(player.rect.centerx, player.rect.centery)
+    if getattr(player, "encore_time", 0) > 0:   # 앙코르: 주위를 도는 음표
+        for k in range(2):
+            a = fx.frame * 0.08 + k * math.pi
+            ui_text(surface, "♪", font_hud, (230, 150, 255), (int(sx + math.cos(a) * 28), int(sy - 10 + math.sin(a) * 16)), "center")
+    if player.weapon is not None and player.weapon.weapon_type == "hammer":
+        # 다가오는 박자 고리: 박자에 가까울수록 몸에 붙음 (이때 치면 PERFECT)
+        phase = (pygame.time.get_ticks() % BEAT_MS) / BEAT_MS
+        pygame.draw.circle(surface, (255, 110, 210), (int(sx), int(sy)), int(26 + 44 * (1 - phase)), 2)
     combo = getattr(player, "glove_combo", 0)
     if combo >= 3:   # 글로브 콤보 숫자 (콤보가 클수록 크고 붉게)
         font = font_hud_big if combo >= GLOVE_FRENZY_COMBO else font_hud
@@ -1128,7 +1187,10 @@ def draw_player_sprite(surface, camera, player):
     aim_x, aim_y = mx - sx, my - body_y
     dist = math.hypot(aim_x, aim_y) or 1
     ux, uy = aim_x / dist, aim_y / dist
-    if player.weapon is not None and player.weapon.weapon_type == "gloves":
+    if player.weapon is not None and player.weapon.weapon_type == "hammer":
+        held = pygame.transform.rotate(draw_guitar_art(0.36), -math.degrees(math.atan2(uy, ux)))
+        surface.blit(held, held.get_rect(center=(int(sx + ux * 26), int(body_y + uy * 26))))
+    elif player.weapon is not None and player.weapon.weapon_type == "gloves":
         held = pygame.transform.rotate(draw_gauntlet_art(0.42), -math.degrees(math.atan2(uy, ux)))
         surface.blit(held, held.get_rect(center=(int(sx + ux * 20), int(body_y + uy * 20))))
     elif player.weapon is not None and player.weapon.weapon_type == "spear":
@@ -1428,6 +1490,9 @@ class Player(pygame.sprite.Sprite):
         self.rush_time = 0       # (예전 글로브 러시 - 지금은 안 씀)
         self.glove_combo = 0     # 글로브 콤보 수
         self.glove_combo_timer = 0
+        self.groove = 0          # 일렉 기타: PERFECT 연속 (그루브)
+        self.encore_time = 0     # 앙코르 버프 남은 시간 (팀 전체)
+        self.encore_power = 0.0
         self.invuln_time = 0     # 무적 남은 시간 (카타나 일섬 직후)
         self.overshield = 0.0    # 흡혈 보호막 (도끼 대회전 베기로 넘친 회복량)
         self.overshield_time = 0
@@ -1520,6 +1585,8 @@ class Player(pygame.sprite.Sprite):
         current_speed = self.speed * self.slow_multiplier
         if self.speed_buff_time > 0:
             current_speed *= ITEM_BUFF_MULTIPLIER
+        if self.encore_time > 0:
+            current_speed *= 1 + ENCORE_SPEED   # 앙코르 (팀 버프)
 
         if held('up'):
             self.pos_y -= current_speed
@@ -2633,8 +2700,110 @@ def tick_glove_combo(player):
             if player.glove_combo >= 5:
                 fx.add_text(player.rect.centerx, player.rect.top - 40, f"콤보 끊김 ({player.glove_combo})", (170, 160, 150))
             player.glove_combo = 0
+    if getattr(player, "encore_time", 0) > 0:
+        player.encore_time -= 1
     if player.weapon is not None:
         player.weapon.rush_mult = 1 + min(GLOVE_COMBO_SPEED_MAX, GLOVE_COMBO_SPEED * player.glove_combo)
+        if getattr(player, "encore_time", 0) > 0:
+            player.weapon.rush_mult *= 1 + ENCORE_SPEED   # 앙코르: 공격 속도 +20%
+
+
+def rhythm_judge(player, time_ms):
+    """일렉 기타: 친 순간이 박자(BEAT_MS)에 얼마나 맞았는지 → 데미지 배율 (그루브 포함), 판정 글자 표시"""
+    phase = time_ms % BEAT_MS
+    off = min(phase, BEAT_MS - phase)
+    x, y = player.rect.centerx, player.rect.top - 44
+    if off <= RHYTHM_PERFECT_MS:
+        player.groove = min(GROOVE_MAX, player.groove + 1)
+        mult = RHYTHM_PERFECT_MULT * (1 + GROOVE_BONUS * player.groove)
+        fx.add_text(x, y, f"PERFECT x{mult:.1f}", (255, 215, 90), big=True, life=26)
+        fx.ring(player.rect.centerx, player.rect.centery, (255, 110, 210), 46, count=14, size=3)
+    elif off <= RHYTHM_GOOD_MS:
+        mult = RHYTHM_GOOD_MULT * (1 + GROOVE_BONUS * player.groove)
+        fx.add_text(x, y, "GOOD", (140, 230, 150), life=22)
+    else:
+        if player.groove >= 3:
+            fx.add_text(x, y - 18, "그루브 끊김", (170, 160, 150), life=24)
+        player.groove = 0
+        mult = RHYTHM_MISS_MULT
+        fx.add_text(x, y, "MISS", (150, 150, 160), life=20)
+    return mult
+
+
+def team_of(player):
+    """앙코르를 받을 팀 (멀티: 살아 있는 팀원 전체 / 1인용: 나)"""
+    return TEAM_PROVIDER() if TEAM_PROVIDER is not None else [player]
+
+
+_beat_sounds = {}
+_last_beat_played = [-1]
+
+
+def _make_tick(freq, ms, volume):
+    """메트로놈 소리를 코드로 만듦 (사운드 파일 없이) - 소리 장치가 없으면 None"""
+    try:
+        init = pygame.mixer.get_init()
+        if not init:
+            return None
+        rate, size, channels = init
+        import array
+        n = int(rate * ms / 1000)
+        samples = array.array("h")
+        for i in range(n):
+            env = (1 - i / n) ** 3
+            v = int(32767 * volume * env * math.sin(2 * math.pi * freq * i / rate))
+            for _ in range(channels):
+                samples.append(v)
+        return pygame.mixer.Sound(buffer=samples.tobytes())
+    except Exception:
+        return None
+
+
+def play_metronome(player):
+    """일렉 기타를 든 플레이어(내 화면)에게만 박자마다 똑딱 소리 (4박마다 강하게)"""
+    if player.weapon is None or player.weapon.weapon_type != "hammer":
+        return
+    beat = pygame.time.get_ticks() // BEAT_MS
+    if beat == _last_beat_played[0]:
+        return
+    _last_beat_played[0] = beat
+    if not _beat_sounds:
+        _beat_sounds["tick"] = _make_tick(1100, 40, 0.25)
+        _beat_sounds["accent"] = _make_tick(1650, 55, 0.35)
+    sound = _beat_sounds.get("accent" if beat % 4 == 0 else "tick")
+    if sound is not None:
+        try:
+            sound.play()
+        except Exception:
+            pass
+
+
+def draw_beat_ui(surface, player):
+    """일렉 기타 박자 표시: 화면 아래 가운데 박자 막대 (양쪽에서 노트가 다가와 가운데에서 박자)"""
+    if player.weapon is None or player.weapon.weapon_type != "hammer":
+        return
+    play_metronome(player)
+    t = pygame.time.get_ticks()
+    width, height = surface.get_size()
+    cx, cy = width // 2, height - 96
+    lane = 220
+    ui_panel(surface, (cx - lane - 20, cy - 22, lane * 2 + 40, 44), alpha=170, radius=22)
+    pygame.draw.line(surface, (90, 70, 90), (cx - lane, cy), (cx + lane, cy), 2)
+    phase = (t % BEAT_MS) / BEAT_MS
+    flash = max(0.0, 1 - phase * 4)    # 박자 직후 반짝임
+    pygame.draw.circle(surface, (255, 110, 210), (cx, cy), 15 + int(4 * flash), 3)
+    if flash > 0:
+        pygame.draw.circle(surface, (255, 200, 240), (cx, cy), 8)
+    for k in range(4):   # 다가오는 노트 (양쪽에서)
+        dist = (k + 1 - phase) / 4 * lane
+        if dist > lane:
+            continue
+        beat_index = t // BEAT_MS + k + 1
+        color = (255, 215, 90) if beat_index % 4 == 0 else (230, 200, 255)
+        for side in (-1, 1):
+            pygame.draw.circle(surface, color, (int(cx + side * dist), cy), 7)
+    if player.groove > 0:
+        ui_text(surface, f"그루브 {player.groove}", font_tiny, (255, 150, 220), (cx, cy - 34), "midbottom")
 
 
 def apply_hit_elements(player, zombie, zombies, base_damage, chain_range=150):
@@ -2714,6 +2883,8 @@ def get_weapon_damage(player):
         damage *= get_spear_speed_factor(player)
     if player.ability == "damage" and player.health <= player.max_health * 0.5:
         damage *= DAMAGE_TRAIT_RAGE   # 특성 광전사: 체력 절반 이하면 공격력 +25%
+    if getattr(player, "encore_time", 0) > 0:
+        damage *= 1 + player.encore_power   # 앙코르 (팀 버프)
     return damage
 
 
@@ -2813,7 +2984,7 @@ def get_auto_aim_target(player, zombies, max_range=600):
 
 
 # ===== 무기별 우클릭 스킬 =====
-# 나무 방망이: 홈런 / 카타나: 일섬 / 도끼: 대회전 베기 / 창: 물보라 / 해머: 대지 강타 / 글로브: 백열권
+# 나무 방망이: 홈런 / 카타나: 일섬 / 도끼: 대회전 베기 / 창: 물보라 / 일렉 기타: 앙코르 / 글로브: 백열권
 # 글록: 항공 폭격 / 기관총: 포탑 설치 / 샷건: 용의 숨결 / 저격총: 도탄 사격 / 플라즈마: 블랙홀 / 로켓: 미사일 폭격
 
 def skill_damage(zombie, amount):
@@ -3605,21 +3776,21 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         player.active_skills.append(WaterSplashSkill(player, all_sprites, base * SPLASH_DAMAGE_MULT, radius, slow))
 
     elif weapon_type == "hammer":
-        # 대지 강타: 마우스 위치(최대 300px)를 내려쳐 주변 좀비 피해 + 1.5초 기절
-        reach = min(distance, 300)
-        tx, ty = cx + direction_x * reach, cy + direction_y * reach
-        radius = 160 + up["range"]
-        all_sprites.add(MeleePoundEffect(tx, ty, radius))
-        boom = Explosion(tx, ty, radius)
-        explosions.add(boom)
-        all_sprites.add(boom)
+        # 앙코르: 파워 코드 한 방 → 팀 전체 공격력/이동속도/공격 속도 버프 + 내 주변 음파
+        frames = ENCORE_FRAMES + (up["range"] // 20) * 60          # "앙코르 시간 +1초"
+        power = ENCORE_DAMAGE + 0.05 * up["damage"]                 # "앙코르 효과 +5%"
+        for mate in team_of(player):
+            mate.encore_power = max(mate.encore_power if mate.encore_time > 0 else 0, power)
+            mate.encore_time = max(mate.encore_time, frames)
+            fx.ring(mate.rect.centerx, mate.rect.centery, (220, 120, 255), 70, count=22, size=4)
+            fx.add_text(mate.rect.centerx, mate.rect.top - 34, "앙코르!", (230, 150, 255), big=True, life=50)
+        fx.ring(cx, cy, (255, 110, 210), ENCORE_WAVE_RADIUS, count=40, size=4)
+        all_sprites.add(MeleePoundEffect(cx, cy, ENCORE_WAVE_RADIUS))
         for zombie in list(zombies):
-            if zombie.health > 0 and math.hypot(zombie.rect.centerx - tx, zombie.rect.centery - ty) < radius:
-                skill_damage(zombie, base * 3 * (1 + 0.10 * up["damage"]))
-                zombie.slow_time = max(zombie.slow_time, 90)
-                zombie.slow_multiplier = 0.0  # 기절 (돌좀비는 면역)
-        fx.add_text(tx, ty - radius * 0.5, "기절!", (230, 230, 230), big=True)
-        fx.add_shake(8)
+            if zombie.health > 0 and math.hypot(zombie.rect.centerx - cx, zombie.rect.centery - cy) < ENCORE_WAVE_RADIUS:
+                skill_damage(zombie, base * ENCORE_WAVE_MULT)
+                push_zombie(zombie, cx, cy, 16)
+        fx.add_shake(6)
 
     elif weapon_type == "gloves":
         # 백열권: 마우스 방향으로 주먹을 마구 날리고 마지막에 어퍼컷
@@ -4390,9 +4561,9 @@ class SpawnEffect(pygame.sprite.Sprite):
 # 근접 무기 (나무 방망이)
 class Melee(pygame.sprite.Sprite):
     # 무기별 휘두르기 방식: swing(빠르게 휘두르고 감속) / heavy(천천히 들었다 내려찍기) / thrust(앞으로 찌르기)
-    SWING_STYLES = {"melee": "swing", "katana": "swing", "axe": "heavy", "hammer": "heavy", "spear": "thrust", "gloves": "thrust"}
+    SWING_STYLES = {"melee": "swing", "katana": "swing", "axe": "heavy", "hammer": "swing", "spear": "thrust", "gloves": "thrust"}
     TRAIL_COLORS = {"melee": (230, 170, 90), "katana": (200, 225, 255), "axe": (255, 110, 110),
-                    "hammer": (230, 230, 230), "spear": (120, 200, 255), "gloves": (255, 140, 100)}
+                    "hammer": (255, 90, 200), "spear": (120, 200, 255), "gloves": (255, 140, 100)}
     # 공격이 맞는 부채꼴의 반각(도): 조준 방향 ± 이 각도, 반경 attack_range (그려지는 범위와 동일)
     HIT_HALF_ARCS = {"melee": 80, "katana": 90, "axe": 70, "hammer": 75, "spear": 30, "gloves": 45}
     # 이 거리 안에 붙은 좀비는 방향과 상관없이 맞음 (몸에 붙은 좀비를 못 때리는 일 방지)
@@ -4458,16 +4629,12 @@ class Melee(pygame.sprite.Sprite):
             self.swing_angle = 80
             self.attack_range = 165  # 가장 긴 범위
         elif weapon_type == "hammer":
-            # 해머 - 긴 손잡이 + 묵직한 쇠머리
-            self.base_image = pygame.Surface((112, 70), pygame.SRCALPHA)
-            pygame.draw.rect(self.base_image, (90, 60, 35), (0, 30, 84, 10), border_radius=3)       # 손잡이
-            pygame.draw.rect(self.base_image, (175, 175, 185), (76, 4, 36, 62), border_radius=5)    # 머리
-            pygame.draw.rect(self.base_image, (120, 120, 130), (76, 4, 36, 62), 3, border_radius=5)
-            pygame.draw.rect(self.base_image, (225, 225, 235), (82, 10, 6, 50), border_radius=2)    # 하이라이트
-            self.duration = 28
-            self.knockback_power = 1800  # 가장 강한 넉백
+            # 일렉 기타 - 넥을 잡고 몸통으로 후려침
+            self.base_image = draw_guitar_art(1.0).copy()
+            self.duration = 18
+            self.knockback_power = 900
             self.swing_angle = 110
-            self.attack_range = 155
+            self.attack_range = 150
         elif weapon_type == "gloves":
             # 글로브 - 복싱 글러브 (광택 있는 진한 빨강 + 흰 커프)
             self.base_image = draw_gauntlet_art(0.9).copy()
@@ -4694,6 +4861,11 @@ def get_player_buffs(player):
     if player.katana_chain > 0:
         bonus = int(round(get_katana_chain_bonus(player) * player.katana_chain * 100))
         buffs.append((f"연참 x{player.katana_chain} (다음 일섬 +{bonus}%)", "chain", player.katana_chain_timer, (150, 230, 255)))
+    if getattr(player, "encore_time", 0) > 0:
+        buffs.append((f"앙코르 (공격 +{int(player.encore_power * 100)}%)", "encore",
+                      player.encore_time, (220, 140, 255)))
+    if getattr(player, "groove", 0) > 0 and player.weapon is not None and player.weapon.weapon_type == "hammer":
+        buffs.append((f"그루브 {player.groove} (+{int(GROOVE_BONUS * player.groove * 100)}%)", "groove", 1, (255, 150, 220)))
     if getattr(player, "glove_combo", 0) > 0:
         speed = int(round(min(GLOVE_COMBO_SPEED_MAX, GLOVE_COMBO_SPEED * player.glove_combo) * 100))
         state = " · 폭주" if player.glove_combo >= GLOVE_FRENZY_COMBO else ""
@@ -4774,7 +4946,7 @@ def draw_player_status(surface, player, x=14, y=14):
     for label, key, frames, color in buffs:
         active.add(key)
         maxes[key] = max(maxes.get(key, 0), frames)
-        ui_text(surface, label if key == "rage" else f"{label}  {frames / FPS:.1f}초", font_tiny, ui_bright(color), (x + 14, by), shadow=False)
+        ui_text(surface, label if key in ("rage", "groove") else f"{label}  {frames / FPS:.1f}초", font_tiny, ui_bright(color), (x + 14, by), shadow=False)
         ui_bar(surface, (x + w - 84, by + 6, 72, 8), frames / max(maxes[key], 1), ui_bright(color, 150), back=(30, 30, 40), radius=4)
         by += 24
     for key in list(maxes):
@@ -4860,6 +5032,7 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
             ui_text(surface, f"(최근 {max_items}개 · 전체는 ESC → 능력 확인)", font_tiny, UI_ACCENT, (box.x + 16, box.bottom - 26), shadow=False)
 
     draw_controls_bar(surface, controls_hint(" · ESC 일시정지"))
+    draw_beat_ui(surface, player)
     ui_text(surface, f"FPS {clock.get_fps():.0f}", font_tiny, UI_SUB, (width - 14, height - 52), "topright")
 
 
@@ -4945,7 +5118,7 @@ def select_weapon():
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
         {"name": "창", "desc": "속도 비례 데미지, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
-        {"name": "해머", "desc": "묵직한 한 방, 최강 넉백", "skill": "대지 강타 (기절)", "type": "hammer", "color": (205, 205, 215)},
+        {"name": "일렉 기타", "desc": "박자 맞춰 치면 강해짐 (리듬)", "skill": "앙코르 (팀 버프)", "type": "hammer", "color": (220, 60, 150)},
         {"name": "글로브", "desc": "초고속 연타, 짧은 사거리", "skill": "백열권 (연타 + 어퍼컷)", "type": "gloves", "color": (220, 60, 70)},
     ]
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
@@ -5143,7 +5316,7 @@ def build_cumulative_upgrade_lines(player):
     if counts.get("axe_skill_range", 0) > 0:
         lines.append(f"대회전 베기 범위: +{counts['axe_skill_range'] * 25}px")
     if counts.get("hammer_skill_range", 0) > 0:
-        lines.append(f"대지 강타 범위: +{counts['hammer_skill_range'] * 20}px")
+        lines.append(f"앙코르 시간: +{counts['hammer_skill_range']}초")
     if counts.get("plasma_skill_range", 0) > 0:
         lines.append(f"블랙홀 범위: +{counts['plasma_skill_range'] * 15}px")
     if counts.get("rocket_skill_count", 0) > 0:
@@ -5392,9 +5565,9 @@ def build_upgrade_choices(player):
         ]
     elif weapon_type == "hammer":
         weapon_upgrades = [
-            {"name": "대지 강타 범위 +20px", "desc": "강타 범위 확대", "type": "hammer_skill_range", "color": (200, 200, 100)},
-            {"name": f"{player.weapon.name} 데미지 +10", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 10},
-            {"name": "대지 강타 피해 +10%", "desc": "강타 피해 증가", "type": "hammer_skill_damage", "color": (200, 150, 100)},
+            {"name": "앙코르 시간 +1초", "desc": "팀 버프가 더 오래", "type": "hammer_skill_range", "color": (200, 140, 255)},
+            {"name": f"{player.weapon.name} 데미지 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
+            {"name": "앙코르 효과 +5%", "desc": "팀 공격력 버프 증가", "type": "hammer_skill_damage", "color": (255, 120, 210)},
         ]
     elif weapon_type == "gloves":
         weapon_upgrades = [
@@ -5705,9 +5878,9 @@ def get_upgrade_name(upgrade_type):
         "spear_skill_pierces": "물보라 범위 +30px",
         "melee_damage_spear": "창 데미지 +4",
         "melee_skill_speed_spear": "물보라 둔화 +8%",
-        "hammer_skill_range": "대지 강타 범위 +20px",
-        "melee_damage_hammer": "해머 데미지 +10",
-        "hammer_skill_damage": "대지 강타 피해 +10%",
+        "hammer_skill_range": "앙코르 시간 +1초",
+        "melee_damage_hammer": "일렉 기타 데미지 +4",
+        "hammer_skill_damage": "앙코르 효과 +5%",
         "gloves_skill_strikes": "백열권 시간 +0.25초",
         "melee_damage_gloves": "글로브 데미지 +2",
         "melee_skill_speed_gloves": "글로브 속도 +10%",
@@ -6264,6 +6437,8 @@ def main():
                             # 근접 무기 전용 데미지 강화는 weapon.damage에 이미 더해지므로 추가 배율은 없음
                             # (예전에는 "+4"에 더해 강화 1회당 +30% 배율까지 중복 적용돼서 근접만 과도하게 강해졌음)
                             melee_damage = get_weapon_damage(player)
+                            if player.weapon.weapon_type == "hammer":   # 일렉 기타: 박자 판정
+                                melee_damage *= rhythm_judge(player, pygame.time.get_ticks())
                             melee = Melee(player.rect.centerx, player.rect.centery, direction_x, direction_y, melee_damage, player.weapon.weapon_type, owner=player)
                             bullets.add(melee)
                             all_sprites.add(melee)

@@ -299,6 +299,7 @@ class MatchState:
         self.zombie_spawn_counter = 0
         self.max_zombies = self.scaled(get_max_zombies(self.wave))
         self.game_over = False
+        g.TEAM_PROVIDER = self.alive_players   # 앙코르: 팀 전체 버프
 
     # ----- 도우미 -----
     def scaled(self, count):
@@ -508,7 +509,7 @@ class MatchState:
                 can_fire = True
                 p.weapon.last_shot_time = pygame.time.get_ticks()
             if can_fire:
-                self.fire_weapon(p, aim_x, aim_y)
+                self.fire_weapon(p, aim_x, aim_y, inp.get("b"))
 
         if inp["r"]:
             execute_weapon_skill(p.weapon.weapon_type, p, aim_x, aim_y, zombies, bullets, all_sprites, explosions)
@@ -517,7 +518,7 @@ class MatchState:
             p.rect.center = (inp["x"], inp["y"])
             p.teleport_cooldown = p.teleport_cooldown_max
 
-    def fire_weapon(self, p, mouse_world_x, mouse_world_y):
+    def fire_weapon(self, p, mouse_world_x, mouse_world_y, beat_frame=None):
         zombies, bullets, explosions, all_sprites = self.zombies, self.bullets, self.explosions, self.all_sprites
         if p.weapon.weapon_type in MELEE_WEAPONS:
             dx = mouse_world_x - p.rect.centerx
@@ -528,6 +529,8 @@ class MatchState:
             else:
                 direction_x, direction_y = p.last_direction_x, p.last_direction_y
             melee_damage = get_weapon_damage(p)
+            if p.weapon.weapon_type == "hammer":   # 일렉 기타: 박자 판정 - 클릭한 순간(입력 지연 전) 기준
+                melee_damage *= rhythm_judge(p, (self.sim_frame if beat_frame is None else beat_frame) * 1000 / 60)
             melee = Melee(p.rect.centerx, p.rect.centery, direction_x, direction_y, melee_damage, p.weapon.weapon_type, owner=p)
             bullets.add(melee)
             all_sprites.add(melee)
@@ -1275,6 +1278,7 @@ def draw_match(state, camera, ui):
             ratio = max(0, p.health) / max(p.max_health, 1)
             ui_bar(screen, bar, ratio, UI_GOOD if ratio > 0.5 else (255, 200, 60) if ratio > 0.25 else UI_DANGER, radius=5)
     draw_controls_bar(screen, controls_hint(f" · ESC 메뉴  |  좀비 수 {state.n_players}명 x {MOB_FACTOR}"))
+    draw_beat_ui(screen, local)
     if state.n_players > 1:
         draw_minimap(state, camera, local)
         draw_teammate_markers(state, camera, local)
@@ -1355,6 +1359,7 @@ def run_match(lockstep, seed, roster, local_pid):
                         clicks["e"] = 1
                     elif binding_event(event, "attack") and not ui["menu"]:
                         clicks["l"] = 1
+                        clicks["b"] = state.sim_frame
                     elif (binding_event(event, "skill")) and not ui["menu"]:
                         clicks["r"] = 1
                     elif binding_event(event, "stack"):
@@ -1367,6 +1372,7 @@ def run_match(lockstep, seed, roster, local_pid):
                         clicks["u"] = card        # 업그레이드 카드는 항상 좌클릭
                     elif binding_event(event, "attack"):
                         clicks["l"] = 1
+                        clicks["b"] = state.sim_frame
                     elif binding_event(event, "skill"):
                         clicks["r"] = 1
                     elif binding_event(event, "teleport"):          # 마우스 버튼으로 지정한 순간이동 등
@@ -1387,6 +1393,7 @@ def run_match(lockstep, seed, roster, local_pid):
                 bits = 0 if ui["menu"] else (binding_held("up", keys) * 1 | binding_held("left", keys) * 2 |
                                              binding_held("down", keys) * 4 | binding_held("right", keys) * 8)
                 inp = {"k": bits, "x": int(mx + camera.x), "y": int(my + camera.y), "l": clicks["l"], "h": int(held),
+                       "b": clicks.get("b", state.sim_frame),
                        "r": clicks["r"], "e": clicks["e"], "u": clicks["u"]}
                 inp.update(INPUT_HOOK(state, local) if INPUT_HOOK else {})
                 lockstep.submit(next_send, inp)
