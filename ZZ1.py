@@ -150,6 +150,8 @@
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 해머: 대지 강타 - 마우스 위치를 내려쳐 주변 좀비 1.5초 기절 (12초)
 - 글로브: 초당 공격 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 60%)
+- 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공속 +2% (최대 +50%),
+  10콤보마다 강타 충격파 (3배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동), 백열권은 콤보당 +3% 후 어퍼컷에서 콤보 소모
 - 글로브: 백열권 - 1.2초 동안 마우스 방향 앞쪽을 주먹으로 마구 두드리고(0.07초마다 0.6배), 마지막 어퍼컷(4배)으로 날려 보내며 1초 기절 (15초)
 - 글록: 항공 폭격 - 비행기가 날아와 조준 방향 직선(약 1000px)에 폭탄을 줄줄이 떨어뜨림
   폭탄 1발 기본 1000 데미지, 공격력이 오르면 같은 비율로 증가 (80초)
@@ -364,6 +366,20 @@ GLOVES_UPPERCUT_STUN = 60
 # 글로브 추가 타격: 초당 공격 횟수가 기준 이상이면 한 번 칠 때 몇 대씩 더 때림 (추가 타격은 60% 데미지, 치명타 따로)
 GLOVES_EXTRA_HIT_STEPS = ((9, 3), (7, 2), (5.5, 1))   # 초당 5.5회 이상 +1, 7회 +2, 9회 +3
 GLOVES_EXTRA_HIT_RATIO = 0.6
+# 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 다시 못 맞히면 끊김)
+#  콤보 1당 공격 속도 +2% (최대 +50%) / 10콤보마다 "강타" 충격파 (3배) / 25콤보 이상 "폭주": 주먹마다 앞으로 주먹 파동 (0.8배)
+#  백열권은 콤보 1당 +3% (최대 +90%), 마지막 어퍼컷에서 콤보를 모두 터뜨림
+GLOVE_COMBO_WINDOW = 72
+GLOVE_COMBO_SPEED = 0.02
+GLOVE_COMBO_SPEED_MAX = 0.5
+GLOVE_POWER_EVERY = 10
+GLOVE_POWER_MULT = 3.0
+GLOVE_POWER_RADIUS = 110
+GLOVE_FRENZY_COMBO = 25
+GLOVE_WAVE_MULT = 0.8
+GLOVE_WAVE_RANGE = 220
+GLOVE_SKILL_COMBO_BONUS = 0.03
+GLOVE_SKILL_COMBO_MAX = 0.9
 # 치명타 피해 배율: 기본 1.3배, 저격총 전용 "치명타 데미지 +25%" 업그레이드 1회당 +0.25 (최대 10회 = 3.8배)
 CRIT_BASE_MULT = 1.3
 SNIPER_CRIT_DAMAGE_UPGRADE = 0.25
@@ -1082,6 +1098,11 @@ def draw_zombie_sprite(surface, camera, zombie, player):
 def draw_player_sprite(surface, camera, player):
     """플레이어: 걸을 때 흔들리고, 조준 방향으로 총구/무기가 향함"""
     sx, sy = camera.apply(player.rect.centerx, player.rect.centery)
+    combo = getattr(player, "glove_combo", 0)
+    if combo >= 3:   # 글로브 콤보 숫자 (콤보가 클수록 크고 붉게)
+        font = font_hud_big if combo >= GLOVE_FRENZY_COMBO else font_hud
+        color = (255, 90, 60) if combo >= GLOVE_FRENZY_COMBO else (255, 170, 80)
+        ui_text(surface, f"{combo} COMBO", font, color, (int(sx), int(sy) - player.rect.height // 2 - 26), "midbottom")
     if getattr(player, "overshield", 0) >= 1:   # 흡혈 보호막: 노란 고리 (끝나기 1초 전부터 깜빡임)
         if player.overshield_time > 60 or player.overshield_time % 10 < 5:
             pygame.draw.circle(surface, (245, 205, 70), (int(sx), int(sy)), 30, 2)
@@ -1404,7 +1425,9 @@ class Player(pygame.sprite.Sprite):
         self.infinity_ammo_time = 0
         self.explosion_cooldown = 0  # "폭발 공격" 최소 간격
         self.active_skills = []  # 여러 프레임 유지되는 스킬 (대회전 베기, 항공 폭격, 포탑, 블랙홀 등)
-        self.rush_time = 0       # 글로브 러시: 남은 시간 동안 공격 속도 3배
+        self.rush_time = 0       # (예전 글로브 러시 - 지금은 안 씀)
+        self.glove_combo = 0     # 글로브 콤보 수
+        self.glove_combo_timer = 0
         self.invuln_time = 0     # 무적 남은 시간 (카타나 일섬 직후)
         self.overshield = 0.0    # 흡혈 보호막 (도끼 대회전 베기로 넘친 회복량)
         self.overshield_time = 0
@@ -2575,6 +2598,45 @@ def melee_strike_damage(player, damage, zombie):
     return total
 
 
+def glove_combo_punch(player, zombies, all_sprites, explosions, target, dir_x, dir_y):
+    """글로브 주먹이 맞았을 때: 콤보 +1, 10콤보마다 강타, 25콤보 이상이면 주먹 파동"""
+    player.glove_combo += 1
+    player.glove_combo_timer = GLOVE_COMBO_WINDOW
+    combo = player.glove_combo
+    base = get_weapon_damage(player)
+    if combo % GLOVE_POWER_EVERY == 0 and target is not None:
+        tx, ty = target.rect.center
+        fx.ring(tx, ty, (255, 150, 80), GLOVE_POWER_RADIUS, count=26, size=4)
+        all_sprites.add(FistPop(tx, ty, math.atan2(dir_y, dir_x), 1.4, life=14))
+        for zombie in list(zombies):
+            if zombie.health > 0 and math.hypot(zombie.rect.centerx - tx, zombie.rect.centery - ty) < GLOVE_POWER_RADIUS:
+                skill_damage(zombie, roll_crit_damage(player, base * GLOVE_POWER_MULT, zombie))
+                push_zombie(zombie, player.rect.centerx, player.rect.centery, 14)
+        fx.add_text(tx, ty - 46, f"강타! {combo} COMBO", (255, 170, 80), big=True, life=40)
+        fx.add_shake(4)
+    if combo >= GLOVE_FRENZY_COMBO:
+        # 폭주: 주먹 파동이 앞으로 날아감
+        cx, cy = player.rect.center
+        ex, ey = cx + dir_x * GLOVE_WAVE_RANGE, cy + dir_y * GLOVE_WAVE_RANGE
+        for zombie in zombies_near_line(zombies, cx, cy, ex, ey, 26):
+            skill_damage(zombie, base * GLOVE_WAVE_MULT)
+        all_sprites.add(LineFlash(cx + dir_x * 40, cy + dir_y * 40, ex, ey, (255, 140, 90), width=10, duration=10))
+        all_sprites.add(FistPop(cx + dir_x * GLOVE_WAVE_RANGE * 0.6, cy + dir_y * GLOVE_WAVE_RANGE * 0.6,
+                                math.atan2(dir_y, dir_x), 0.9, life=8))
+
+
+def tick_glove_combo(player):
+    """콤보 유지 시간 / 공격 속도 보너스 (매 프레임)"""
+    if player.glove_combo > 0:
+        player.glove_combo_timer -= 1
+        if player.glove_combo_timer <= 0:
+            if player.glove_combo >= 5:
+                fx.add_text(player.rect.centerx, player.rect.top - 40, f"콤보 끊김 ({player.glove_combo})", (170, 160, 150))
+            player.glove_combo = 0
+    if player.weapon is not None:
+        player.weapon.rush_mult = 1 + min(GLOVE_COMBO_SPEED_MAX, GLOVE_COMBO_SPEED * player.glove_combo)
+
+
 def apply_hit_elements(player, zombie, zombies, base_damage, chain_range=150):
     """속성탄 업그레이드 효과 (화염: 불붙임 / 얼음: 둔화 / 전기: 주변 2마리에게 연쇄 피해) - 일섬 등 스킬에도 적용"""
     if player.skills.get("skill_fire_bullets", False):
@@ -3275,7 +3337,11 @@ class FlurrySkill(ActiveSkill):
                 push_zombie(zombie, cx, cy, GLOVES_UPPERCUT_KNOCKBACK * get_knockback_multiplier(player))
                 zombie.slow_time = max(zombie.slow_time, GLOVES_UPPERCUT_STUN)
                 zombie.slow_multiplier = 0.0   # 기절
-            fx.add_text(cx + math.cos(self.aim) * 80, cy + math.sin(self.aim) * 80 - 30, "어퍼컷!", (255, 200, 90), big=True)
+            if player.glove_combo >= 5:
+                fx.add_text(cx + math.cos(self.aim) * 80, cy + math.sin(self.aim) * 80 - 30, f"콤보 폭발 {player.glove_combo}!", (255, 200, 90), big=True)
+            else:
+                fx.add_text(cx + math.cos(self.aim) * 80, cy + math.sin(self.aim) * 80 - 30, "어퍼컷!", (255, 200, 90), big=True)
+            player.glove_combo = 0   # 어퍼컷으로 콤보를 모두 터뜨림
             fx.add_shake(9)
         return True
 
@@ -3558,7 +3624,8 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
     elif weapon_type == "gloves":
         # 백열권: 마우스 방향으로 주먹을 마구 날리고 마지막에 어퍼컷
         frames = GLOVES_FLURRY_FRAMES + up["strikes"] * 15
-        player.active_skills.append(FlurrySkill(player, all_sprites, base * GLOVES_FLURRY_HIT_MULT, aim, frames, GLOVES_FLURRY_RADIUS))
+        combo_bonus = 1 + min(GLOVE_SKILL_COMBO_MAX, GLOVE_SKILL_COMBO_BONUS * player.glove_combo)   # 콤보만큼 강해짐
+        player.active_skills.append(FlurrySkill(player, all_sprites, base * GLOVES_FLURRY_HIT_MULT * combo_bonus, aim, frames, GLOVES_FLURRY_RADIUS))
 
     elif weapon_type == "glock":
         # 항공 폭격: 비행기가 날아와 조준 방향 직선으로 폭탄을 줄줄이 떨어뜨림
@@ -4627,8 +4694,10 @@ def get_player_buffs(player):
     if player.katana_chain > 0:
         bonus = int(round(get_katana_chain_bonus(player) * player.katana_chain * 100))
         buffs.append((f"연참 x{player.katana_chain} (다음 일섬 +{bonus}%)", "chain", player.katana_chain_timer, (150, 230, 255)))
-    if player.rush_time > 0:
-        buffs.append(("러시 (공격 속도 3배)", "rush", player.rush_time, (255, 160, 200)))
+    if getattr(player, "glove_combo", 0) > 0:
+        speed = int(round(min(GLOVE_COMBO_SPEED_MAX, GLOVE_COMBO_SPEED * player.glove_combo) * 100))
+        state = " · 폭주" if player.glove_combo >= GLOVE_FRENZY_COMBO else ""
+        buffs.append((f"콤보 {player.glove_combo} (공속 +{speed}%{state})", "combo", player.glove_combo_timer, (255, 150, 90)))
     if player.ability == "damage" and player.health <= player.max_health * 0.5:
         buffs.append(("광전사: 공격력 +25%", "rage", 1, (255, 120, 90)))
     if getattr(player, "overshield", 0) >= 1:
@@ -4681,7 +4750,7 @@ def draw_player_status(surface, player, x=14, y=14):
     pygame.draw.line(surface, UI_BORDER, (x + 12, y + 80), (x + w - 12, y + 80))
 
     ui_text(surface, player.weapon.name, font_hud, ui_bright(player.weapon.color), (x + 14, y + 86))
-    attacks_per_second = player.weapon.fire_rate * player.weapon.attack_speed
+    attacks_per_second = player.weapon.fire_rate * player.weapon.attack_speed * getattr(player.weapon, "rush_mult", 1.0)
     extra_hits = gloves_extra_hits(player)
     ui_text(surface, f"피해 {get_weapon_damage(player):.0f} · 초당 {attacks_per_second:.1f}회" + (f" · 추가 타격 +{extra_hits}" if extra_hits else ""),
             font_tiny, UI_SUB,
@@ -6265,6 +6334,8 @@ def main():
                                         zombie.knockback_vel_y = knockback_vel_y
                                     # 사망 처리(점수/경험치/사망 효과)는 아래 "좀비 죽음 처리"에서 한 번에 함
 
+                            if melee_hit and player.weapon.weapon_type == "gloves":
+                                glove_combo_punch(player, zombies, all_sprites, explosions, first_hit_zombie, direction_x, direction_y)
                             if melee_hit and player.skills.get("skill_explosion", False) and player.explosion_cooldown <= 0:
                                 player.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN
                                 explosion_radius = 80
@@ -6388,15 +6459,8 @@ def main():
             tick_katana_chain(player)
             tick_overshield(player)
 
-            # 글로브 러시
-            if player.rush_time > 0:
-                player.rush_time -= 1
-                player.weapon.rush_mult = 3.0
-                if fx.frame % 3 == 0:
-                    fx.burst(player.rect.centerx, player.rect.centery, (255, 160, 200), 2,
-                             speed=(1.5, 3.5), size=(2, 3), life=(8, 14), drag=0.85)
-            else:
-                player.weapon.rush_mult = 1.0
+            # 글로브 콤보 (유지 시간 + 공격 속도 보너스)
+            tick_glove_combo(player)
 
             # 아이템 버프 시간 감소
             if player.damage_buff_time > 0:

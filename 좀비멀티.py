@@ -558,6 +558,8 @@ class MatchState:
                 if zombie_dist > 0:
                     zombie.knockback_vel_x = (zombie_dx / zombie_dist) * melee.knockback_power / 100 * knockback_mult
                     zombie.knockback_vel_y = (zombie_dy / zombie_dist) * melee.knockback_power / 100 * knockback_mult
+            if melee_hit and p.weapon.weapon_type == "gloves":
+                glove_combo_punch(p, zombies, all_sprites, explosions, first_hit_zombie, direction_x, direction_y)
             if melee_hit and p.skills.get("skill_explosion", False) and p.explosion_cooldown <= 0:
                 p.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN
                 boom_x, boom_y = first_hit_zombie.rect.center
@@ -640,11 +642,7 @@ class MatchState:
             p.shock_time -= 1
         tick_katana_chain(p)   # 연참: 3초 안에 다시 안 쓰면 스택 초기화
         tick_overshield(p)     # 흡혈 보호막 3초
-        if p.rush_time > 0:
-            p.rush_time -= 1
-            p.weapon.rush_mult = 3.0
-        else:
-            p.weapon.rush_mult = 1.0
+        tick_glove_combo(p)    # 글로브 콤보 (유지 시간 + 공격 속도 보너스)
         if p.regen > 0:
             p.health = min(p.health + p.regen / 60, p.max_health)
         # 독/둔화
