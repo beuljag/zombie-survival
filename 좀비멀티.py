@@ -530,7 +530,9 @@ class MatchState:
                 direction_x, direction_y = p.last_direction_x, p.last_direction_y
             melee_damage = get_weapon_damage(p)
             if p.weapon.weapon_type == "hammer":   # 일렉 기타: 박자 판정 - 클릭한 순간(입력 지연 전) 기준
-                melee_damage *= rhythm_judge(p, (self.sim_frame if beat_frame is None else beat_frame) * 1000 / 60)
+                # 클릭할 때 화면의 박자 = (지금까지 처리된 프레임 sim_frame-1) 중 클릭 프레임 → 몇 프레임 전인지
+                frames_ago = 0 if beat_frame is None else max(0, self.sim_frame - 1 - beat_frame)
+                melee_damage *= rhythm_judge(p, frames_ago)
             melee = Melee(p.rect.centerx, p.rect.centery, direction_x, direction_y, melee_damage, p.weapon.weapon_type, owner=p)
             bullets.add(melee)
             all_sprites.add(melee)
@@ -1331,6 +1333,8 @@ def run_match(lockstep, seed, roster, local_pid):
     state = MatchState(seed, roster, local_pid)
     camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
     local = state.by_pid[local_pid]
+    g.LOCAL_PLAYER = local                # 소리는 내 플레이어 것만
+    g.RHYTHM_SOUND_ON_JUDGE = False       # 일렉 기타 소리는 클릭한 순간 바로 (판정은 입력 지연 뒤)
     pygame.time.get_ticks = lambda: int(state.sim_frame * 1000 / 60)   # 게임 시간은 프레임 기준 (모든 PC 동일)
     pygame.key.get_pressed = lambda: _current_keys[0]
     Bullet.__init__ = _bullet_init_with_owner
@@ -1360,6 +1364,7 @@ def run_match(lockstep, seed, roster, local_pid):
                     elif binding_event(event, "attack") and not ui["menu"]:
                         clicks["l"] = 1
                         clicks["b"] = state.sim_frame
+                        rhythm_click_sound(local)
                     elif (binding_event(event, "skill")) and not ui["menu"]:
                         clicks["r"] = 1
                     elif binding_event(event, "stack"):
@@ -1373,6 +1378,7 @@ def run_match(lockstep, seed, roster, local_pid):
                     elif binding_event(event, "attack"):
                         clicks["l"] = 1
                         clicks["b"] = state.sim_frame
+                        rhythm_click_sound(local)
                     elif binding_event(event, "skill"):
                         clicks["r"] = 1
                     elif binding_event(event, "teleport"):          # 마우스 버튼으로 지정한 순간이동 등
