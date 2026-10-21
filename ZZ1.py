@@ -631,20 +631,36 @@ def ui_wrap(text, font, width):
     return lines
 
 
+PIXEL_SIZE = 3   # 코드로 그리는 효과(섬광/궤적/고리)를 이만큼 큰 픽셀로 (도트 그림과 어울리게)
+
+
+def pixelate(surface, factor=PIXEL_SIZE):
+    """부드러운 그림을 굵은 픽셀로 (크기는 그대로 → 위치/판정 변화 없음)"""
+    w, h = surface.get_size()
+    if w < factor * 2 or h < factor * 2:
+        return surface
+    small = pygame.transform.scale(surface, (max(1, w // factor), max(1, h // factor)))   # 가장 가까운 픽셀 (부드럽게 섞는 것보다 훨씬 가벼움)
+    return pygame.transform.scale(small, (w, h))
+
+
 def ui_panel(surface, rect, alpha=215, fill=UI_PANEL, border=UI_BORDER, radius=12, width=1):
-    """반투명 둥근 패널"""
+    """반투명 패널 (도트 스타일: 거의 각진 모서리 + 2px 테두리 + 위쪽 밝은 줄)"""
     rect = pygame.Rect(rect)
+    radius = min(radius, 3)
     key = ("panel", rect.size, fill, alpha, radius)
     panel = _ui_cache.get(key)
     if panel is None:
         panel = pygame.Surface(rect.size, pygame.SRCALPHA)
         pygame.draw.rect(panel, (*fill, alpha), panel.get_rect(), border_radius=radius)
+        if rect.w > 12 and rect.h > 12:   # 위쪽 밝은 줄 (옛날 게임 창 느낌)
+            light = tuple(min(255, c + 22) for c in fill)
+            pygame.draw.line(panel, (*light, min(255, alpha + 20)), (3, 2), (rect.w - 4, 2), 2)
         if len(_ui_cache) > 400:
             _ui_cache.clear()
         _ui_cache[key] = panel
     surface.blit(panel, rect.topleft)
     if border:
-        pygame.draw.rect(surface, border, rect, width, border_radius=radius)
+        pygame.draw.rect(surface, border, rect, max(2, width), border_radius=radius)
     return rect
 
 
@@ -659,6 +675,7 @@ def ui_overlay(surface, alpha=170, color=(4, 5, 10)):
 
 
 def ui_bar(surface, rect, ratio, color, back=(48, 20, 24), label=None, font=None, radius=6, label_color=None):
+    radius = min(radius, 2)   # 도트 스타일: 각진 막대
     """둥근 게이지 (윗부분 하이라이트 + 테두리, 가운데 글자)"""
     rect = pygame.Rect(rect)
     ratio = max(0.0, min(1.0, ratio))
@@ -726,7 +743,7 @@ def ui_card(surface, rect, accent, hover=False, title="", lines=(), badge=None, 
     if hover:
         rect = rect.move(0, -4)
         glow = pygame.Surface((rect.w + 20, rect.h + 20), pygame.SRCALPHA)
-        pygame.draw.rect(glow, (*accent, 55), glow.get_rect(), border_radius=18)
+        pygame.draw.rect(glow, (*accent, 55), glow.get_rect(), border_radius=4)
         surface.blit(glow, (rect.x - 10, rect.y - 10))
         fill = tuple(int(c * 0.20 + 16) for c in accent)
     else:
@@ -905,8 +922,8 @@ class EffectManager:
         surf = self.text_cache.get(key)
         if surf is None:
             font = font_damage_big if big else font_damage
-            body = font.render(text, True, color)
-            outline = font.render(text, True, BLACK)
+            body = font.render(text, False, color)     # 도트 스타일: 부드럽게 번지지 않는 글자
+            outline = font.render(text, False, BLACK)
             # 검은 테두리를 둘러서 어떤 배경에서도 잘 보이게
             surf = pygame.Surface((body.get_width() + 2, body.get_height() + 2), pygame.SRCALPHA)
             for ox, oy in ((0, 1), (2, 1), (1, 0), (1, 2)):
@@ -984,7 +1001,8 @@ class EffectManager:
             sx, sy = camera.apply(x, y)
             if -10 < sx < width + 10 and -10 < sy < height + 10:
                 radius = size * (0.35 + 0.65 * life / max_life)  # 수명이 줄수록 작아짐
-                pygame.draw.circle(surface, color, (int(sx), int(sy)), max(1, int(radius)))
+                side = max(2, int(radius * 1.8) // 2 * 2)          # 도트 스타일: 짝수 크기 네모
+                surface.fill(color, (int(sx) - side // 2, int(sy) - side // 2, side, side))
         for x, y, _vy, life, max_life, surf in self.texts:
             sx, sy = camera.apply(x, y)
             fade_start = max_life * 0.4
@@ -1143,10 +1161,19 @@ def draw_guitar_art(scale=1.0):
     return art
 
 
+_shadow_cache = {}
+
+
 def draw_shadow(surface, sx, sy, width, height):
-    shadow_w = max(10, int(width * 0.95))
-    shadow_h = max(4, int(width * 0.3))
-    pygame.draw.ellipse(surface, (18, 18, 18), (int(sx - shadow_w / 2), int(sy + height / 2 - shadow_h / 2), shadow_w, shadow_h))
+    """발밑 그림자 (도트 스타일: 반투명 픽셀 타원, 크기별로 한 번만 만듦)"""
+    shadow_w = max(10, int(width * 0.95)) // 2 * 2
+    shadow_h = max(4, int(width * 0.3)) // 2 * 2
+    image = _shadow_cache.get((shadow_w, shadow_h))
+    if image is None:
+        small = pygame.Surface((max(1, shadow_w // 2), max(1, shadow_h // 2)), pygame.SRCALPHA)
+        pygame.draw.ellipse(small, (0, 0, 0, 120), small.get_rect())
+        image = _shadow_cache[(shadow_w, shadow_h)] = pygame.transform.scale(small, (shadow_w, shadow_h))
+    surface.blit(image, (int(sx - shadow_w / 2), int(sy + height / 2 - shadow_h / 2)))
 
 
 def draw_eyes(surface, cx, cy, width, height, look_x, look_y, color=WHITE):
@@ -1175,8 +1202,10 @@ if getattr(sys, "_MEIPASS", None):
     _ASSET_ROOTS.append(os.path.join(sys._MEIPASS, "assets"))
 _asset_cache = {}
 _frame_cache = {}
-SPRITE_SCALE = 1.5
-STAT_ICONS = ["icon_health", "icon_attack", "icon_speed", "icon_regen"]   # 도트 캐릭터/무기/총알을 이만큼 크게 그림 (판정 크기는 그대로)
+SPRITE_SCALE = 1.5          # 도트 캐릭터/무기/총알을 이만큼 크게 그림 (판정 크기는 그대로)
+ZOMBIE_SPRITE_SCALE = 2.0   # 좀비는 더 크게 (판정 크기는 그대로)
+ZOMBIE_SPRITE_MAX_H = 280   # 거대 좀비가 화면을 덮지 않게 최대 높이
+STAT_ICONS = ["icon_health", "icon_attack", "icon_speed", "icon_regen"]
 PLAYER_SPRITE_COLORS = {(0, 255, 0): "green", (80, 170, 255): "blue", (255, 170, 60): "orange", (230, 90, 255): "purple"}
 
 
@@ -1251,25 +1280,28 @@ def art_fit(rel, size, index=0):
     return out
 
 
-def sprite_frame(rel, index=0, size=None, flip=False, flash=False, frames=None):
+def sprite_frame(rel, index=0, size=None, flip=False, flash=False, frames=None, scale=None, max_h=None):
     """시트에서 index번째 프레임 (size로 맞춤 - 비슷한 크기면 원래 크기 그대로 써서 도트가 안 깨지게)"""
     image = load_asset(rel)
     if image is None:
         return None
     count = frames or asset_frame_count(image, rel)
     index %= count
-    key = (rel, index, size, flip, flash, count)
+    key = (rel, index, size, flip, flash, count, scale, max_h)
     frame = _frame_cache.get(key)
     if frame is None:
         if len(_frame_cache) > 4000:
             _frame_cache.clear()
         fw = image.get_width() // count
+        scale_arg = scale
         frame = image.subsurface((fw * index, 0, fw, image.get_height())).copy()
         if size is not None:
             scale = size[1] / frame.get_height()
             if 0.85 < scale < 1.2:   # 판정 크기와 비슷하면 그림 원래 비율 그대로
                 scale = 1.0
-            scale *= SPRITE_SCALE
+            scale *= SPRITE_SCALE if scale_arg is None else scale_arg
+            if max_h and frame.get_height() * scale > max_h:
+                scale = max_h / frame.get_height()
             if scale != 1.0:   # 픽셀 그대로 늘림 (부드럽게 번지지 않게)
                 frame = pygame.transform.scale(frame, (max(1, round(fw * scale)), max(1, round(frame.get_height() * scale))))
         if flip:
@@ -1294,6 +1326,19 @@ def tinted_frame(frame, color):
         out.fill(tuple(140 + c * 115 // 255 for c in color), special_flags=pygame.BLEND_RGB_MULT)
         _frame_cache[key] = out
     return out
+
+
+def zombie_frame(rel, index, size, flip=False, flash=False):
+    """좀비 도트 프레임 (좀비 전용 크기)"""
+    return sprite_frame(rel, index, size, flip, flash, scale=ZOMBIE_SPRITE_SCALE, max_h=ZOMBIE_SPRITE_MAX_H)
+
+
+def zombie_label_offset(zombie):
+    """이름표/체력 바를 몸 위 어디에 둘지 (도트 그림이 크면 그만큼 위로)"""
+    rel = zombie_sprite_rel(zombie)
+    if rel is None:
+        return zombie.size // 2 + 15
+    return zombie_frame(rel, 0, zombie.rect.size).get_height() // 2 + 6
 
 
 def zombie_sprite_rel(zombie):
@@ -1372,7 +1417,7 @@ def draw_zombie_sprite(surface, camera, zombie, player):
         flip = look_x < 0
         role = getattr(zombie, "angel_role", None)
         zombie._sprite_variant = (index, flip, flashing, role)
-        image = sprite_frame(sprite_rel, index, (w, h), flip, flashing)
+        image = zombie_frame(sprite_rel, index, (w, h), flip, flashing)
         if role is not None and not flashing:
             image = tinted_frame(image, _angel_tint.get(role, (255, 255, 255)))
         bob = int(bob * 0.6)
@@ -1393,7 +1438,10 @@ def draw_zombie_sprite(surface, camera, zombie, player):
                  fx_random.choice(ELEMENT_COLORS["fire"]), 1, speed=(0.3, 1.2), size=(2, 5), life=(10, 20),
                  drag=0.95, gravity=-0.18)
     if not stealth:
-        draw_shadow(surface, sx, sy, w, h)
+        if sprite_rel is not None:   # 큰 도트 그림 발밑에 그림자
+            draw_shadow(surface, sx, sy, int(rotated.get_width() * 0.75), rotated.get_height() - 6)
+        else:
+            draw_shadow(surface, sx, sy, w, h)
     center = (int(sx), int(sy - bob))
     surface.blit(rotated, rotated.get_rect(center=center))
     ring_r = int(max(w, h) * 0.75)
@@ -1409,7 +1457,7 @@ def draw_zombie_sprite(surface, camera, zombie, player):
                           [(center[0] - 6, tip_y), (center[0], tip_y - 5), (center[0] + 6, tip_y)], 2)
     if getattr(zombie, "block_hits", 0) > 0:          # 결계 (공격 무효)
         pygame.draw.circle(surface, (190, 160, 255), center, ring_r + 5, 3)
-    ice_art = sprite_frame("effects/ice.png", 0, (w, h)) if frozen else None
+    ice_art = sprite_frame("effects/ice.png", 0, rotated.get_size(), scale=1.0) if frozen else None
     if ice_art is not None:                           # 얼음 결정 덮개 (도트)
         ice_art.set_alpha(170)
         surface.blit(ice_art, ice_art.get_rect(center=center))
@@ -1417,7 +1465,7 @@ def draw_zombie_sprite(surface, camera, zombie, player):
         pygame.draw.rect(surface, (200, 240, 255), rotated.get_rect(center=center).inflate(-4, -4), 2, border_radius=3)
     if fire_art is not None:                          # 머리 위 불꽃 (도트)
         flame = pygame.transform.scale(fire_art, (fire_art.get_width() * 3 // 2, fire_art.get_height() * 3 // 2))
-        surface.blit(flame, flame.get_rect(midbottom=(center[0], center[1] - h // 4)))
+        surface.blit(flame, flame.get_rect(midbottom=(center[0], center[1] - rotated.get_height() // 4)))
     if electrified:                                   # 몸 주변으로 튀는 작은 번개
         for _ in range(2):
             a = fx_random.uniform(0, math.pi * 2)
@@ -1548,7 +1596,7 @@ class DeathFade(pygame.sprite.Sprite):
         self.base_image, _ = get_alpha_images(zombie)
         sprite_rel = zombie_sprite_rel(zombie)
         if sprite_rel is not None:
-            self.base_image = sprite_frame(sprite_rel, 0, zombie.rect.size)
+            self.base_image = zombie_frame(sprite_rel, 0, zombie.rect.size)
         self.frames = 0
         self.duration = 18
         self.spin = fx_random.choice((-1, 1)) * fx_random.uniform(25, 60)
@@ -3867,6 +3915,7 @@ class ConeFlash(pygame.sprite.Sprite):
         r, g, b = self.color
         pygame.draw.polygon(self.image, (r, g, b, int(120 * fade)), points)
         pygame.draw.lines(self.image, (255, 255, 255, int(200 * fade)), False, points[1:], 3)
+        self.image = pixelate(self.image)
         self.rect = self.image.get_rect(center=self.center)
 
     def update(self):
@@ -3874,7 +3923,7 @@ class ConeFlash(pygame.sprite.Sprite):
         if self.frames >= self.duration:
             self.kill()
             return
-        self._draw()
+        self.image.set_alpha(int(255 * (1 - self.frames / self.duration)))   # 그림은 그대로, 투명도만
 
 
 class LineFlash(pygame.sprite.Sprite):
@@ -3897,6 +3946,8 @@ class LineFlash(pygame.sprite.Sprite):
         r, g, b = self.color
         pygame.draw.line(self.image, (r, g, b, int(150 * fade)), p1, p2, max(2, int(self.width * (0.6 + 0.4 * fade))))
         pygame.draw.line(self.image, (255, 255, 255, int(255 * fade)), p1, p2, max(1, int(self.width * 0.35)))
+        if self.image.get_width() * self.image.get_height() < 2_500_000:
+            self.image = pixelate(self.image, 2)
         self.rect = self.image.get_rect(center=((x1 + x2) / 2, (y1 + y2) / 2))
 
     def update(self):
@@ -3904,15 +3955,25 @@ class LineFlash(pygame.sprite.Sprite):
         if self.frames >= self.duration:
             self.kill()
             return
-        self._draw()
+        self.image.set_alpha(int(255 * (1 - self.frames / self.duration)))   # 그림은 그대로, 투명도만
 
 
 class SkillVisual(pygame.sprite.Sprite):
-    """지속형 스킬이 직접 그림을 바꾸는 스프라이트 (스스로는 아무것도 하지 않음)"""
-    def __init__(self, image, center):
+    """지속형 스킬이 직접 그림을 바꾸는 스프라이트 (스스로는 아무것도 하지 않음)
+    코드로 그린 그림은 넣을 때 자동으로 굵은 픽셀로 바꿈 (이미 도트 그림이면 pixel_art=True)"""
+    def __init__(self, image, center, pixel_art=False):
         super().__init__()
+        self.pixel_art = pixel_art
         self.image = image
-        self.rect = image.get_rect(center=center)
+        self.rect = self.image.get_rect(center=center)
+
+    @property
+    def image(self):
+        return self._image
+
+    @image.setter
+    def image(self, value):
+        self._image = value if self.pixel_art else pixelate(value)
 
     def update(self):
         pass
@@ -4057,7 +4118,7 @@ class AirStrikeSkill(ActiveSkill):
         self.next_drop = 0
         self.falling = []
         angle = -math.degrees(math.atan2(dir_y, dir_x))
-        self.visual = SkillVisual(_plane_image(angle), self.start)
+        self.visual = SkillVisual(_plane_image(angle), self.start, pixel_art=True)
         all_sprites.add(self.visual)
         # 폭격 예고선 (붉은 선)
         first, last = self.drops[0], self.drops[-1]
@@ -4194,7 +4255,7 @@ class WaterSplashSkill(ActiveSkill):
         if load_asset("effects/giant_spear.png") is not None:   # 도트 거대한 창 (원래 그림이 아래를 향함)
             art = sprite_frame("effects/giant_spear.png", 0)
             self.spear_image = pygame.transform.scale(art, (art.get_width() * 5 // 2, art.get_height() * 5 // 2))
-        self.spear = SkillVisual(self.spear_image.copy(), (self.center[0], self.center[1] - self.DROP_HEIGHT))
+        self.spear = SkillVisual(self.spear_image.copy(), (self.center[0], self.center[1] - self.DROP_HEIGHT), pixel_art=True)
         all_sprites.add(self.spear)
 
     def update(self, player, zombies, bullets, all_sprites, explosions):
@@ -4353,8 +4414,11 @@ class TurretSkill(ActiveSkill):
         image = pygame.Surface((60, 60), pygame.SRCALPHA)
         remain = 1 - self.frames / self.duration
         art = sprite_frame("effects/turret.png", 0)
-        if art is not None:   # 도트 포탑: 조준 방향으로 돌림 + 남은 시간 고리
-            turret = pygame.transform.rotate(pygame.transform.scale(art, (48, 48)), -math.degrees(self.aim))
+        if art is not None:   # 도트 포탑 (정면 그림): 세워 둔 채 적 쪽으로 좌우만 돌림 + 남은 시간 고리
+            self.visual.pixel_art = True
+            turret = pygame.transform.scale(art, (48, 48))
+            if math.cos(self.aim) < 0:
+                turret = pygame.transform.flip(turret, True, False)
             image.blit(turret, turret.get_rect(center=(30, 30)))
             pygame.draw.arc(image, (120, 255, 120), (4, 4, 52, 52), 0, math.pi * 2 * remain, 3)
             self.visual.image = image
@@ -4438,6 +4502,7 @@ class BlackHoleSkill(ActiveSkill):
         size = self.visual.image.get_width()
         c = size // 2
         if load_asset("effects/black_hole.png") is not None:   # 도트 블랙홀 (돌아가는 소용돌이)
+            self.visual.pixel_art = True
             frame = anim_frame("effects/black_hole.png", (self.frames // 5) % 6, self.radius * 2 / 96, 0, 6)
             image = pygame.Surface((size, size), pygame.SRCALPHA)
             image.blit(frame, frame.get_rect(center=(c, c)))
@@ -5627,6 +5692,7 @@ class Melee(pygame.sprite.Sprite):
                     arc_in.append((half + math.cos(a) * inner, half - math.sin(a) * inner))
                 if len(arc_out) >= 2:
                     pygame.draw.polygon(canvas, (r, g, b, fade), arc_out + arc_in[::-1])
+        canvas = pixelate(canvas)   # 잔상과 범위만 도트로 (무기 그림은 아래에서 그대로 올림)
         rotated = pygame.transform.rotate(self.base_image, angle)
         rad = math.radians(angle)
         wx = half + math.cos(rad) * reach
@@ -5744,7 +5810,7 @@ def draw_zombie_labels(surface, camera, zombies):
     crowded = len(visible) > LABEL_CROWD_LIMIT
     for zombie, sx, sy in visible:
         bar_w = max(30, zombie.size)
-        top = sy - zombie.size // 2 - 15
+        top = sy - zombie_label_offset(zombie)
         ratio = max(0, min(1, zombie.health / max(zombie.max_health, 1)))
         fill_w = int(bar_w * ratio)
         if crowded and zombie.zombie_type not in GUARANTEED_DROP_TYPES and not hasattr(zombie, "custom_name"):
@@ -7441,7 +7507,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102102          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102103          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
