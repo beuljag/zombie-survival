@@ -38,7 +38,7 @@
 - 카타나: 데미지 26, 초당 4회, 범위 120, 가장 높은 근접 DPS
 - 도끼: 데미지 65, 초당 1.5회, 범위 125, 강한 넉백
 - 창: 데미지 36, 초당 2회, 범위 165 (가장 긴 근접 사거리)
-- 일렉 기타 (예전 해머 자리): 데미지 30, 초당 2.5회, 범위 150 - 박자(0.5초)에 맞춰 치면 PERFECT 2배 / GOOD 1.4배 / MISS 0.6배
+- 일렉 기타 (예전 해머 자리): 데미지 25, 초당 2.5회, 범위 150 - 박자(0.5초)에 맞춰 치면 PERFECT 2배 / GOOD 1.4배 / MISS 0.6배
 - 글로브: 데미지 18, 초당 5회, 범위 100
 
 【원거리 무기 (6가지)】
@@ -148,7 +148,8 @@
   체력이 가득 차서 넘친 흡혈량의 50%는 5초 동안 흡혈 보호막 (최대 체력의 50%까지, 피해를 먼저 받음)
 - 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 데미지) (8초)
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
-- 일렉 기타: 앙코르 - 팀 전체 6초 동안 공격력 +30% · 이동속도 +20% · 공격 속도 +20% + 내 주변 음파 (20초)
+- 일렉 기타: 박자 맞춰 칠 때마다 팀 전체 공격력 버프 (PERFECT +10%~20%, GOOD +5%, 2초)
+- 일렉 기타: 앙코르 - 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% + 내 주변 음파 (20초)
 - 글로브: 초당 공격 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 60%)
 - 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공속 +2% (최대 +50%),
   10콤보마다 강타 충격파 (3배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동), 백열권은 콤보당 +3% 후 어퍼컷에서 콤보 소모
@@ -302,7 +303,7 @@ WEAPON_STATS = {
     "katana": {"name": "카타나",      "dmg": 26, "rate": 4.0,  "color": (255, 215, 0)},  # DPS 104  범위 120
     "axe":    {"name": "도끼",        "dmg": 65, "rate": 1.5,  "color": (139, 35, 69)},  # DPS 98   범위 125, 강한 넉백
     "spear":  {"name": "창",          "dmg": 36, "rate": 2.0,  "color": (128, 128, 0)},  # DPS 72   범위 165 (가장 김)
-    "hammer": {"name": "일렉 기타",   "dmg": 30, "rate": 2.5,  "color": (220, 60, 150)},  # 박자에 맞춰 치면 강해짐 (PERFECT 2배) - 내부 이름은 예전 해머 그대로
+    "hammer": {"name": "일렉 기타",   "dmg": 25, "rate": 2.5,  "color": (220, 60, 150)},  # 박자에 맞춰 치면 강해짐 (PERFECT 2배) - 내부 이름은 예전 해머 그대로
     "gloves": {"name": "글로브",      "dmg": 18, "rate": 5.0,  "color": (255, 192, 203)},  # DPS 90   범위 100
 }
 
@@ -382,7 +383,8 @@ GLOVE_SKILL_COMBO_BONUS = 0.03
 GLOVE_SKILL_COMBO_MAX = 0.9
 # 일렉 기타 (리듬 무기): 120BPM (0.5초마다 박자) - 박자에 맞춰 치면 강해짐
 #  PERFECT(±60ms) 2배 / GOOD(±120ms) 1.4배 / MISS 0.6배, PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +5%), MISS면 그루브 0
-#  스킬 앙코르: 팀 전체 6초 동안 공격력 +30% · 이동속도 +20% · 공격 속도 +20% + 주변 음파 (1.5배, 넉백)
+#  박자 버프: 박자에 맞춰 칠 때마다 팀 전체 2초 동안 공격력 + (PERFECT 10% + 그루브 1당 1%, GOOD 5%)
+#  스킬 앙코르: 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% + 주변 음파 (1.5배, 넉백)
 BEAT_MS = 500
 RHYTHM_PERFECT_MS = 60
 RHYTHM_GOOD_MS = 120
@@ -391,8 +393,14 @@ RHYTHM_GOOD_MULT = 1.4
 RHYTHM_MISS_MULT = 0.6
 GROOVE_MAX = 10
 GROOVE_BONUS = 0.05
+BEAT_BUFF_FRAMES = 120
+BEAT_BUFF_PERFECT = 0.10
+BEAT_BUFF_GROOVE = 0.01
+BEAT_BUFF_GOOD = 0.05
 ENCORE_FRAMES = 360
-ENCORE_DAMAGE = 0.30
+ENCORE_DEFENSE = 0.25        # 받는 피해 -25% ("앙코르 방어 +5%" 업그레이드로 증가, 최대 60%)
+ENCORE_DEFENSE_MAX = 0.60
+ENCORE_REGEN = 0.03          # 초당 최대 체력의 3% 회복 (0.5초마다 나눠서)
 ENCORE_SPEED = 0.20
 ENCORE_WAVE_RADIUS = 200
 ENCORE_WAVE_MULT = 1.5
@@ -404,17 +412,18 @@ SNIPER_CRIT_DAMAGE_MAX = 10
 SNIPER_RICOCHET_CRIT_BONUS = 0.20
 # 시작 능력 특성
 #  속도형 "바람걸음": 회피 +15%, 스킬 쿨타임 -15%
-#  탱커형 "강철 몸": 받는 피해 -20%, 체력 재생 초당 1
+#  탱커형 "강철 몸": 받는 피해 -20%, 폭발 피해 추가 -50% (합쳐서 -60%), 체력 재생 초당 1
 #  공격형 "광전사": 치명타 확률 +10%, 체력 50% 이하일 때 공격력 +25%
 SPEED_TRAIT_DODGE = 0.15
 SPEED_TRAIT_COOLDOWN = 0.15
 TANK_TRAIT_DAMAGE_TAKEN = 0.8
 TANK_TRAIT_REGEN = 1.0
+TANK_TRAIT_EXPLOSION_TAKEN = 0.5
 DAMAGE_TRAIT_CRIT = 0.10
 DAMAGE_TRAIT_RAGE = 1.25
 ABILITY_TRAITS = {
     "speed": ("바람걸음", ["회피 +15%", "스킬 쿨타임 -15%"]),
-    "tank": ("강철 몸", ["받는 피해 -20%", "체력 재생 초당 1"]),
+    "tank": ("강철 몸", ["받는 피해 -20%", "폭발 피해 추가 -50%", "체력 재생 초당 1"]),
     "damage": ("광전사", ["치명타 확률 +10%", "체력 절반 이하일 때 공격력 +25%"]),
 }   # 도탄 사격은 치명타 확률 +20% (치명타 업그레이드가 없어도 터짐)
 GLOCK_STRIKE_RANGE_LENGTH = 100
@@ -455,7 +464,7 @@ MAX_PIERCE_LEVEL = 10
 
 # "폭발 공격" 업그레이드: 주변 피해 비율과 최소 간격(프레임) - 연사 무기로 매 발 터지지 않도록
 EXPLOSION_SKILL_RATIO = 0.3
-EXPLOSION_SKILL_RATIO_MELEE = 0.12   # 근접 무기(일섬 포함)는 한 번에 여러 마리를 때려서 폭발 피해를 더 낮춤 (30% → 12%)
+EXPLOSION_SKILL_RATIO_MELEE = 0.06   # 근접 무기(일섬 포함)는 한 번에 여러 마리를 때려서 폭발 피해를 더 낮춤 (30% → 6%)
 EXPLOSION_SKILL_COOLDOWN = 12
 
 # ===== 아이템 드롭 =====
@@ -1492,7 +1501,9 @@ class Player(pygame.sprite.Sprite):
         self.glove_combo_timer = 0
         self.groove = 0          # 일렉 기타: PERFECT 연속 (그루브)
         self.encore_time = 0     # 앙코르 버프 남은 시간 (팀 전체)
-        self.encore_power = 0.0
+        self.encore_power = 0.0  # 앙코르 방어 (받는 피해 감소 비율)
+        self.beat_buff_time = 0  # 박자 버프 (팀 전체 공격력)
+        self.beat_buff_power = 0.0
         self.invuln_time = 0     # 무적 남은 시간 (카타나 일섬 직후)
         self.overshield = 0.0    # 흡혈 보호막 (도끼 대회전 베기로 넘친 회복량)
         self.overshield_time = 0
@@ -2296,7 +2307,7 @@ class Zombie(pygame.sprite.Sprite):
             if all_sprites is not None:
                 all_sprites.add(HolyExplosionEffect(cx, cy, 160, 8.0))
             if distance < 160:
-                apply_player_damage(player, 8)
+                apply_player_damage(player, 8, explosion=True)
         elif role == "drain" and distance < 300:
             self.ability_cooldown = 120
             apply_player_damage(player, 4)
@@ -2610,7 +2621,7 @@ class Explosion(pygame.sprite.Sprite):
         self._draw_frame()
 
 
-def apply_player_damage(player, amount):
+def apply_player_damage(player, amount, explosion=False):
     # 무적 (카타나 일섬 직후)
     if getattr(player, "invuln_time", 0) > 0:
         return
@@ -2620,6 +2631,10 @@ def apply_player_damage(player, amount):
         return
     if player.ability == "tank":
         amount *= TANK_TRAIT_DAMAGE_TAKEN   # 특성 강철 몸: 받는 피해 -20%
+        if explosion:
+            amount *= TANK_TRAIT_EXPLOSION_TAKEN   # 폭발 피해는 추가로 -50%
+    if getattr(player, "encore_time", 0) > 0:
+        amount *= 1 - player.encore_power   # 앙코르: 받는 피해 감소
     if player.corrode_time > 0:
         amount *= 1.3  # 부식 (산성좀비)
     if player.shield_active:
@@ -2702,10 +2717,12 @@ def tick_glove_combo(player):
             player.glove_combo = 0
     if getattr(player, "encore_time", 0) > 0:
         player.encore_time -= 1
+        if player.encore_time % 30 == 0 and not getattr(player, "dead", False):   # 앙코르 재생: 0.5초마다
+            player.health = min(player.max_health, player.health + player.max_health * ENCORE_REGEN / 2)
+    if getattr(player, "beat_buff_time", 0) > 0:
+        player.beat_buff_time -= 1
     if player.weapon is not None:
         player.weapon.rush_mult = 1 + min(GLOVE_COMBO_SPEED_MAX, GLOVE_COMBO_SPEED * player.glove_combo)
-        if getattr(player, "encore_time", 0) > 0:
-            player.weapon.rush_mult *= 1 + ENCORE_SPEED   # 앙코르: 공격 속도 +20%
 
 
 def rhythm_judge(player, time_ms):
@@ -2718,9 +2735,11 @@ def rhythm_judge(player, time_ms):
         mult = RHYTHM_PERFECT_MULT * (1 + GROOVE_BONUS * player.groove)
         fx.add_text(x, y, f"PERFECT x{mult:.1f}", (255, 215, 90), big=True, life=26)
         fx.ring(player.rect.centerx, player.rect.centery, (255, 110, 210), 46, count=14, size=3)
+        give_beat_buff(player, BEAT_BUFF_PERFECT + BEAT_BUFF_GROOVE * player.groove)
     elif off <= RHYTHM_GOOD_MS:
         mult = RHYTHM_GOOD_MULT * (1 + GROOVE_BONUS * player.groove)
         fx.add_text(x, y, "GOOD", (140, 230, 150), life=22)
+        give_beat_buff(player, BEAT_BUFF_GOOD)
     else:
         if player.groove >= 3:
             fx.add_text(x, y - 18, "그루브 끊김", (170, 160, 150), life=24)
@@ -2728,6 +2747,15 @@ def rhythm_judge(player, time_ms):
         mult = RHYTHM_MISS_MULT
         fx.add_text(x, y, "MISS", (150, 150, 160), life=20)
     return mult
+
+
+def give_beat_buff(player, power):
+    """박자 맞춘 한 방: 팀 전체 2초 동안 공격력 버프 (더 강한 쪽 유지, 시간은 새로 채움)"""
+    for mate in team_of(player):
+        if mate.beat_buff_time <= 0:
+            mate.beat_buff_power = 0.0
+        mate.beat_buff_power = max(mate.beat_buff_power, power)
+        mate.beat_buff_time = BEAT_BUFF_FRAMES
 
 
 def team_of(player):
@@ -2883,8 +2911,8 @@ def get_weapon_damage(player):
         damage *= get_spear_speed_factor(player)
     if player.ability == "damage" and player.health <= player.max_health * 0.5:
         damage *= DAMAGE_TRAIT_RAGE   # 특성 광전사: 체력 절반 이하면 공격력 +25%
-    if getattr(player, "encore_time", 0) > 0:
-        damage *= 1 + player.encore_power   # 앙코르 (팀 버프)
+    if getattr(player, "beat_buff_time", 0) > 0:
+        damage *= 1 + player.beat_buff_power   # 박자 버프 (일렉 기타 팀 버프)
     return damage
 
 
@@ -2945,7 +2973,7 @@ def trigger_bomb_explosion(zombie, player, zombies, all_sprites, explosions, rad
         player_damage = damage
     player_distance = math.sqrt((player.rect.centerx - zombie.rect.centerx) ** 2 + (player.rect.centery - zombie.rect.centery) ** 2)
     if player_distance < radius:
-        apply_player_damage(player, player_damage)
+        apply_player_damage(player, player_damage, explosion=True)
 
     for other_zombie in list(zombies):
         if other_zombie is zombie or other_zombie not in zombies:
@@ -3776,9 +3804,9 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         player.active_skills.append(WaterSplashSkill(player, all_sprites, base * SPLASH_DAMAGE_MULT, radius, slow))
 
     elif weapon_type == "hammer":
-        # 앙코르: 파워 코드 한 방 → 팀 전체 공격력/이동속도/공격 속도 버프 + 내 주변 음파
-        frames = ENCORE_FRAMES + (up["range"] // 20) * 60          # "앙코르 시간 +1초"
-        power = ENCORE_DAMAGE + 0.05 * up["damage"]                 # "앙코르 효과 +5%"
+        # 앙코르: 파워 코드 한 방 → 팀 전체 재생/이동속도/방어 버프 + 내 주변 음파
+        frames = ENCORE_FRAMES + (up["range"] // 20) * 60                          # "앙코르 시간 +1초"
+        power = min(ENCORE_DEFENSE_MAX, ENCORE_DEFENSE + 0.05 * up["damage"])      # "앙코르 방어 +5%"
         for mate in team_of(player):
             mate.encore_power = max(mate.encore_power if mate.encore_time > 0 else 0, power)
             mate.encore_time = max(mate.encore_time, frames)
@@ -4862,8 +4890,11 @@ def get_player_buffs(player):
         bonus = int(round(get_katana_chain_bonus(player) * player.katana_chain * 100))
         buffs.append((f"연참 x{player.katana_chain} (다음 일섬 +{bonus}%)", "chain", player.katana_chain_timer, (150, 230, 255)))
     if getattr(player, "encore_time", 0) > 0:
-        buffs.append((f"앙코르 (공격 +{int(player.encore_power * 100)}%)", "encore",
+        buffs.append((f"앙코르 (재생·방어 {int(player.encore_power * 100)}%)", "encore",
                       player.encore_time, (220, 140, 255)))
+    if getattr(player, "beat_buff_time", 0) > 0:
+        buffs.append((f"박자 버프 (공격 +{int(round(player.beat_buff_power * 100))}%)", "beat",
+                      player.beat_buff_time, (255, 200, 90)))
     if getattr(player, "groove", 0) > 0 and player.weapon is not None and player.weapon.weapon_type == "hammer":
         buffs.append((f"그루브 {player.groove} (+{int(GROOVE_BONUS * player.groove * 100)}%)", "groove", 1, (255, 150, 220)))
     if getattr(player, "glove_combo", 0) > 0:
@@ -5118,7 +5149,7 @@ def select_weapon():
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
         {"name": "창", "desc": "속도 비례 데미지, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
-        {"name": "일렉 기타", "desc": "박자 맞춰 치면 강해짐 (리듬)", "skill": "앙코르 (팀 버프)", "type": "hammer", "color": (220, 60, 150)},
+        {"name": "일렉 기타", "desc": "박자 맞춰 치면 강해짐 (리듬)", "skill": "앙코르 (팀 재생·방어)", "type": "hammer", "color": (220, 60, 150)},
         {"name": "글로브", "desc": "초고속 연타, 짧은 사거리", "skill": "백열권 (연타 + 어퍼컷)", "type": "gloves", "color": (220, 60, 70)},
     ]
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
@@ -5567,7 +5598,7 @@ def build_upgrade_choices(player):
         weapon_upgrades = [
             {"name": "앙코르 시간 +1초", "desc": "팀 버프가 더 오래", "type": "hammer_skill_range", "color": (200, 140, 255)},
             {"name": f"{player.weapon.name} 데미지 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
-            {"name": "앙코르 효과 +5%", "desc": "팀 공격력 버프 증가", "type": "hammer_skill_damage", "color": (255, 120, 210)},
+            {"name": "앙코르 방어 +5%", "desc": "팀 받는 피해 감소", "type": "hammer_skill_damage", "color": (255, 120, 210)},
         ]
     elif weapon_type == "gloves":
         weapon_upgrades = [
@@ -5880,7 +5911,7 @@ def get_upgrade_name(upgrade_type):
         "melee_skill_speed_spear": "물보라 둔화 +8%",
         "hammer_skill_range": "앙코르 시간 +1초",
         "melee_damage_hammer": "일렉 기타 데미지 +4",
-        "hammer_skill_damage": "앙코르 효과 +5%",
+        "hammer_skill_damage": "앙코르 방어 +5%",
         "gloves_skill_strikes": "백열권 시간 +0.25초",
         "melee_damage_gloves": "글로브 데미지 +2",
         "melee_skill_speed_gloves": "글로브 속도 +10%",
@@ -7089,7 +7120,7 @@ def main():
                         boom = Explosion(zombie.rect.centerx, zombie.rect.centery, 50)
                         explosions.add(boom)
                         all_sprites.add(boom)
-                        apply_player_damage(player, 6)
+                        apply_player_damage(player, 6, explosion=True)
                     continue
                 # 스파크: 감전 → 0.6초 동안 공격 불가
                 if zombie.zombie_type == "spark":
@@ -7425,7 +7456,7 @@ def main():
                 elif death_type == "angel" and zombie.angel_role is None:
                     all_sprites.add(HolyExplosionEffect(death_x, death_y, 180, 3.0))
                     if math.hypot(player.rect.centerx - death_x, player.rect.centery - death_y) < 180:
-                        apply_player_damage(player, 3.0)
+                        apply_player_damage(player, 3.0, explosion=True)
                     for other_zombie in list(zombies):
                         if math.hypot(other_zombie.rect.centerx - death_x, other_zombie.rect.centery - death_y) < 180:
                             other_zombie.health -= 3.0
@@ -7434,7 +7465,7 @@ def main():
                 elif death_type == "god":
                     all_sprites.add(HolyExplosionEffect(death_x, death_y, 250, 5.0))
                     if math.hypot(player.rect.centerx - death_x, player.rect.centery - death_y) < 250:
-                        apply_player_damage(player, 5.0)
+                        apply_player_damage(player, 5.0, explosion=True)
                     for other_zombie in list(zombies):
                         if math.hypot(other_zombie.rect.centerx - death_x, other_zombie.rect.centery - death_y) < 250:
                             other_zombie.health -= 5.0

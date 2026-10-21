@@ -828,7 +828,7 @@ class MatchState:
                     boom = Explosion(zombie.rect.centerx, zombie.rect.centery, 50)
                     explosions.add(boom)
                     all_sprites.add(boom)
-                    apply_player_damage(p, 6)
+                    apply_player_damage(p, 6, explosion=True)
                 continue
             if zombie.zombie_type == "spark":
                 p.shock_time = max(p.shock_time, 36)
@@ -994,7 +994,7 @@ class MatchState:
             def damage_players(radius, amount):
                 for p in alive:
                     if math.hypot(p.rect.centerx - dx_, p.rect.centery - dy_) < radius:
-                        apply_player_damage(p, amount)
+                        apply_player_damage(p, amount, explosion=True)
 
             if death_type == "ice":
                 target = self.nearest_player(dx_, dy_)
