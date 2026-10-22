@@ -731,7 +731,7 @@ def ui_fit_font(font, text, max_width):
     if not _FONT_INFO:
         _register_fonts()
     size, bold = _FONT_INFO.get(id(font), (font.get_height() * 3 // 4, False))
-    while size > 12:
+    while size > 13:
         size -= 2
         key = (size, bold)
         smaller = _fit_font_cache.get(key)
@@ -1057,8 +1057,8 @@ class EffectManager:
         surf = self.text_cache.get(key)
         if surf is None:
             font = font_damage_big if big else font_damage
-            body = font.render(text, False, color)     # 도트 스타일: 부드럽게 번지지 않는 글자
-            outline = font.render(text, False, BLACK)
+            body = font.render(text, True, color)      # 한글은 계단이 지면 깨져 보여서 부드럽게
+            outline = font.render(text, True, BLACK)
             # 검은 테두리를 둘러서 어떤 배경에서도 잘 보이게
             surf = pygame.Surface((body.get_width() + 2, body.get_height() + 2), pygame.SRCALPHA)
             for ox, oy in ((0, 1), (2, 1), (1, 0), (1, 2)):
@@ -1067,7 +1067,11 @@ class EffectManager:
             if len(self.text_cache) > 400:
                 self.text_cache.clear()
             self.text_cache[key] = surf
-        self.texts.append([x + fx_random.uniform(-8, 8), y, -1.6 if big else -1.2, life, life, surf])
+        tx, ty = x + fx_random.uniform(-8, 8), y
+        for t in self.texts[-12:]:   # 막 생긴 글자와 같은 자리면 위로 비켜서 겹치지 않게
+            if abs(t[0] - tx) < surf.get_width() * 0.6 and abs(t[1] - ty) < surf.get_height() * 0.8 and t[3] > t[4] - 12:
+                ty = t[1] - surf.get_height() * 0.9
+        self.texts.append([tx, ty, -1.6 if big else -1.2, life, life, surf])
         if len(self.texts) > self.MAX_TEXTS:
             del self.texts[:len(self.texts) - self.MAX_TEXTS]
 
@@ -6329,12 +6333,25 @@ def draw_zombie_labels(surface, camera, zombies):
         if -120 <= sx <= width + 120 and -120 <= sy <= height + 120:
             visible.append((zombie, sx, sy))
     crowded = len(visible) > LABEL_CROWD_LIMIT
+    # 이름표끼리 겹치면 글자가 뭉개져 보여서: 보스 → 화면 가운데에 가까운 좀비 순으로 자리를 잡고, 겹치는 이름표는 체력 바만
+    cx, cy = width / 2, height / 2
+    visible.sort(key=lambda v: (v[0].zombie_type not in GUARANTEED_DROP_TYPES, (v[1] - cx) ** 2 + (v[2] - cy) ** 2))
+    placed = []
     for zombie, sx, sy in visible:
         bar_w = max(30, zombie.size)
         top = sy - zombie_label_offset(zombie)
         ratio = max(0, min(1, zombie.health / max(zombie.max_health, 1)))
         fill_w = int(bar_w * ratio)
-        if crowded and zombie.zombie_type not in GUARANTEED_DROP_TYPES and not hasattr(zombie, "custom_name"):
+        label_rect = None
+        if not crowded or zombie.zombie_type in GUARANTEED_DROP_TYPES or hasattr(zombie, "custom_name"):
+            cached = zombie.__dict__.get("_label_cache")
+            if cached is not None:   # 지난번 이름표 크기로 겹침 검사 (글자 부분만)
+                lw, lh = cached[1].get_size()
+                label_rect = pygame.Rect(int(sx) - lw // 2, int(top) - 2 - (lh - 9), lw, lh - 9)
+        overlap = label_rect is not None and label_rect.collidelist(placed) != -1
+        if label_rect is not None and not overlap:
+            placed.append(label_rect.inflate(-4, 0))
+        if overlap or (crowded and zombie.zombie_type not in GUARANTEED_DROP_TYPES and not hasattr(zombie, "custom_name")):
             # 체력 바만 (글자 없이)
             x = int(sx) - bar_w // 2
             surface.fill((12, 12, 16), (x - 1, int(top) - 1, bar_w + 2, 6))
@@ -6404,7 +6421,7 @@ def draw_player_status(surface, player, x=14, y=14):
     maxes = player.__dict__.setdefault("_ui_buff_max", {})
     w = 350
     h = 150 + len(buffs) * 24 + (4 if buffs else 0)
-    ui_panel(surface, (x, y, w, h), alpha=175)
+    ui_panel(surface, (x, y, w, h), alpha=232)
 
     badge = pygame.Rect(x + 12, y + 12, 54, 54)
     pygame.draw.rect(surface, (50, 46, 42), badge, border_radius=12)
@@ -6475,7 +6492,7 @@ def draw_player_status(surface, player, x=14, y=14):
 def draw_wave_panel(surface, wave, wave_progress=None, wave_interval=60000, subtitle=None):
     """화면 위 가운데: 웨이브 번호 + 다음 웨이브까지 남은 시간"""
     pw = 260
-    panel = ui_panel(surface, (surface.get_width() // 2 - pw // 2, 12, pw, 90 if wave_progress is not None else 58), alpha=175)
+    panel = ui_panel(surface, (surface.get_width() // 2 - pw // 2, 12, pw, 90 if wave_progress is not None else 58), alpha=232)
     ui_text(surface, f"WAVE {wave}", font_hud_big, UI_ACCENT, (panel.centerx, panel.y + 4), "midtop")
     if wave_progress is not None:
         wave_progress = max(0.0, min(1.0, wave_progress))
@@ -6524,7 +6541,7 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
     # 오른쪽 위: 점수 + 강화 레벨
     melee = player.weapon.weapon_type in MELEE_WEAPONS
     pw = 280
-    panel = ui_panel(surface, (width - pw - 14, 14, pw, 130 + (24 if melee else 0)), alpha=175)
+    panel = ui_panel(surface, (width - pw - 14, 14, pw, 130 + (24 if melee else 0)), alpha=232)
     ui_text(surface, "점수", font_tiny, UI_SUB, (panel.x + 14, panel.y + 18), shadow=False)
     ui_text(surface, f"{score:,}", font_hud_big, UI_TEXT, (panel.right - 14, panel.y + 6), "topright")
     stats = [("체력", player.levels["health"], (255, 110, 110)), ("공격력", player.levels["damage"], (255, 220, 90)),
@@ -8171,7 +8188,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102110          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102111          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed

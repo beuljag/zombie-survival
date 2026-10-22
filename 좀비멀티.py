@@ -1273,7 +1273,7 @@ def draw_match(state, camera, ui):
 
     # 팀 정보 (우상단)
     pw = 300
-    team = ui_panel(screen, (SCREEN_WIDTH - pw - 14, 14, pw, 62 + len(state.players) * 50), alpha=175)
+    team = ui_panel(screen, (SCREEN_WIDTH - pw - 14, 14, pw, 62 + len(state.players) * 50), alpha=232)
     ui_text(screen, "점수", font_tiny, UI_SUB, (team.x + 14, team.y + 18), shadow=False)
     ui_text(screen, f"{state.score:,}", font_hud_big, UI_TEXT, (team.right - 14, team.y + 6), "topright")
     for i, p in enumerate(state.players):
