@@ -503,7 +503,7 @@
     "layout": "horizontal",
     "fps": 7,
     "loop": true,
-    "animationMethod": "procedural_leg_step_and_bob"
+    "animationMethod": "generated_walk_frames"
   },
   "zombies/paladin.png": {
     "frameWidth": 64,
@@ -1164,5 +1164,173 @@
     "fps": 7,
     "loop": true,
     "animationMethod": "static"
+  },
+  "effects/explosion_rocket.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_plasma.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_upgrade.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_airstrike.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_missile.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_blackhole.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_bomber.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_mine.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_flame.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_acid.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_toxic.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_nuclear.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 8,
+    "sheetWidth": 768,
+    "sheetHeight": 96,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_imp.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
+  },
+  "effects/explosion_holy.png": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frames": 8,
+    "sheetWidth": 512,
+    "sheetHeight": 64,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "native_pixel_procedural_sequence",
+    "anchor": "center"
   }
 }
