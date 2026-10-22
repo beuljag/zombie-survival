@@ -4035,12 +4035,12 @@ def play_metronome(player):
 
 
 def draw_beat_ui(surface, player):
-    """일렉 기타 박자 표시: 화면 아래 가운데 박자 막대 (양쪽에서 노트가 다가와 가운데에서 박자)"""
+    """일렉 기타 박자 표시: 화면 위쪽 가운데 박자 막대 (양쪽에서 노트가 다가와 가운데에서 박자)"""
     if player.weapon is None or player.weapon.weapon_type != "hammer":
         return
     play_metronome(player)
     width, height = surface.get_size()
-    cx, cy = width // 2, height - 96
+    cx, cy = width // 2, 196   # 화면 위쪽 가운데 (웨이브 창과 보스 체력 바 아래)
     lane = 220
     ui_panel(surface, (cx - lane - 20, cy - 22, lane * 2 + 40, 44), alpha=170, radius=22)
     pygame.draw.line(surface, (90, 70, 90), (cx - lane, cy), (cx + lane, cy), 2)
@@ -4059,7 +4059,7 @@ def draw_beat_ui(surface, player):
             pygame.draw.circle(surface, color, (int(cx + side * dist), cy), 7)
     bpm = int(round(60000 / beat_ms_of(player.weapon)))
     label = f"그루브 {player.groove} · {bpm} BPM" if player.groove > 0 else f"{bpm} BPM"
-    ui_text(surface, label, font_tiny, (255, 150, 220), (cx, cy - 34), "midbottom")
+    ui_text(surface, label, font_tiny, (255, 150, 220), (cx, cy + 26), "midtop")   # 막대 아래 (위쪽은 보스 체력 바)
 
 
 def apply_hit_elements(player, zombie, zombies, base_damage, chain_range=150):
@@ -8188,7 +8188,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102111          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102112          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
