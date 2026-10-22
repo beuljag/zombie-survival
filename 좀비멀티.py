@@ -1257,7 +1257,9 @@ def draw_match(state, camera, ui):
     pygame.mouse.get_pos = real_get_pos
     if ui.get("show_fps", True):
         ping = f" · 핑 {ui['ping']:.0f}ms" if ui.get("ping") is not None else ""
-        ui_text(screen, f"FPS {clock.get_fps():.0f}{ping}", font_tiny, UI_SUB, (SCREEN_WIDTH - 14, SCREEN_HEIGHT - 52), "topright")
+        text = f"FPS {clock.get_fps():.0f}{ping}" if SETTINGS["show_fps"] else ping.strip(" ·")   # FPS는 설정, 핑은 항상
+        if text:
+            ui_text(screen, text, font_tiny, UI_SUB, (SCREEN_WIDTH - 14, SCREEN_HEIGHT - 52), "topright")
     fx.draw(screen, camera)
 
     draw_zombie_labels(screen, camera, state.zombies)
@@ -1294,6 +1296,7 @@ def draw_match(state, camera, ui):
             ui_bar(screen, bar, ratio, UI_GOOD if ratio > 0.5 else (255, 200, 60) if ratio > 0.25 else UI_DANGER, radius=5)
     draw_beat_ui(screen, local)
     set_sfx_listener(local)
+    music_tick(local, state.zombies)   # 전투/보스 음악
     if ui.get("help"):
         draw_class_help(screen, local)
     if state.n_players > 1:
@@ -1515,7 +1518,7 @@ def message_screen(title, subtitle="", wait=True):
         clock.tick(30)
 
 
-BUTTON_COLORS = {"host": (128, 196, 132), "join": (106, 155, 204), "keys": (180, 160, 220), "quit": (228, 92, 78)}
+BUTTON_COLORS = {"host": (128, 196, 132), "join": (106, 155, 204), "keys": (180, 160, 220), "settings": (120, 190, 200), "quit": (228, 92, 78)}
 
 
 def button_menu(title, options, info_lines=()):
@@ -1790,13 +1793,20 @@ LOBBY_HOOK = None     # 자동 시험용
 
 def multiplayer_menu():
     last_address = "192.168."
+    if not g._music_synth:
+        g._prepare_music_thread()   # 기본 배경 음악을 뒤에서 만듦
+    apply_volume()
     while True:
-        choice = button_menu("좀비 슈팅 - LAN 멀티 (최대 4명)", [("host", "방 만들기 (호스트)"), ("join", "참가하기"), ("keys", "키 설정"), ("quit", "나가기")],
+        set_music("menu")
+        choice = button_menu("좀비 슈팅 - LAN 멀티 (최대 4명)", [("host", "방 만들기 (호스트)"), ("join", "참가하기"), ("keys", "키 설정"), ("settings", "설정"), ("quit", "나가기")],
                              [f"좀비 수 = 1인 기준 x 인원수 x {MOB_FACTOR}  |  죽으면 {REVIVE_WAVES}웨이브 뒤 부활  |  경험치 공유"])
         if choice in (None, "quit"):
             return
         if choice == "keys":
             show_key_settings()
+            continue
+        if choice == "settings":
+            show_settings()
             continue
         if choice == "host":
             result = host_lobby(choose_loadout())

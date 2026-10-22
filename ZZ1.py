@@ -251,17 +251,106 @@ if os.environ.get("ZOMBIE_DEBUG_LOG"):
 #    어떤 장치든 보이는 게임 범위가 거의 같음 (멀티에서 공평)
 LOGICAL_MIN_HEIGHT = 900
 LOGICAL_MAX_HEIGHT = 1080
+
+# 설정 (settings.json - 게임 폴더): 화면 모드 / 창 크기 / 볼륨 / FPS 표시
+SETTINGS_PATH = os.path.join(os.path.dirname(sys.executable) if getattr(sys, "frozen", False)
+                             else os.path.dirname(os.path.abspath(__file__)), "settings.json")
+SETTINGS_DEFAULTS = {"display": "fullscreen", "window_size": [1600, 900],
+                     "master": 80, "sfx": 80, "music": 60, "show_fps": True}
+SETTINGS = dict(SETTINGS_DEFAULTS)
+try:
+    with open(SETTINGS_PATH, "r", encoding="utf-8") as _f:
+        _loaded = json.load(_f)
+    if isinstance(_loaded, dict):
+        for _k, _v in _loaded.items():
+            if _k in SETTINGS_DEFAULTS and type(_v) is type(SETTINGS_DEFAULTS[_k]):
+                SETTINGS[_k] = _v
+except (OSError, ValueError):
+    pass
+
+
+def save_settings():
+    try:
+        with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(SETTINGS, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
 info = pygame.display.Info()
 NATIVE_WIDTH, NATIVE_HEIGHT = info.current_w, info.current_h
 SCREEN_HEIGHT = max(LOGICAL_MIN_HEIGHT, min(LOGICAL_MAX_HEIGHT, NATIVE_HEIGHT))
 SCREEN_WIDTH = round(SCREEN_HEIGHT * NATIVE_WIDTH / max(1, NATIVE_HEIGHT))
 try:
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
+    _flags = pygame.SCALED | (pygame.FULLSCREEN if SETTINGS["display"] == "fullscreen" else 0)
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), _flags)
 except pygame.error:
     # 확대 모드를 못 쓰는 환경이면 예전처럼 장치 해상도 그대로
     SCREEN_WIDTH, SCREEN_HEIGHT = NATIVE_WIDTH, NATIVE_HEIGHT
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
 SCREEN_WIDTH, SCREEN_HEIGHT = screen.get_size()   # 실제로 만들어진 (논리) 화면 크기 기준으로 UI 배치
+
+# ---------- 화면 모드 바꾸기 (게임 화면 크기는 그대로, 창만 바뀜 → 멀티에서도 보이는 범위가 같음) ----------
+WINDOW_SIZES = [(1024, 576), (1280, 720), (1366, 768), (1600, 900), (1920, 1080), (2560, 1440), (3840, 2160)]
+DISPLAY_MODES = [("fullscreen", "전체 화면"), ("borderless", "테두리 없는 창"), ("windowed", "창 모드")]
+_display_state = {"fullscreen": SETTINGS["display"] == "fullscreen"}
+
+
+def available_window_sizes():
+    """모니터보다 작은 창 크기만"""
+    sizes = [sz for sz in WINDOW_SIZES if sz[0] <= NATIVE_WIDTH and sz[1] <= NATIVE_HEIGHT]
+    return sizes or [WINDOW_SIZES[0]]
+
+
+def _allow_small_window(window):
+    """pygame의 확대 모드는 창을 게임 화면(논리 크기)보다 작게 못 줄이게 막아 둠 → SDL에 직접 최소 크기를 낮춤"""
+    try:
+        import ctypes
+        try:
+            sdl = ctypes.CDLL(os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll"))
+        except OSError:
+            sdl = ctypes.CDLL("SDL2.dll")
+        sdl.SDL_GetWindowFromID.restype = ctypes.c_void_p
+        sdl.SDL_GetWindowFromID.argtypes = [ctypes.c_uint32]
+        sdl.SDL_SetWindowMinimumSize.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+        handle = sdl.SDL_GetWindowFromID(window.id)
+        if handle:
+            sdl.SDL_SetWindowMinimumSize(handle, 320, 180)
+    except Exception:
+        pass
+
+
+def apply_display():
+    """설정의 화면 모드/창 크기를 지금 창에 적용 (화면을 새로 만들지 않음 - 다른 모듈이 쓰는 screen이 그대로 유지)"""
+    mode = SETTINGS["display"]
+    try:
+        from pygame._sdl2.video import Window, WINDOWPOS_CENTERED
+        window = Window.from_display_module()
+        if mode == "fullscreen":
+            if not _display_state["fullscreen"]:
+                pygame.display.toggle_fullscreen()
+                _display_state["fullscreen"] = True
+            return
+        if _display_state["fullscreen"]:
+            pygame.display.toggle_fullscreen()
+            _display_state["fullscreen"] = False
+        if mode == "borderless":   # 모니터를 꽉 채우는 창 (다른 창으로 전환이 빠름)
+            window.borderless = True
+            window.size = (NATIVE_WIDTH, NATIVE_HEIGHT)
+            window.position = (0, 0)
+        else:
+            window.borderless = False
+            _allow_small_window(window)
+            w, h = SETTINGS["window_size"]
+            w, h = min(w, NATIVE_WIDTH), min(h, NATIVE_HEIGHT - 60)
+            window.size = (w, h)
+            window.position = WINDOWPOS_CENTERED
+    except Exception:
+        pass
+
+
+if SETTINGS["display"] != "fullscreen":
+    apply_display()
 # 한글 입력기(IME)가 켜져 있으면 글자 키가 "조합 중인 글자"로 가로채져 키 입력/키 설정이 안 될 수 있어서 끔
 # (글자를 입력하는 화면 - 멀티 IP 입력 - 에서만 잠깐 켬)
 pygame.key.stop_text_input()
@@ -3425,7 +3514,7 @@ def _ensure_mixer():
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 1024)
             pygame.mixer.set_num_channels(32)
-            pygame.mixer.set_reserved(15)   # 0~14번은 리듬 소리 전용
+            pygame.mixer.set_reserved(16)   # 0~14번은 리듬 소리, 15번은 기본 배경 음악 전용
             _sfx_mixer_ok[0] = True
         except Exception:
             _sfx_mixer_ok[0] = False
@@ -3440,7 +3529,7 @@ def _play_on(kind, sound, volume=1.0):
         ids = SFX_CHANNELS[kind]
         channel = pygame.mixer.Channel(ids[_sfx_next[kind] % len(ids)])
         _sfx_next[kind] += 1
-        channel.set_volume(volume)
+        channel.set_volume(min(1.0, volume * SFX_VOLUME[0] / 0.7))   # 설정 볼륨 반영 (기본 0.7 = 100%)
         channel.play(sound)
     except Exception:
         pass
@@ -3562,7 +3651,7 @@ def get_sfx(name):
 
 
 # ---------- 게임 효과음 (총/근접/타격/처치/폭발/레벨업 등) ----------
-SFX_VOLUME = [0.7]          # 전체 효과음 크기
+SFX_VOLUME = [0.7]          # 전체 효과음 크기 (설정의 전체 볼륨 x 효과음 볼륨, apply_volume에서 계산)
 SFX_MUTED = [False]         # M 키로 켜기/끄기
 SFX_LISTENER = [None]       # 듣는 위치 (내 플레이어) - 멀리서 난 소리는 작게
 _sfx_last = {}              # 같은 소리가 너무 자주 겹치지 않게 (실제 시간 기준)
@@ -3705,6 +3794,175 @@ def warm_up_game_sfx():
         get_sfx(name)
 
 
+# ---------- 배경 음악 ----------
+#  assets/music/menu, battle, boss (.ogg / .mp3 / .wav) 가 있으면 그 음악, 없으면 코드로 만든 기본 음악 (메뉴 / 전투)
+#  보스가 나오면 boss 음악 (없으면 전투 음악 그대로), 일렉 기타를 들면 박자 소리와 섞이지 않게 음악을 작게
+MUSIC_CHANNEL = 15
+_music = {"kind": None, "source": None, "duck": 1.0}
+_music_synth = {}
+_music_lock = __import__("threading").Lock()
+
+
+def music_file(kind):
+    for root in _ASSET_ROOTS:
+        for ext in (".ogg", ".mp3", ".wav"):
+            path = os.path.join(root, "music", kind + ext)
+            if os.path.isfile(path):
+                return path
+    return None
+
+
+def music_volume():
+    return SETTINGS["master"] / 100 * SETTINGS["music"] / 100 * _music["duck"] * 0.8
+
+
+def apply_volume():
+    """설정의 볼륨을 효과음/음악에 적용"""
+    SFX_VOLUME[0] = 0.7 * SETTINGS["master"] / 100 * SETTINGS["sfx"] / 100
+    try:
+        if _music["source"] == "file":
+            pygame.mixer.music.set_volume(music_volume())
+        elif _music["source"] == "synth" and _ensure_mixer():
+            pygame.mixer.Channel(MUSIC_CHANNEL).set_volume(music_volume())
+    except Exception:
+        pass
+
+
+def _synth_music(kind):
+    """기본 배경 음악 (코드로 합성, 한 번만): 전투 = 132BPM 단조 리프 + 드럼 / 메뉴 = 84BPM 잔잔한 아르페지오"""
+    rate, div = _synth_rate()
+    battle = kind != "menu"
+    bpm = 132 if battle else 84
+    beat = 60 / bpm
+    chords = [(57, 60, 64), (53, 57, 60), (48, 52, 55), (55, 59, 62)] if battle else [(57, 60, 64), (53, 57, 60), (48, 52, 55), (52, 56, 59)]
+    bars = 8
+    total = int(rate * beat * 4 * bars)
+    out = [0.0] * total
+    hz = lambda n: 440.0 * 2 ** ((n - 69) / 12)
+
+    def add_tone(start, length, freq, vol, shape, decay):
+        n0, n = int(start * rate), int(length * rate)
+        phase, step = 0.0, freq / rate
+        for i in range(n):
+            j = n0 + i
+            if j >= total:
+                break
+            phase += step
+            p = phase % 1.0
+            if shape == "square":
+                v = 1.0 if p < 0.5 else -1.0
+            elif shape == "tri":
+                v = 4 * abs(p - 0.5) - 1
+            else:
+                v = math.sin(2 * math.pi * p)
+            out[j] += v * vol * math.exp(-i / rate * decay)
+
+    def add_noise(start, length, vol, decay):
+        n0, n = int(start * rate), int(length * rate)
+        prev = 0.0
+        for i in range(n):
+            j = n0 + i
+            if j >= total:
+                break
+            w = _sfx_rng.uniform(-1, 1)
+            out[j] += (w - prev) * vol * math.exp(-i / rate * decay)
+            prev = w
+
+    for bar in range(bars):
+        root, third, fifth = chords[bar % 4]
+        t0 = bar * 4 * beat
+        if battle:
+            for k in range(8):   # 8분음표 베이스 (근음/옥타브)
+                add_tone(t0 + k * beat / 2, beat / 2, hz(root - 24 + (12 if k % 4 == 3 else 0)), 0.16, "square", 6)
+            riff = [root, fifth, root + 12, fifth, third + 12, fifth, root + 12, third]
+            for k, note in enumerate(riff):   # 리드 아르페지오
+                add_tone(t0 + k * beat / 2, beat / 2 * 0.9, hz(note), 0.07, "square", 9)
+            for k in range(4):   # 드럼: 쿵 . 탁 . / 하이햇 8분
+                kt = t0 + k * beat
+                if k % 2 == 0:
+                    n0 = int(kt * rate)
+                    for i in range(int(rate * 0.12)):
+                        if n0 + i < total:
+                            tt = i / rate
+                            out[n0 + i] += math.sin(2 * math.pi * (50 + 90 * math.exp(-tt * 30)) * tt) * 0.35 * math.exp(-tt * 18)
+                else:
+                    add_noise(kt, 0.12, 0.18, 25)
+                add_noise(kt + beat / 2, 0.04, 0.06, 80)
+        else:
+            for note in (root - 12, third - 12, fifth - 12):   # 패드
+                add_tone(t0, beat * 4, hz(note), 0.05, "tri", 0.4)
+            arp = [root, third, fifth, root + 12, fifth, third, root + 12, fifth]
+            for k, note in enumerate(arp):
+                add_tone(t0 + k * beat / 2, beat * 1.2, hz(note + 12), 0.05, "sine", 2.5)
+            add_tone(t0, beat * 4, hz(root - 24), 0.08, "tri", 0.8)
+    peak = max(abs(v) for v in out) or 1.0
+    return _make_sound([v * 0.55 / peak for v in out], div)
+
+
+def _prepare_music_thread():
+    """기본 음악 두 곡을 뒤에서 미리 만듦 (게임 시작이 느려지지 않게)"""
+    def work():
+        for kind in ("menu", "battle"):
+            if music_file(kind) is None and kind not in _music_synth:
+                try:
+                    sound = _synth_music(kind)
+                except Exception:
+                    sound = None
+                with _music_lock:
+                    _music_synth[kind] = sound
+                waiting = _music["kind"]
+                if waiting is not None and _music["source"] is None and (waiting == kind or (kind == "battle" and waiting == "boss")):
+                    _music["kind"] = None   # 기다리던 음악이 준비됨 → 바로 재생
+                    set_music(waiting)
+    __import__("threading").Thread(target=work, daemon=True).start()
+
+
+def set_music(kind):
+    """배경 음악 바꾸기 ("menu" / "battle" / "boss" / None=끔) - 같은 음악이면 그대로"""
+    if kind == _music["kind"] or not _ensure_mixer():
+        return
+    try:
+        if _music["source"] == "file":
+            pygame.mixer.music.fadeout(500)
+        elif _music["source"] == "synth":
+            pygame.mixer.Channel(MUSIC_CHANNEL).fadeout(500)
+    except Exception:
+        pass
+    _music["kind"], _music["source"] = kind, None
+    if kind is None:
+        return
+    path = music_file(kind) or (music_file("battle") if kind == "boss" else None)
+    try:
+        if path:
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.set_volume(music_volume())
+            pygame.mixer.music.play(-1, fade_ms=800)
+            _music["source"] = "file"
+            return
+        with _music_lock:
+            sound = _music_synth.get("menu" if kind == "menu" else "battle")
+        if sound is not None:
+            channel = pygame.mixer.Channel(MUSIC_CHANNEL)
+            channel.set_volume(music_volume())
+            channel.play(sound, loops=-1, fade_ms=800)
+            _music["source"] = "synth"
+    except Exception:
+        _music["source"] = None
+
+
+def music_tick(player, zombies=None):
+    """매 프레임: 보스가 있으면 보스 음악, 일렉 기타를 들면 음악을 작게 (박자 소리가 잘 들리게)"""
+    boss = zombies is not None and any(z.zombie_type in BOSS_MUSIC_TYPES and z.health > 0 for z in zombies)
+    set_music("boss" if boss else "battle")   # 게임 중에만 불림 → 전투/보스 음악
+    duck = 0.35 if player is not None and player.weapon is not None and player.weapon.weapon_type == "hammer" else 1.0
+    if duck != _music["duck"]:
+        _music["duck"] = duck
+        apply_volume()
+
+
+BOSS_MUSIC_TYPES = {"boss", "paladin", "demon", "angel", "dragon", "king", "god", "colossus", "titan", "giant", "behemoth", "leviathan", "elder"}
+
+
 def warm_up_sfx():
     """일렉 기타를 처음 들었을 때 소리를 미리 만들어 둠 (연주 중 멈칫하지 않게)"""
     for name in ["kick", "snare", "hat", "miss", "encore"] + [f"note{n}" for n in sorted(set(SONG))]:
@@ -3740,7 +3998,7 @@ def play_rhythm_sound(grade, player=None):
             d = math.hypot(player.rect.centerx - SFX_LISTENER[0][0], player.rect.centery - SFX_LISTENER[0][1])
             volume *= 1.0 if d < 350 else max(0.0, 1 - (d - 350) / 650)
         if volume >= 0.05:
-            _play_on("note", get_sfx(f"note{SONG[pos % len(SONG)]}"), volume * SFX_VOLUME[0] / 0.7)
+            _play_on("note", get_sfx(f"note{SONG[pos % len(SONG)]}"), volume)
         return
     if grade in ("miss", "double"):
         play_sfx("miss")
@@ -6257,6 +6515,7 @@ def draw_controls_bar(surface, text):
 
 def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies, show_stack):
     set_sfx_listener(player)
+    music_tick(player, zombies)   # 전투/보스 음악, 일렉 기타면 음악 작게
     width, height = surface.get_size()
     draw_player_status(surface, player)
     wave_box = draw_wave_panel(surface, wave, wave_progress, wave_interval)
@@ -6300,7 +6559,8 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
             ui_text(surface, footer, ui_fit_font(font_tiny, footer, box.w - 28), UI_ACCENT, (box.x + 16, box.bottom - 26), shadow=False)
 
     draw_beat_ui(surface, player)
-    ui_text(surface, f"FPS {clock.get_fps():.0f}", font_tiny, UI_SUB, (width - 14, height - 52), "topright")
+    if SETTINGS["show_fps"]:
+        ui_text(surface, f"FPS {clock.get_fps():.0f}", font_tiny, UI_SUB, (width - 14, height - 52), "topright")
 
 
 def draw_game_over(surface, title, stats, hint):
@@ -6558,6 +6818,136 @@ def show_class_help(player):
                 return
 
 
+def show_settings(background=None):
+    """설정 화면: 화면 모드 / 창 크기 / 전체·효과음·음악 볼륨 / FPS 표시 - 바꾸면 바로 적용되고 저장됨
+    마우스: ◀ ▶ 누르기, 막대 끌기 / 키보드: ↑↓ 항목, ←→ 바꾸기, ESC 닫기"""
+    background = background or ui_snapshot()
+    rows = [("display", "화면 모드"), ("window_size", "창 크기"), ("master", "전체 볼륨"), ("sfx", "효과음"),
+            ("music", "음악"), ("show_fps", "FPS 표시")]
+    panel = pygame.Rect(0, 0, min(820, SCREEN_WIDTH - 40), 150 + len(rows) * 70 + 90)
+    panel.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+    row_rects = [pygame.Rect(panel.x + 30, panel.y + 120 + i * 70, panel.w - 60, 58) for i in range(len(rows))]
+    reset_rect = pygame.Rect(panel.x + 30, panel.bottom - 76, 240, 54)
+    close_rect = pygame.Rect(panel.right - 270, panel.bottom - 76, 240, 54)
+    selected, dragging = 0, None
+    pygame.event.clear(pygame.MOUSEBUTTONDOWN)
+
+    def control_rects(rect):
+        left = pygame.Rect(rect.x + 250, rect.centery - 18, 36, 36)
+        right = pygame.Rect(rect.right - 52, rect.centery - 18, 36, 36)
+        track = pygame.Rect(left.right + 18, rect.centery - 6, right.left - left.right - 36, 12)
+        return left, right, track
+
+    def enabled(key):
+        return key != "window_size" or SETTINGS["display"] == "windowed"
+
+    def value_text(key):
+        if key == "display":
+            return dict(DISPLAY_MODES)[SETTINGS["display"]]
+        if key == "window_size":
+            w, h = SETTINGS["window_size"]
+            return f"{w} × {h}" if enabled(key) else "창 모드에서만"
+        if key == "show_fps":
+            return "켜짐" if SETTINGS["show_fps"] else "꺼짐"
+        return f"{SETTINGS[key]}%"
+
+    def change(key, step):
+        if not enabled(key):
+            return
+        if key == "display":
+            keys = [k for k, _ in DISPLAY_MODES]
+            SETTINGS["display"] = keys[(keys.index(SETTINGS["display"]) + step) % len(keys)]
+            apply_display()
+        elif key == "window_size":
+            sizes = available_window_sizes()
+            current = tuple(SETTINGS["window_size"])
+            index = sizes.index(current) if current in sizes else 0
+            SETTINGS["window_size"] = list(sizes[(index + step) % len(sizes)])
+            apply_display()
+        elif key == "show_fps":
+            SETTINGS["show_fps"] = not SETTINGS["show_fps"]
+        else:
+            SETTINGS[key] = max(0, min(100, SETTINGS[key] + step * 5))
+            apply_volume()
+            sfx("click")
+        save_settings()
+
+    def set_from_mouse(key, x, track):
+        SETTINGS[key] = max(0, min(100, round((x - track.x) / max(1, track.w) * 20) * 5))
+        apply_volume()
+
+    while True:
+        mouse = pygame.mouse.get_pos()
+        screen.blit(background, (0, 0))
+        ui_overlay(screen, 180)
+        ui_panel(screen, panel, alpha=240, radius=16)
+        ui_text(screen, "설정", font_large, UI_TEXT, (panel.centerx, panel.y + 20), "midtop")
+        ui_text(screen, "바꾸면 바로 적용되고 저장돼요 · ↑↓ 고르기 · ←→ 바꾸기 · ESC 닫기", font_tiny, UI_SUB,
+                (panel.centerx, panel.y + 84), "midtop", shadow=False)
+        for i, ((key, label), rect) in enumerate(zip(rows, row_rects)):
+            on = enabled(key)
+            pygame.draw.rect(screen, (52, 48, 44) if i == selected else (38, 36, 33), rect, border_radius=3)
+            if i == selected:
+                pygame.draw.rect(screen, UI_ACCENT, rect, 2, border_radius=3)
+            ui_text(screen, label, font_hud, UI_TEXT if on else UI_DIM, (rect.x + 18, rect.centery), "midleft")
+            left, right, track = control_rects(rect)
+            for btn, mark in ((left, "◀"), (right, "▶")):
+                hover = on and btn.collidepoint(mouse)
+                pygame.draw.rect(screen, UI_ACCENT if hover else (70, 64, 58), btn, border_radius=3)
+                ui_text(screen, mark, font_tiny, UI_TEXT if on else UI_DIM, btn.center, "center", shadow=False)
+            if key in ("master", "sfx", "music"):
+                ui_bar(screen, track, SETTINGS[key] / 100, UI_ACCENT, back=(28, 26, 24))
+                ui_text(screen, value_text(key), font_tiny, UI_TEXT, (track.centerx, rect.y + 2), "midtop", shadow=False)
+            else:
+                ui_text(screen, value_text(key), font_hud, UI_TEXT if on else UI_DIM, ((left.right + right.left) // 2, rect.centery), "center")
+        ui_button(screen, reset_rect, "기본값으로", (228, 92, 78), reset_rect.collidepoint(mouse))
+        ui_button(screen, close_rect, "닫기", (128, 196, 132), close_rect.collidepoint(mouse))
+        pygame.display.flip()
+        clock.tick(60)
+        for event in pygame.event.get():
+            ui_quit_event(event)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    save_settings()
+                    return
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    selected = (selected - 1) % len(rows)
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    selected = (selected + 1) % len(rows)
+                elif event.key in (pygame.K_LEFT, pygame.K_a):
+                    change(rows[selected][0], -1)
+                elif event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_RETURN):
+                    change(rows[selected][0], 1)
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if close_rect.collidepoint(event.pos):
+                    save_settings()
+                    return
+                if reset_rect.collidepoint(event.pos):
+                    SETTINGS.update({k: (list(v) if isinstance(v, list) else v) for k, v in SETTINGS_DEFAULTS.items()})
+                    apply_display(); apply_volume(); save_settings()
+                    continue
+                for i, ((key, _label), rect) in enumerate(zip(rows, row_rects)):
+                    if not rect.collidepoint(event.pos):
+                        continue
+                    selected = i
+                    left, right, track = control_rects(rect)
+                    if left.collidepoint(event.pos):
+                        change(key, -1)
+                    elif right.collidepoint(event.pos):
+                        change(key, 1)
+                    elif key in ("master", "sfx", "music") and track.inflate(0, 24).collidepoint(event.pos):
+                        dragging = (key, track)
+                        set_from_mouse(key, event.pos[0], track)
+            elif event.type == pygame.MOUSEMOTION and dragging is not None:
+                set_from_mouse(dragging[0], event.pos[0], dragging[1])
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and dragging is not None:
+                dragging = None
+                sfx("click")
+                save_settings()
+            elif event.type == pygame.MOUSEWHEEL and rows[selected][0] in ("master", "sfx", "music"):
+                change(rows[selected][0], 1 if event.y > 0 else -1)
+
+
 def show_pause_menu(player):
     """게임 일시정지 메뉴 표시 (뒤에 멈춘 게임 화면이 비쳐 보임)"""
     background = ui_snapshot()
@@ -6565,6 +6955,7 @@ def show_pause_menu(player):
         {"name": "돌아가기", "desc": "게임 계속하기 (ESC)", "type": "resume", "color": (128, 196, 132)},
         {"name": "능력 확인", "desc": "획득한 능력 보기", "type": "abilities", "color": (106, 155, 204)},
         {"name": "키 설정", "desc": "조작 키 바꾸기", "type": "keys", "color": (180, 160, 220)},
+        {"name": "설정", "desc": "화면 모드 · 창 크기 · 볼륨", "type": "settings", "color": (120, 190, 200)},
         {"name": "저장하고 나가기", "desc": "다음에 실행하면 이어하기", "type": "save_exit", "color": (232, 180, 90)},
         {"name": "처음으로", "desc": "저장하지 않고 능력 선택화면으로", "type": "exit", "color": (228, 92, 78)},
     ]
@@ -6596,6 +6987,8 @@ def show_pause_menu(player):
                             show_obtained_upgrades(player, background)   # 보고 나면 다시 일시정지 메뉴로
                         elif button["type"] == "keys":
                             show_key_settings(background)
+                        elif button["type"] == "settings":
+                            show_settings(background)
                         else:
                             # "exit": 게임을 처음부터 다시 시작 (main()을 재귀 호출하지 않고 호출한 쪽에서 재시작 처리)
                             return button["type"]
@@ -7778,7 +8171,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102109          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102110          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -7925,6 +8318,10 @@ def maybe_offer_update():
 def main():
     maybe_offer_update()   # exe 실행이면 새 버전 확인 (처음 한 번)
     warm_up_game_sfx()   # 효과음 미리 만들기 (0.2초)
+    if not _music_synth:
+        _prepare_music_thread()   # 기본 배경 음악을 뒤에서 만듦
+    apply_volume()
+    set_music("menu")
     # 저장된 게임이 있으면 이어하기 / 새 게임 선택
     save_data = load_save()
     if save_data is not None and show_continue_menu(save_data) != "continue":
