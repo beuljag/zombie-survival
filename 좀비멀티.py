@@ -216,7 +216,7 @@ class Lockstep:
 # =====================================================================
 # 입력
 # =====================================================================
-EMPTY_INPUT = {"k": 0, "x": 0, "y": 0, "l": 0, "h": 0, "r": 0, "e": 0, "u": -1}
+EMPTY_INPUT = {"k": 0, "x": 0, "y": 0, "l": 0, "h": 0, "r": 0, "e": 0, "u": -1, "s": 0}
 
 
 class KeyState:
@@ -511,8 +511,12 @@ class MatchState:
             if can_fire:
                 self.fire_weapon(p, aim_x, aim_y, inp.get("b"))
 
-        if inp["r"]:
+        if inp["r"] and p.weapon.weapon_type == "melee":   # 나무 방망이: 누르고 있으면 힘 모으기
+            bat_charge_start(p)
+        elif inp["r"]:
             execute_weapon_skill(p.weapon.weapon_type, p, aim_x, aim_y, zombies, bullets, all_sprites, explosions)
+        if p.bat_charging:
+            bat_charge_tick(p, inp.get("s", 0), aim_x, aim_y, zombies, bullets, all_sprites, explosions)
 
         if inp["e"] and p.skills.get("skill_teleport", False) and p.teleport_cooldown <= 0:
             p.rect.center = (inp["x"], inp["y"])
@@ -591,7 +595,7 @@ class MatchState:
             fire_muzzle_flash(p, mouse_world_x, mouse_world_y, kick=2.5 if p.pid == self.local_pid else 0)
         elif p.weapon.weapon_type == "rocket":
             rocket = Bullet(p.rect.centerx, p.rect.centery, mouse_world_x, mouse_world_y, get_weapon_damage(p), "rocket", "rocket")
-            rocket.speed = p.weapon.bullet_speed
+            rocket.lock_on(zombies, mouse_world_x, mouse_world_y)   # 유도 로켓
             bullets.add(rocket)
             all_sprites.add(rocket)
             fire_muzzle_flash(p, mouse_world_x, mouse_world_y, kick=3.0 if p.pid == self.local_pid else 0)
@@ -818,6 +822,7 @@ class MatchState:
             fx.add_text(p.rect.centerx, p.rect.top - 20, item.effect, ITEM_COLORS[item.item_type], life=50)
             if item.item_type == "health":
                 p.health = min(p.health + ITEM_HEAL_AMOUNT, p.max_health)
+                fx.anim("effects/heal.png", p.rect.centerx, p.rect.centery - 10, 2.0, 6)
             elif item.item_type == "damage":
                 p.damage_buff_time = ITEM_BUFF_FRAMES
             else:
@@ -1420,6 +1425,7 @@ def run_match(lockstep, seed, roster, local_pid):
                 bits = 0 if ui["menu"] else (binding_held("up", keys) * 1 | binding_held("left", keys) * 2 |
                                              binding_held("down", keys) * 4 | binding_held("right", keys) * 8)
                 inp = {"k": bits, "x": int(mx + camera.x), "y": int(my + camera.y), "l": clicks["l"], "h": int(held),
+                       "s": int(binding_held("skill", keys) and not ui["menu"]),
                        "b": clicks.get("b", state.sim_frame),
                        "r": clicks["r"], "e": clicks["e"], "u": clicks["u"]}
                 inp.update(INPUT_HOOK(state, local) if INPUT_HOOK else {})
@@ -1463,6 +1469,8 @@ def run_match(lockstep, seed, roster, local_pid):
                 speed = local.speed * local.slow_multiplier * (ITEM_BUFF_MULTIPLIER if local.speed_buff_time > 0 else 1)
                 if local.encore_time > 0:
                     speed *= 1 + ENCORE_SPEED   # 앙코르 (Player.update와 같게)
+                if local.bat_charging:
+                    speed *= BAT_CHARGE_SLOW
                 px = py = 0.0
                 for bits in my_moves.values():
                     px += speed * (((bits >> 3) & 1) - ((bits >> 1) & 1))

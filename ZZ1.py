@@ -135,7 +135,9 @@
 - 무한탄약 (Lv2): 30초간 탄약 무한 사용
 
 무기별 스킬 (우클릭):
-- 나무 방망이: 홈런 - 앞쪽 좀비를 크게 날려 보냄 (8초)
+- 나무 방망이: 기본 공격 넉백이 저항을 무시 (보스도 밀림)
+- 나무 방망이: 풀스윙 홈런 (차징) - 스킬 키를 누르고 있으면 힘을 모으고(최대 1.5초, 느려짐) 떼면 휘두름,
+  모은 만큼 피해 2→6배 · 범위 · 넉백 증가, 끝까지 모으면 만루 홈런 (1초 기절) (8초)
 - 카타나: 일섬 - 마우스 방향으로 순간 돌진하며 지나간 길을 벰, 끝난 뒤 0.2초 무적 (6초)
   적을 처치하면 쿨타임 초기화 + 다음 일섬 데미지 +5% (연참, 중첩), 처치에 실패하거나 1초 안에 다시 쓰지 않으면 원래대로
   일섬으로 처치한 좀비 1마리당 체력 1 회복
@@ -163,7 +165,7 @@
 - 저격총: 도탄 사격 - 한 발이 맞은 좀비에서 주변 좀비로 10번 튕김 (맞을 때마다 3배 데미지, "도탄 +3회" 업그레이드) (12초)
   튕길 때마다 기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발 공격) 적용, 도탄은 치명타 확률 +20%
 - 플라즈마: 블랙홀 - 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발 (18초)
-- 로켓: 미사일 폭격 - 마우스 주변에 미사일 8발 (15초)
+- 로켓: 유도 로켓 (조준점 근처 좀비를 잠그고 따라감, 점점 빨라짐) / 락온 미사일 - 주변 좀비를 하나씩 잠근 미사일 8발 (15초)
 
 【주요 게임 메카닉】
 1. 넉백 시스템: 좀비마다 다른 넉백 저항도 (탱크는 완전 저항)
@@ -219,6 +221,29 @@ import time
 os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "1")   # 화면 확대/축소를 부드럽게 (계단 현상 방지)
 pygame.mixer.pre_init(44100, -16, 2, 1024)   # 소리 지연을 짧게 (리듬 무기) - 너무 작으면 소리가 끊김
 pygame.init()
+
+# 문제 찾기용 기록 (환경 변수 ZOMBIE_DEBUG_LOG=파일경로 일 때만): 종료 요청 이벤트와 종료 위치를 남김
+if os.environ.get("ZOMBIE_DEBUG_LOG"):
+    import atexit, traceback, time as _dbg_time
+    _dbg_path = os.environ["ZOMBIE_DEBUG_LOG"]
+
+    def _dbg(msg):
+        try:
+            with open(_dbg_path, "a", encoding="utf-8") as f:
+                f.write(f"{_dbg_time.strftime('%H:%M:%S')} {msg}\n")
+        except OSError:
+            pass
+    _dbg("start " + " ".join(sys.argv))
+    _real_event_get = pygame.event.get
+
+    def _logged_event_get(*args, **kwargs):
+        events = _real_event_get(*args, **kwargs)
+        for event in events:
+            if event.type in (pygame.QUIT, getattr(pygame, "WINDOWCLOSE", -1)):
+                _dbg(f"event {pygame.event.event_name(event.type)} {event.dict}\n" + "".join(traceback.format_stack(limit=6)))
+        return events
+    pygame.event.get = _logged_event_get
+    atexit.register(lambda: _dbg("exit"))
 
 # 화면 설정: 장치 화면 크기에 맞춰 자동 조절
 #  게임은 높이 900~1080의 "논리 화면"에 그리고 (가로는 장치의 화면비에 맞춤), 그래픽카드가 실제 화면 크기로 확대/축소함
@@ -385,6 +410,21 @@ GLOVE_WAVE_MULT = 0.8
 GLOVE_WAVE_RANGE = 220
 GLOVE_SKILL_COMBO_BONUS = 0.03
 GLOVE_SKILL_COMBO_MAX = 0.9
+# 나무 방망이: 기본 공격 넉백이 저항을 무시 (보스·넉백 면역 좀비도 밀림)
+#  스킬 "풀스윙 홈런" (차징형): 스킬 키를 누르고 있으면 힘을 모음 (최대 1.5초, 모으는 동안 느려짐), 떼면 휘두름
+#   모은 만큼 피해 2배→6배, 범위 160→260, 부채꼴 ±50°→±75°, 넉백 22→52 / 끝까지 모으면 "만루 홈런": 1초 기절
+BAT_CHARGE_MAX = 90
+BAT_CHARGE_SLOW = 0.55
+BAT_KNOCK_IGNORE_FRAMES = 30
+# 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 살짝 따라감 (1프레임에 최대 5°), 느리게 출발해서 빨라짐
+#  스킬 "락온 미사일": 조준점 주변(500px) 좀비를 하나씩 잠근 미사일 8발이 퍼져 나갔다가 휘어져 날아가 폭발
+ROCKET_LOCK_RANGE = 180
+ROCKET_TURN = math.radians(5)
+ROCKET_START_SPEED = 5.0
+ROCKET_ACCEL = 0.45
+ROCKET_MAX_SPEED = 16.0
+MISSILE_COUNT = 8
+MISSILE_LOCK_RANGE = 500
 # 일렉 기타 (리듬 무기): 기본 120BPM (0.5초마다 박자), 공격 속도가 빠를수록 박자도 빨라짐 (최대 0.24초) - 박자에 맞춰 치면 강해짐
 #  박자에 맞출 때마다 노래(기타 멜로디)가 한 음씩 이어서 연주됨
 #  PERFECT(±60ms) 2배 / GOOD(±120ms) 1.4배 / MISS 0.6배, PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +5%), MISS면 그루브 0
@@ -522,11 +562,12 @@ font_item_icon = pygame.font.SysFont('malgun gothic', 14, bold=True)
 font_title = pygame.font.SysFont('malgun gothic', 54, bold=True)
 font_hud_big = pygame.font.SysFont('malgun gothic', 32, bold=True)
 font_hud = pygame.font.SysFont('malgun gothic', 19, bold=True)
-font_tiny = pygame.font.SysFont('malgun gothic', 15)
+font_tiny = pygame.font.SysFont('malgun gothic', 16)
+font_label = pygame.font.SysFont('malgun gothic', 15, bold=True)   # 좀비 이름표 (굵게 - 잘 보이게)
 
 UI_TEXT = (245, 240, 232)      # 크림색 글자
-UI_SUB = (178, 170, 158)
-UI_DIM = (120, 113, 104)
+UI_SUB = (204, 197, 186)   # 보조 글자 (예전보다 밝게 - 잘 보이게)
+UI_DIM = (150, 142, 132)
 UI_PANEL = (30, 28, 26)       # 따뜻한 숯색 패널
 UI_BORDER = (78, 72, 64)
 UI_ACCENT = (217, 119, 87)    # Claude 코랄
@@ -571,10 +612,13 @@ def _render_cached(font, text, color, shadow=False):
             _text_cache.clear()
         base = font.render(text, True, color)
         w, h = base.get_size()
-        if shadow:
-            merged = pygame.Surface((w + 2, h + 2), pygame.SRCALPHA)
-            merged.blit(font.render(text, True, (0, 0, 0)), (2, 2))
-            merged.blit(base, (0, 0))
+        if shadow:   # 검은 테두리(사방 1px) + 아래 그림자 → 어떤 배경에서도 잘 보이게
+            dark = font.render(text, True, (0, 0, 0))
+            merged = pygame.Surface((w + 3, h + 3), pygame.SRCALPHA)
+            merged.blit(dark, (2, 3))
+            for ox, oy in ((0, 1), (2, 1), (1, 0), (1, 2), (0, 0), (2, 0), (0, 2), (2, 2)):
+                merged.blit(dark, (ox, oy))
+            merged.blit(base, (1, 1))
             base = merged
         entry = _text_cache[key] = (base, w, h)
     return entry
@@ -587,7 +631,7 @@ _fit_font_cache = {}
 def _register_fonts():
     for font, size, bold in ((font_large, 48, False), (font_small, 36, False), (font_medium, 28, False), (font_desc, 20, False),
                              (font_control, 24, False), (font_title, 54, True), (font_hud_big, 32, True), (font_hud, 19, True),
-                             (font_tiny, 15, False)):
+                             (font_tiny, 16, False)):
         _FONT_INFO[id(font)] = (size, bold)
 
 
@@ -787,8 +831,8 @@ def ui_quit_event(event):
 fx_random = random.Random()
 FX_MAX_PARTICLES = 1500
 
-font_damage = pygame.font.SysFont('malgun gothic', 18, bold=True)
-font_damage_big = pygame.font.SysFont('malgun gothic', 26, bold=True)
+font_damage = pygame.font.SysFont('malgun gothic', 20, bold=True)
+font_damage_big = pygame.font.SysFont('malgun gothic', 28, bold=True)
 
 # 무기별 타격/총구 화염 색
 FX_WEAPON_COLORS = {
@@ -904,6 +948,8 @@ class EffectManager:
 
     def element_hit(self, x, y, element):
         """속성탄이 맞은 자리 효과"""
+        if element == "electric" and len(self.anims) < 100:
+            self.anim("effects/lightning.png", x, y - 20, 1.0, 3)   # 도트 번개
         if element == "fire":
             self.burst(x, y, (255, 140, 30), 7, speed=(1.0, 3.5), size=(2, 4), life=(10, 20), drag=0.88, gravity=-0.12)
         elif element == "ice":
@@ -1476,6 +1522,18 @@ def draw_zombie_sprite(surface, camera, zombie, player):
             pygame.draw.lines(surface, (255, 245, 120), False, [p1, mid, p2], 2)
     if sprite_rel is None:
         draw_eyes(surface, sx, sy - bob, w, h, look_x, look_y, color=(90, 70, 110) if stealth else WHITE)
+    if getattr(zombie, "lock_mark", 0) > 0:   # 로켓/미사일이 잠근 좀비: 붉은 조준선
+        zombie.lock_mark -= 1
+        size = int(max(rotated.get_width(), rotated.get_height()) * 0.85) + 10   # 그려진 좀비 크기에 맞춤
+        reticle = sprite_frame("effects/lock_on.png", fx.frame // 4, (size, size), scale=1.0)
+        if reticle is not None:
+            surface.blit(reticle, reticle.get_rect(center=center))
+        else:
+            r = size // 2
+            for sx_, sy_ in ((-1, -1), (1, -1), (-1, 1), (1, 1)):   # 네 귀퉁이 꺾쇠
+                corner = (center[0] + sx_ * r, center[1] + sy_ * r)
+                pygame.draw.line(surface, (255, 60, 60), corner, (corner[0] - sx_ * 8, corner[1]), 3)
+                pygame.draw.line(surface, (255, 60, 60), corner, (corner[0], corner[1] - sy_ * 8), 3)
     if getattr(zombie, "aiming", 0) > 0:
         # 저격좀비 조준선: 발사가 가까울수록 굵어지고, 마지막 0.25초는 깜빡임
         tx, ty = camera.apply(zombie.aim_x, zombie.aim_y)
@@ -1497,6 +1555,20 @@ def draw_player_sprite(surface, camera, player):
                 surface.blit(note, note.get_rect(center=pos))
             else:
                 ui_text(surface, "♪", font_hud, (230, 150, 255), pos, "center")
+    if getattr(player, "bat_charging", False):
+        ratio = player.bat_charge / BAT_CHARGE_MAX
+        aura = sprite_frame("effects/bat_charge.png", fx.frame // 5, None)
+        if aura is not None:   # 힘 모으는 오라 (모을수록 커짐)
+            k = 0.8 + 0.7 * ratio
+            aura = pygame.transform.scale(aura, (int(aura.get_width() * 2 * k), int(aura.get_height() * 2 * k)))
+            surface.blit(aura, aura.get_rect(center=(int(sx), int(sy))))
+        full = ratio >= 1.0
+        color = (255, 120, 60) if full and fx.frame % 8 < 4 else (255, 200 - int(80 * ratio), 90)
+        rect = pygame.Rect(0, 0, 64, 64)
+        rect.center = (int(sx), int(sy))
+        pygame.draw.circle(surface, (40, 36, 30), rect.center, 32, 4)
+        if ratio > 0:
+            pygame.draw.arc(surface, color, rect, math.pi / 2, math.pi / 2 + math.pi * 2 * ratio, 5)
     if player.weapon is not None and player.weapon.weapon_type == "hammer":
         # 다가오는 박자 고리: 박자에 가까울수록 몸에 붙음 (이때 치면 PERFECT)
         phase = player.beat_pos % 1.0
@@ -1878,6 +1950,8 @@ class Player(pygame.sprite.Sprite):
         self.glove_combo = 0     # 글로브 콤보 수
         self.glove_combo_timer = 0
         self.groove = 0          # 일렉 기타: PERFECT 연속 (그루브)
+        self.bat_charging = False   # 나무 방망이 풀스윙: 힘 모으는 중
+        self.bat_charge = 0
         self.encore_time = 0     # 앙코르 버프 남은 시간 (팀 전체)
         self.encore_power = 0.0  # 앙코르 방어 (받는 피해 감소 비율)
         self.beat_buff_time = 0  # 박자 버프 (팀 전체 공격력)
@@ -1979,6 +2053,8 @@ class Player(pygame.sprite.Sprite):
             current_speed *= ITEM_BUFF_MULTIPLIER
         if self.encore_time > 0:
             current_speed *= 1 + ENCORE_SPEED   # 앙코르 (팀 버프)
+        if self.bat_charging:
+            current_speed *= BAT_CHARGE_SLOW    # 풀스윙 힘 모으는 중
 
         if held('up'):
             self.pos_y -= current_speed
@@ -2083,6 +2159,7 @@ class Zombie(pygame.sprite.Sprite):
         self.knockback_vel_y = 0
         self.knockback_decay = 0.95
         self.knockback_resistance = 1.0  # 기본값: 100% 넉백 받음 (0.0 = 완전 저항)
+        self.knock_ignore = 0            # 나무 방망이에 맞으면 잠깐 저항 무시
         self.attack_cooldown = 0
         self.slow_time = 0
         self.slow_multiplier = 1.0
@@ -2387,9 +2464,13 @@ class Zombie(pygame.sprite.Sprite):
         if self.rect.center != self._synced_center:
             self.pos_x, self.pos_y = self.rect.center
 
-        # 넉백 적용 (모든 좀비에 저항값 적용)
-        self._move(self.knockback_vel_x * self.knockback_resistance,
-                   self.knockback_vel_y * self.knockback_resistance)
+        # 넉백 적용 (모든 좀비에 저항값 적용 - 나무 방망이에 맞은 직후는 저항 무시)
+        resistance = self.knockback_resistance
+        if self.knock_ignore > 0:
+            self.knock_ignore -= 1
+            resistance = 1.0
+        self._move(self.knockback_vel_x * resistance,
+                   self.knockback_vel_y * resistance)
         self.knockback_vel_x *= self.knockback_decay
         self.knockback_vel_y *= self.knockback_decay
 
@@ -2878,9 +2959,40 @@ class Bullet(pygame.sprite.Sprite):
         trail_key = self.weapon_type if self.weapon_type in FX_TRAILS else self.bullet_type
         self.trail = FX_TRAILS.get(trail_key)
 
+    def lock_on(self, zombies, aim_x, aim_y):
+        """로켓: 조준점에서 가장 가까운 좀비를 잠금 (없으면 직진), 느리게 출발"""
+        best, best_d = None, ROCKET_LOCK_RANGE
+        for zombie in zombies:
+            if zombie.health <= 0:
+                continue
+            d = math.hypot(zombie.rect.centerx - aim_x, zombie.rect.centery - aim_y)
+            if d < best_d:
+                best, best_d = zombie, d
+        self.home_target = best
+        self.speed = ROCKET_START_SPEED
+
+    def _home(self):
+        """잠근 좀비 쪽으로 조금씩 방향을 틀고 빨라짐"""
+        target = getattr(self, "home_target", None)
+        if target is not None and (target.health <= 0 or not target.alive()):
+            self.home_target = target = None
+        if target is not None:
+            want = math.atan2(target.rect.centery - self.pos_y, target.rect.centerx - self.pos_x)
+            now = math.atan2(self.dir_y, self.dir_x)
+            diff = (want - now + math.pi) % (2 * math.pi) - math.pi
+            now += max(-ROCKET_TURN, min(ROCKET_TURN, diff))
+            self.dir_x, self.dir_y = math.cos(now), math.sin(now)
+            if abs(diff) > 0.03:
+                self._orient_image()
+            target.lock_mark = 4   # 조준선 표시 (그리기 전용)
+        self.speed = min(ROCKET_MAX_SPEED, self._speed + ROCKET_ACCEL)
+
     def _orient_image(self):
         if self.dir_x == 0 and self.dir_y == 0:
             return
+        if getattr(self, "_unrotated", None) is None:
+            self._unrotated = self.image          # 돌리기 전 그림 (여러 번 돌려도 그림이 망가지지 않게)
+        self.image = self._unrotated
         angle = math.degrees(math.atan2(-self.dir_y, self.dir_x))
         rel = BULLET_ART.get(self.weapon_type)
         raw = load_asset(rel) if rel else None
@@ -2909,6 +3021,8 @@ class Bullet(pygame.sprite.Sprite):
         self.vel_y = self.dir_y * value
 
     def update(self):
+        if self.weapon_type == "rocket" and hasattr(self, "home_target"):
+            self._home()
         self.pos_x += self.vel_x
         self.pos_y += self.vel_y
         self.rect.center = (round(self.pos_x), round(self.pos_y))
@@ -3119,6 +3233,33 @@ def glove_combo_punch(player, zombies, all_sprites, explosions, target, dir_x, d
         all_sprites.add(LineFlash(cx + dir_x * 40, cy + dir_y * 40, ex, ey, (255, 140, 90), width=10, duration=10))
         all_sprites.add(FistPop(cx + dir_x * GLOVE_WAVE_RANGE * 0.6, cy + dir_y * GLOVE_WAVE_RANGE * 0.6,
                                 math.atan2(dir_y, dir_x), 0.9, life=8))
+
+
+def bat_charge_start(player):
+    """나무 방망이: 스킬 키를 누르면 힘 모으기 시작 (쿨타임이 끝나 있을 때만)"""
+    if player.bat_charging or player.skill_cooldowns.get("melee", 0) > pygame.time.get_ticks():
+        return
+    player.bat_charging = True
+    player.bat_charge = 0
+
+
+def bat_charge_tick(player, held, aim_x, aim_y, zombies, bullets, all_sprites, explosions):
+    """힘 모으기 (매 프레임): 누르고 있으면 모으고, 떼면 풀스윙"""
+    if not player.bat_charging:
+        return
+    if player.weapon is None or player.weapon.weapon_type != "melee" or getattr(player, "dead", False):
+        player.bat_charging = False
+        return
+    if held:
+        if player.bat_charge < BAT_CHARGE_MAX:
+            player.bat_charge += 1
+            if player.bat_charge == BAT_CHARGE_MAX:
+                fx.add_text(player.rect.centerx, player.rect.top - 30, "MAX!", (255, 140, 60), big=True, life=30)
+                fx.ring(player.rect.centerx, player.rect.centery, (255, 200, 90), 50, count=18, size=3)
+        return
+    player.bat_charging = False
+    player.bat_release_power = player.bat_charge / BAT_CHARGE_MAX
+    execute_weapon_skill("melee", player, aim_x, aim_y, zombies, bullets, all_sprites, explosions)
 
 
 def tick_glove_combo(player):
@@ -3712,6 +3853,8 @@ def melee_sweep(melee, zombies):
         if dist > 0:
             zombie.knockback_vel_x = dx / dist * melee.knockback_power / 100 * knockback_mult
             zombie.knockback_vel_y = dy / dist * melee.knockback_power / 100 * knockback_mult
+            if melee.weapon_type == "melee":
+                zombie.knock_ignore = BAT_KNOCK_IGNORE_FRAMES
 
 
 def get_knockback_multiplier(player):
@@ -4535,6 +4678,102 @@ class BlackHoleSkill(ActiveSkill):
         self.visual.image = image
 
 
+class LockOnMissileSkill(ActiveSkill):
+    """로켓 락온 미사일: 조준점 주변 좀비를 하나씩 잠근 미사일이 부채꼴로 퍼져 나갔다가 휘어져 날아가 폭발"""
+    def __init__(self, player, all_sprites, zombies, aim_x, aim_y, count, damage, radius):
+        super().__init__(200)
+        self.damage, self.radius = damage, radius
+        self.aim_x, self.aim_y = aim_x, aim_y
+        cx, cy = player.rect.center
+        targets = sorted((z for z in zombies if z.health > 0 and math.hypot(z.rect.centerx - aim_x, z.rect.centery - aim_y) < MISSILE_LOCK_RANGE),
+                         key=lambda z: (math.hypot(z.rect.centerx - aim_x, z.rect.centery - aim_y), z.rect.x, z.rect.y))
+        base = math.atan2(aim_y - cy, aim_x - cx)
+        self.missiles = []
+        for i in range(count):
+            spread = (i - (count - 1) / 2) / max(1, count - 1) * math.radians(150)   # 뒤쪽까지 넓게 퍼짐
+            a = base + spread
+            visual = SkillVisual(_EMPTY_IMAGE, (cx, cy), pixel_art=True)   # 발사 전에는 안 보임
+            all_sprites.add(visual)
+            self.missiles.append({"x": float(cx), "y": float(cy), "a": a, "v": 3.0, "delay": i * 3, "life": 0,
+                                  "target": targets[i % len(targets)] if targets else None, "visual": visual, "alive": True})
+        fx.add_text(cx, player.rect.top - 30, f"락온 x{len(targets)}" if targets else "미사일!", (255, 150, 90), big=True)
+
+    def update(self, player, zombies, bullets, all_sprites, explosions):
+        alive = super().update(player, zombies, bullets, all_sprites, explosions)
+        if not alive:
+            for m in self.missiles:
+                m["visual"].kill()
+        return alive
+
+    def tick(self, player, zombies, bullets, all_sprites, explosions):
+        any_alive = False
+        for m in self.missiles:
+            if not m["alive"]:
+                continue
+            any_alive = True
+            if m["delay"] > 0:
+                m["delay"] -= 1
+                continue
+            m["life"] += 1
+            target = m["target"]
+            if target is not None and target.health <= 0:
+                m["target"] = target = None
+            tx, ty = (target.rect.center if target is not None else (self.aim_x, self.aim_y))
+            if target is not None:
+                target.lock_mark = 4   # 조준선 표시 (그리기 전용)
+            if m["life"] > 8:   # 처음 잠깐은 퍼져 나간 뒤 목표로 휨
+                want = math.atan2(ty - m["y"], tx - m["x"])
+                diff = (want - m["a"] + math.pi) % (2 * math.pi) - math.pi
+                m["a"] += max(-0.16, min(0.16, diff))
+            m["v"] = min(17.0, m["v"] + 0.6)
+            m["x"] += math.cos(m["a"]) * m["v"]
+            m["y"] += math.sin(m["a"]) * m["v"]
+            visual = m["visual"]
+            visual.image = _missile_image(m["a"])
+            visual.rect = visual.image.get_rect(center=(int(m["x"]), int(m["y"])))
+            if m["life"] % 2 == 0:
+                fx.trail(m["x"] - math.cos(m["a"]) * 10, m["y"] - math.sin(m["a"]) * 10, (200, 200, 200), 4, 14)
+            hit = math.hypot(tx - m["x"], ty - m["y"]) < 22 or m["life"] > 130
+            if not hit:
+                for zombie in zombies:
+                    if zombie.health > 0 and abs(zombie.rect.centerx - m["x"]) < 22 and abs(zombie.rect.centery - m["y"]) < 22:
+                        hit = True
+                        break
+            if hit:
+                m["alive"] = False
+                visual.kill()
+                boom = Explosion(m["x"], m["y"], self.radius, "missile")
+                explosions.add(boom)
+                all_sprites.add(boom)
+                for zombie in list(zombies):
+                    if zombie.health > 0 and math.hypot(zombie.rect.centerx - m["x"], zombie.rect.centery - m["y"]) < self.radius:
+                        skill_damage(zombie, self.damage)
+                        push_zombie(zombie, m["x"], m["y"], 6)
+        return any_alive
+
+
+_missile_images = {}
+
+
+def _missile_image(angle):
+    """미사일 그림 (날아가는 방향으로) - 도트 그림은 아래를 향해 있어서 +90°"""
+    key = int(math.degrees(angle)) // 6 * 6
+    image = _missile_images.get(key)
+    if image is None:
+        art = sprite_frame("effects/missile.png", 0)
+        if art is not None:
+            art = pygame.transform.scale(art, (art.get_width() * 2, art.get_height() * 2))
+            image = pygame.transform.rotate(art, 90 - key)
+        else:
+            base = pygame.Surface((26, 10), pygame.SRCALPHA)
+            pygame.draw.rect(base, (220, 60, 50), (4, 2, 18, 6), border_radius=2)
+            pygame.draw.polygon(base, (240, 240, 240), [(22, 1), (26, 5), (22, 9)])
+            pygame.draw.rect(base, (255, 170, 60), (0, 3, 4, 4))
+            image = pygame.transform.rotate(base, -key)
+        _missile_images[key] = image
+    return image
+
+
 class BombardmentSkill(ActiveSkill):
     """로켓 미사일 폭격: 지정한 곳 주변에 미사일이 차례로 떨어짐"""
     def __init__(self, x, y, count, damage, radius):
@@ -4582,17 +4821,30 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
     up = player.skill_upgrades[weapon_type]
 
     if weapon_type == "melee":
-        # 홈런: 앞쪽 부채꼴의 좀비를 크게 날려 보냄
-        radius = 190 + up["range"]
-        all_sprites.add(ConeFlash(cx, cy, aim, math.radians(60), radius, (230, 170, 90)))
-        hit = zombies_in_cone(zombies, cx, cy, aim, math.radians(60), radius)
+        # 풀스윙 홈런: 모은 힘(0~1)만큼 강하고 넓게, 넉백은 저항 무시 / 끝까지 모으면 만루 홈런 (기절)
+        power = min(1.0, getattr(player, "bat_release_power", 0.0))
+        player.bat_release_power = 0.0
+        full = power >= 0.999
+        radius = 160 + 100 * power + up["range"]
+        half = math.radians(50 + 25 * power)
+        all_sprites.add(ConeFlash(cx, cy, aim, half, radius, (255, 140, 60) if full else (230, 170, 90)))
+        hit = zombies_in_cone(zombies, cx, cy, aim, half, radius)
         for zombie in hit:
-            skill_damage(zombie, base * 3)
-            push_zombie(zombie, cx, cy, 26 * get_knockback_multiplier(player))
+            skill_damage(zombie, base * (2 + 4 * power))
+            push_zombie(zombie, cx, cy, (22 + 30 * power) * get_knockback_multiplier(player))
+            zombie.knock_ignore = BAT_KNOCK_IGNORE_FRAMES * 2
+            if full:
+                zombie.slow_time = max(zombie.slow_time, 60)
+                zombie.slow_multiplier = 0.0   # 기절
             fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (255, 220, 120))
-        if hit:
+        fx.anim("effects/homerun_swing.png", cx + math.cos(aim) * radius * 0.4, cy + math.sin(aim) * radius * 0.4,
+                radius * 1.6 / 96, 4, -math.degrees(aim))
+        if full:
+            fx.add_text(cx, player.rect.top - 34, "만루 홈런!!", (255, 120, 60), big=True, life=60)
+            fx.ring(cx, cy, (255, 200, 90), int(radius), count=36, size=4)
+        elif hit:
             fx.add_text(cx, player.rect.top - 30, "홈런!", (255, 220, 120), big=True)
-        fx.add_shake(4)
+        fx.add_shake(4 + 8 * power)
 
     elif weapon_type == "katana":
         # 일섬: 마우스 방향으로 순간 돌진하며 지나간 길의 좀비를 벰
@@ -4761,10 +5013,10 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
                                                    base * 0.8 * (1 + 0.08 * up["damage"]), all_sprites))
 
     elif weapon_type == "rocket":
-        # 미사일 폭격: 마우스 주변에 미사일 8발이 차례로 떨어짐
+        # 락온 미사일: 조준점 주변 좀비를 하나씩 잠근 미사일 8발 (목표가 적으면 나머지는 조준점으로)
         radius = 90 + up["explosion"] // 2
-        player.active_skills.append(BombardmentSkill(mouse_world_x, mouse_world_y, 8,
-                                                     base * 1.2 * (1 + 0.05 * up["damage"]), radius))
+        player.active_skills.append(LockOnMissileSkill(player, all_sprites, zombies, mouse_world_x, mouse_world_y, MISSILE_COUNT,
+                                                       base * 1.4 * (1 + 0.05 * up["damage"]), radius))
 
     player.skill_cooldowns[weapon_type] = current_time + int(SKILL_COOLDOWNS[weapon_type] * (1 - player.skill_cooldown_reduction))
     if weapon_type == "hammer":   # 앙코르: 시전자도 팀 전체 쿨타임 10% 감소를 받음
@@ -5836,7 +6088,7 @@ def draw_zombie_labels(surface, camera, zombies):
         cached = zombie.__dict__.get("_label_cache")
         if cached is None or cached[0] != key:
             color = ui_bright(ZOMBIE_BAR_COLORS.get(zombie.zombie_type, RED), 150)
-            text, tw, th = _render_cached(font_tiny, f"{key[0]} {hp}", color, True)
+            text, tw, th = _render_cached(font_label, f"{key[0]} {hp}", color, True)
             lw = max(tw + 2, bar_w + 2)
             label = pygame.Surface((lw, th + 9), pygame.SRCALPHA)
             bar_x = lw // 2 - bar_w // 2
@@ -5945,6 +6197,9 @@ def draw_player_status(surface, player, x=14, y=14):
     else:
         ui_bar(surface, skill_rect, 1 - remain / total, (106, 155, 204), back=(44, 41, 38),
                label=f"우클릭 스킬 {remain / 1000:.1f}초", font=font_tiny)
+    icon = sprite_frame("ui/icon_skill.png", 0, None, frames=1)
+    if icon is not None:   # 스킬 막대 왼쪽 아이콘
+        surface.blit(icon, icon.get_rect(midleft=(skill_rect[0] + 4, skill_rect[1] + skill_rect[3] // 2)))
 
     by = y + 146
     active = set()
@@ -6041,7 +6296,8 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
             text = f"• {name}"
             ui_text(surface, text, ui_fit_font(font_tiny, text, box.w - 28), UI_TEXT, (box.x + 16, box.y + 44 + i * 24), shadow=False)
         if len(names) > max_items:
-            ui_text(surface, f"(최근 {max_items}개 · 전체는 ESC → 능력 확인)", font_tiny, UI_ACCENT, (box.x + 16, box.bottom - 26), shadow=False)
+            footer = f"(최근 {max_items}개 · 전체는 ESC → 능력 확인)"
+            ui_text(surface, footer, ui_fit_font(font_tiny, footer, box.w - 28), UI_ACCENT, (box.x + 16, box.bottom - 26), shadow=False)
 
     draw_controls_bar(surface, controls_hint(" · ESC 일시정지"))
     draw_beat_ui(surface, player)
@@ -6129,8 +6385,8 @@ def select_weapon():
         {"name": "저격총", "desc": "강한 한 발, 무한 관통", "skill": "도탄 사격", "type": "sniper", "color": (200, 205, 230)},
         {"name": "기관총", "desc": "꾹 눌러 연사", "skill": "포탑 설치", "type": "machinegun", "color": (255, 130, 70)},
         {"name": "플라즈마", "desc": "착탄 시 작은 폭발", "skill": "블랙홀", "type": "plasma", "color": CYAN},
-        {"name": "로켓", "desc": "느리지만 큰 폭발", "skill": "미사일 폭격", "type": "rocket", "color": (255, 80, 60)},
-        {"name": "나무 방망이", "desc": "기본 근접", "skill": "홈런", "type": "melee", "color": (210, 140, 70)},
+        {"name": "로켓", "desc": "유도 로켓, 큰 폭발", "skill": "락온 미사일", "type": "rocket", "color": (255, 80, 60)},
+        {"name": "나무 방망이", "desc": "넉백 저항 무시", "skill": "풀스윙 홈런 (차징)", "type": "melee", "color": (210, 140, 70)},
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
         {"name": "창", "desc": "속도 비례 공격력, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
@@ -6190,10 +6446,14 @@ WEAPON_HELP = {
                 "업그레이드 \"도탄 +3회\", 전용 \"치명타 피해 +25%\" (최대 380%). 쿨타임 12초."]),
     "plasma": (["맞으면 작은 폭발 (주변 40%)."],
                ["블랙홀: 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
-    "rocket": (["느리지만 큰 폭발 (주변 40%)."],
-               ["미사일 폭격: 마우스 주변에 미사일 8발. 쿨타임 15초."]),
-    "melee": (["초보자용 근접 무기. 조준 방향 부채꼴 안의 좀비를 모두 때림."],
-              ["홈런: 앞쪽 좀비를 크게 날려 보냄. 쿨타임 8초."]),
+    "rocket": (["유도 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 따라감 (잠근 좀비에 붉은 조준선).",
+                "느리게 출발해서 점점 빨라짐. 맞으면 큰 폭발 (주변 40%)."],
+               ["락온 미사일: 조준점 주변(500px) 좀비를 하나씩 잠근 미사일 8발이 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 1.4배).",
+                "목표가 8마리보다 적으면 남은 미사일은 조준점으로. 쿨타임 15초."]),
+    "melee": (["초보자용 근접 무기. 조준 방향 부채꼴 안의 좀비를 모두 때림.",
+               "넉백이 저항을 무시함 - 보스와 넉백 면역 좀비도 밀려남."],
+              ["풀스윙 홈런 (차징): 스킬 키를 누르고 있으면 힘을 모음 (최대 1.5초, 모으는 동안 느려짐), 떼면 휘두름.",
+               "모은 만큼 피해 2배→6배, 범위 160→260, 넉백 증가 (저항 무시). 끝까지 모으면 만루 홈런 (1초 기절). 쿨타임 8초."]),
     "katana": (["가장 높은 근접 공격력, 빠른 베기."],
                ["일섬: 마우스 방향으로 순간 돌진하며 베기, 끝난 뒤 0.2초 무적.",
                 "처치하면 쿨타임 초기화 + 다음 일섬 +5% (연참), 1초 안에 다시 안 쓰면 연참 초기화.",
@@ -6772,7 +7032,7 @@ def build_upgrade_choices(player):
     elif weapon_type == "rocket":
         weapon_upgrades = [
             {"name": "로켓 범위 +15px", "desc": "폭발 범위 확대", "type": "rocket_skill_count", "color": (255, 100, 100)},
-            {"name": "폭격 피해 +5%", "desc": "미사일 폭격 강화", "type": "rocket_skill_damage", "color": (255, 150, 100)},
+            {"name": "미사일 피해 +5%", "desc": "락온 미사일 강화", "type": "rocket_skill_damage", "color": (255, 150, 100)},
         ]
     else:
         weapon_upgrades = []
@@ -7072,7 +7332,7 @@ def get_upgrade_name(upgrade_type):
         "plasma_skill_range": "블랙홀 범위 +15px",
         "plasma_skill_damage": "블랙홀 피해 +8%",
         "rocket_skill_count": "로켓 범위 +15px",
-        "rocket_skill_damage": "폭격 피해 +5%",
+        "rocket_skill_damage": "미사일 피해 +5%",
     }
     return upgrade_names.get(upgrade_type, upgrade_type)
 
@@ -7518,7 +7778,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102105          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102107          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -7848,6 +8108,8 @@ def main():
                                         knockback_vel_y = (zombie_dy / zombie_dist) * melee.knockback_power / 100 * knockback_mult
                                         zombie.knockback_vel_x = knockback_vel_x
                                         zombie.knockback_vel_y = knockback_vel_y
+                                        if melee.weapon_type == "melee":   # 나무 방망이: 넉백 저항 무시
+                                            zombie.knock_ignore = BAT_KNOCK_IGNORE_FRAMES
                                     # 사망 처리(점수/경험치/사망 효과)는 아래 "좀비 죽음 처리"에서 한 번에 함
 
                             if melee_hit and player.weapon.weapon_type == "gloves":
@@ -7890,7 +8152,7 @@ def main():
 
                         elif player.weapon.weapon_type == "rocket":
                             rocket = Bullet(player.rect.centerx, player.rect.centery, mouse_world_x, mouse_world_y, get_weapon_damage(player), "rocket", "rocket")
-                            rocket.speed = player.weapon.bullet_speed
+                            rocket.lock_on(zombies, mouse_world_x, mouse_world_y)   # 유도 로켓
                             bullets.add(rocket)
                             all_sprites.add(rocket)
                             fire_muzzle_flash(player, mouse_world_x, mouse_world_y, kick=3.0)
@@ -7909,6 +8171,8 @@ def main():
                             fire_muzzle_flash(player, mouse_world_x, mouse_world_y,
                                               kick=2.0 if player.weapon.weapon_type == "sniper" else 0)
 
+                elif player.weapon.weapon_type == "melee":   # 나무 방망이: 누르고 있으면 힘 모으기
+                    bat_charge_start(player)
                 else:  # 무기 스킬 (기본: 우클릭 / Q)
                     execute_weapon_skill(player.weapon.weapon_type, player, mouse_world_x, mouse_world_y,
                                        zombies, bullets, all_sprites, explosions)
@@ -7987,6 +8251,10 @@ def main():
 
             # 글로브 콤보 (유지 시간 + 공격 속도 보너스)
             tick_glove_combo(player)
+            if player.bat_charging:   # 나무 방망이 풀스윙: 누르는 동안 모으고 떼면 휘두름
+                mouse_screen_x, mouse_screen_y = pygame.mouse.get_pos()
+                bat_charge_tick(player, binding_held("skill"), mouse_screen_x + camera.x, mouse_screen_y + camera.y,
+                                zombies, bullets, all_sprites, explosions)
 
             # 아이템 버프 시간 감소
             if player.damage_buff_time > 0:
@@ -8423,6 +8691,7 @@ def main():
                 fx.add_text(player.rect.centerx, player.rect.top - 20, item.effect, ITEM_COLORS[item.item_type], life=50)
                 if item.item_type == "health":
                     player.health = min(player.health + ITEM_HEAL_AMOUNT, player.max_health)
+                    fx.anim("effects/heal.png", player.rect.centerx, player.rect.centery - 10, 2.0, 6)
                 elif item.item_type == "damage":
                     # 10초간 공격력 +30% (예전 효과 "player.damage +15"는 거의 어떤 공격에도 쓰이지 않던 값이었음)
                     player.damage_buff_time = ITEM_BUFF_FRAMES

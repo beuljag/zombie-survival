@@ -857,17 +857,6 @@
     "loop": true,
     "animationMethod": "procedural_transform_sequence"
   },
-  "effects/bomb.png": {
-    "frameWidth": 12,
-    "frameHeight": 16,
-    "frames": 1,
-    "sheetWidth": 12,
-    "sheetHeight": 16,
-    "layout": "horizontal",
-    "fps": 10,
-    "loop": true,
-    "animationMethod": "static"
-  },
   "effects/turret.png": {
     "frameWidth": 32,
     "frameHeight": 32,
@@ -889,17 +878,6 @@
     "fps": 10,
     "loop": true,
     "animationMethod": "procedural_transform_sequence"
-  },
-  "effects/ricochet_trail.png": {
-    "frameWidth": 32,
-    "frameHeight": 6,
-    "frames": 1,
-    "sheetWidth": 32,
-    "sheetHeight": 6,
-    "layout": "horizontal",
-    "fps": 10,
-    "loop": true,
-    "animationMethod": "static"
   },
   "effects/black_hole.png": {
     "frameWidth": 96,
@@ -1332,5 +1310,41 @@
     "loop": false,
     "animationMethod": "native_pixel_procedural_sequence",
     "anchor": "center"
+  },
+  "effects/lock_on.png": {
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 4,
+    "sheetWidth": 128,
+    "sheetHeight": 32,
+    "layout": "horizontal",
+    "fps": 8,
+    "loop": true,
+    "anchor": "center",
+    "animationMethod": "native_pixel_procedural_sequence"
+  },
+  "effects/bat_charge.png": {
+    "frameWidth": 48,
+    "frameHeight": 48,
+    "frames": 4,
+    "sheetWidth": 192,
+    "sheetHeight": 48,
+    "layout": "horizontal",
+    "fps": 8,
+    "loop": true,
+    "anchor": "center",
+    "animationMethod": "native_pixel_procedural_sequence"
+  },
+  "effects/homerun_swing.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal",
+    "fps": 15,
+    "loop": false,
+    "anchor": "center",
+    "animationMethod": "native_pixel_procedural_sequence"
   }
 }
