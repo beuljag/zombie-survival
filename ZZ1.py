@@ -148,7 +148,7 @@
   일섬으로 처치한 좀비는 경험치 75%
 - 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (제한 없음) (12초)
   체력이 가득 차서 넘친 흡혈량의 50%는 5초 동안 흡혈 보호막 (최대 체력의 50%까지, 피해를 먼저 받음)
-- 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 피해) (8초)
+- 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 피해) + 내 상태 이상 해제 (8초)
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 일렉 기타: 공격 속도가 빠를수록 박자도 빨라짐, 박자 맞출 때마다 기타 멜로디가 한 음씩 이어짐
 - 일렉 기타: 박자 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +50%, 2초 동안 못 맞추면 사라짐)
@@ -5189,7 +5189,10 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         fx.anim("effects/axe_spin.png", cx, cy, radius * 2 / 96, 6)
 
     elif weapon_type == "spear":
-        # 물보라: 주변으로 물결을 일으켜 좀비를 튕겨 내고 느리게 함
+        # 물보라: 주변으로 물결을 일으켜 좀비를 튕겨 내고 느리게 함 + 내 상태 이상(독/둔화/감전/부식)을 씻어 냄
+        if player.poison_time > 0 or player.shock_time > 0 or player.corrode_time > 0 or player.slow_time > 0:
+            fx.add_text(player.rect.centerx, player.rect.top - 40, "정화!", (140, 220, 255), big=True, life=40)
+        cleanse(player)
         radius = SPLASH_RADIUS + up["pierces"] * 30
         slow = max(0.15, SPLASH_SLOW - up["speed"])
         player.active_skills.append(WaterSplashSkill(player, all_sprites, base * SPLASH_DAMAGE_MULT, radius, slow))
@@ -6665,7 +6668,7 @@ def select_weapon():
         {"name": "나무 방망이", "desc": "넉백 저항 무시", "skill": "풀스윙 홈런 (차징)", "type": "melee", "color": (210, 140, 70)},
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
-        {"name": "창", "desc": "속도 비례 공격력, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
+        {"name": "창", "desc": "속도 비례 공격력, 달리면 돌진", "skill": "물보라 (상태 이상 해제)", "type": "spear", "color": (200, 200, 70)},
         {"name": "일렉 기타", "desc": "박자 맞춰 치면 강해짐 (리듬)", "skill": "앙코르 (팀 재생·방어)", "type": "hammer", "color": (220, 60, 150)},
         {"name": "글로브", "desc": "초고속 연타, 짧은 사거리", "skill": "백열권 (연타 + 어퍼컷)", "type": "gloves", "color": (220, 60, 70)},
     ]
@@ -6741,7 +6744,8 @@ WEAPON_HELP = {
              "준 피해의 10%만큼 회복, 넘친 회복량의 50%는 5초 동안 보호막 (최대 체력 50%까지). 쿨타임 12초."]),
     "spear": (["가장 긴 사거리. 공격력이 이동속도에 비례.",
                "창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해(80%) + 넉백."],
-              ["물보라: 큰 창이 떨어진 뒤 물결이 퍼져 좀비를 튕겨 내고 3초 동안 50% 느리게 (2배). 쿨타임 8초."]),
+              ["물보라: 큰 창이 떨어진 뒤 물결이 퍼져 좀비를 튕겨 내고 3초 동안 50% 느리게 (2배).",
+               "쓰는 순간 내 상태 이상(독 · 둔화 · 감전 · 부식)을 모두 해제. 쿨타임 8초."]),
     "hammer": (["리듬 무기: 박자에 맞춰 치면 PERFECT 2배 / GOOD 1.4배 / MISS 0.6배.",
                 "PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +5%), MISS면 그루브 0.",
                 "박자를 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +50%, 2초 동안 못 맞추면 사라짐).",
@@ -8188,7 +8192,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102112          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102113          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
