@@ -6299,7 +6299,6 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
             footer = f"(최근 {max_items}개 · 전체는 ESC → 능력 확인)"
             ui_text(surface, footer, ui_fit_font(font_tiny, footer, box.w - 28), UI_ACCENT, (box.x + 16, box.bottom - 26), shadow=False)
 
-    draw_controls_bar(surface, controls_hint(" · ESC 일시정지"))
     draw_beat_ui(surface, player)
     ui_text(surface, f"FPS {clock.get_fps():.0f}", font_tiny, UI_SUB, (width - 14, height - 52), "topright")
 
@@ -7778,7 +7777,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102107          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102108          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed

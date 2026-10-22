@@ -1289,7 +1289,6 @@ def draw_match(state, camera, ui):
             ui_text(screen, f"LV.{p.level}", font_tiny, UI_ACCENT, (row.right - 10, row.y + 3), "topright", shadow=False)
             ratio = max(0, p.health) / max(p.max_health, 1)
             ui_bar(screen, bar, ratio, UI_GOOD if ratio > 0.5 else (255, 200, 60) if ratio > 0.25 else UI_DANGER, radius=5)
-    draw_controls_bar(screen, controls_hint(f" · ESC 메뉴  |  좀비 수 {state.n_players}명 x {MOB_FACTOR}"))
     draw_beat_ui(screen, local)
     set_sfx_listener(local)
     if ui.get("help"):
