@@ -1184,6 +1184,9 @@ def draw_upgrade_summary(local, top):
     box = ui_panel(screen, (SCREEN_WIDTH - w - 14, top, w, h), alpha=225)
     ui_text(screen, f"내 능력 종합 (업그레이드 {len(local.obtained_upgrades)}개)", font_hud, UI_ACCENT, (box.x + 14, box.y + 10))
     y = box.y + 44
+    room = (box.bottom - 12 - y - (40 + len(recent) * 22 if recent else 0)) // 24   # 칸에 들어가는 줄 수
+    if len(lines) > room:   # 다 안 들어가면 마지막 줄에 "외 N개" (잘린 글자가 보이지 않게)
+        lines = lines[:max(0, room - 1)] + [f"… 외 {len(lines) - max(0, room - 1)}개 (ESC → 능력 확인)"]
     screen.set_clip(box.inflate(-6, -6))
     for line in lines:
         pygame.draw.circle(screen, UI_GOOD, (box.x + 20, y + 10), 3)

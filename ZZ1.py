@@ -6408,8 +6408,9 @@ def select_weapon():
             stats = WEAPON_STATS[weapon["type"]]
             hover = rect.collidepoint(mouse_pos)
             card = ui_card(screen, rect, weapon["color"], hover, weapon["name"], [weapon["desc"]], title_color=ui_bright(weapon["color"]))
-            ui_text(screen, f"피해 {stats['dmg']} · 초당 {stats['rate']}회", font_tiny, UI_TEXT, (card.x + 20, card.bottom - 50), shadow=False)
-            ui_text(screen, f"스킬: {weapon['skill']}", font_tiny, (120, 230, 255), (card.x + 20, card.bottom - 28), shadow=False)
+            stat_line, skill_line = f"피해 {stats['dmg']} · 초당 {stats['rate']}회", f"스킬: {weapon['skill']}"
+            ui_text(screen, stat_line, ui_fit_font(font_tiny, stat_line, card.w - 30), UI_TEXT, (card.x + 20, card.bottom - 50), shadow=False)
+            ui_text(screen, skill_line, ui_fit_font(font_tiny, skill_line, card.w - 30), (120, 230, 255), (card.x + 20, card.bottom - 28), shadow=False)
 
         for event in pygame.event.get():
             ui_quit_event(event)
@@ -7777,7 +7778,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102108          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102109          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
