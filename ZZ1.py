@@ -4836,8 +4836,19 @@ class FlurrySkill(ActiveSkill):
         return True
 
 
+TURRET_DAMAGE_MULT = 1.2   # 포탑 한 발 = 지금 내 공격력 x 1.2
+
+
+def bullet_hit_damage(owner, bullet, zombie):
+    """총알 한 발의 피해 (포탑 총알은 치명타 없음, 나머지는 치명타 판정)"""
+    if getattr(bullet, "no_crit", False):
+        return bullet.damage
+    return roll_crit_damage(owner, bullet.damage, zombie)
+
+
 class TurretSkill(ActiveSkill):
-    """기관총 포탑: 설치한 자리에서 가장 가까운 좀비를 자동 사격"""
+    """기관총 포탑: 설치한 자리에서 가장 가까운 좀비를 자동 사격
+    총알은 평타와 같은 효과(화염/얼음/전기탄, 폭발 공격, 관통, 사거리)를 받음 - 단 치명타는 없음"""
     def __init__(self, x, y, duration, damage, all_sprites):
         super().__init__(duration)
         self.x, self.y, self.damage = x, y, damage
@@ -4851,8 +4862,14 @@ class TurretSkill(ActiveSkill):
         if target is not None:
             self.aim = math.atan2(target.rect.centery - self.y, target.rect.centerx - self.x)
             if self.frames % 7 == 0:
-                bullet = Bullet(self.x, self.y, target.rect.centerx, target.rect.centery, self.damage, "normal", "machinegun")
+                # 지금 내 공격력 기준 (설치 뒤에 받은 버프/강화도 반영)
+                damage = get_weapon_damage(player) * TURRET_DAMAGE_MULT if player.weapon is not None else self.damage
+                bullet = Bullet(self.x, self.y, target.rect.centerx, target.rect.centery, damage, "normal", "machinegun")
                 bullet.speed = 15
+                bullet.no_crit = True   # 포탑은 치명타 없음
+                if player.weapon is not None:   # 평타처럼 관통/사거리
+                    bullet.pierce = player.weapon.pierce
+                    bullet.max_range = player.weapon.max_range
                 bullets.add(bullet)
                 all_sprites.add(bullet)
                 fx.muzzle_flash(self.x + math.cos(self.aim) * 26, self.y + math.sin(self.aim) * 26,
@@ -5279,7 +5296,7 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
     elif weapon_type == "machinegun":
         # 포탑 설치: 그 자리에서 자동 사격하는 포탑
         duration = 360 + up["burst"] * 30
-        player.active_skills.append(TurretSkill(cx, cy, duration, base * 1.2, all_sprites))
+        player.active_skills.append(TurretSkill(cx, cy, duration, base * TURRET_DAMAGE_MULT, all_sprites))
 
     elif weapon_type == "shotgun":
         # 용의 숨결: 앞쪽 부채꼴로 화염 방사 + 불붙임
@@ -6751,7 +6768,8 @@ WEAPON_HELP = {
                "폭탄 1발 기본 1000 피해 (반경 75), 공격력이 오르면 같은 비율로 증가.",
                "업그레이드 \"폭격 범위 증가\": 길이 +100px, 폭 +15px. 쿨타임 80초."]),
     "machinegun": (["누르고 있으면 연사. 한 발은 약하지만 매우 빠름."],
-                   ["포탑 설치: 6초 동안 가까운 좀비를 자동으로 쏘는 포탑. 쿨타임 18초."]),
+                   ["포탑 설치: 6초 동안 가까운 좀비를 자동으로 쏘는 포탑 (한 발 = 지금 공격력 x 1.2).",
+                    "포탑 총알도 평타처럼 화염 · 얼음 · 전기탄, 폭발 공격, 관통이 적용됨 (치명타만 없음). 쿨타임 18초."]),
     "shotgun": (["한 번에 3발 산탄. 사거리 380 (근거리 전용)."],
                 ["용의 숨결: 앞쪽 부채꼴로 불을 뿜어 피해 + 불붙임. 쿨타임 10초."]),
     "sniper": (["강한 한 발. 기본 공격이 무한 관통 (사거리 끝까지)."],
@@ -8226,7 +8244,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102116          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102117          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -9071,7 +9089,7 @@ def main():
                                     other_zombie.knockback_vel_x = knockback_vel_x
                                     other_zombie.knockback_vel_y = knockback_vel_y
                     else:
-                        zombie.health -= roll_crit_damage(player, bullet.damage, zombie) * damage_multiplier
+                        zombie.health -= bullet_hit_damage(player, bullet, zombie) * damage_multiplier
                         fx.hit_spark(bullet.rect.centerx, bullet.rect.centery, FX_WEAPON_COLORS.get(bullet.weapon_type, YELLOW))
 
                         # 착탄 폭발 (플라즈마): 맞은 좀비 주변에 폭발 피해
