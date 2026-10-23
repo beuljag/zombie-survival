@@ -540,9 +540,10 @@ BEAT_BUFF_UPGRADE_CAP = 0.05
 BEAT_BUFF_UPGRADE_MAX = 10
 BEAT_BUFF_TIME_UPGRADE = 30    # 전용 업그레이드 "박자 버프 지속 +0.5초" (최대 8회 → 6초)
 BEAT_BUFF_TIME_UPGRADE_MAX = 8
-# 전용 업그레이드 "판정 범위 증가" (최대 5회): PERFECT +8ms(박자의 1.6%), GOOD +12ms(박자의 2%) 씩 넓어짐
-JUDGE_UPGRADE_PERFECT_MS, JUDGE_UPGRADE_PERFECT_FRAC = 8, 0.016
-JUDGE_UPGRADE_GOOD_MS, JUDGE_UPGRADE_GOOD_FRAC = 12, 0.02
+# 전용 업그레이드 "판정 범위 증가" (최대 5회): PERFECT +15ms(박자의 3%), GOOD +18ms(박자의 3.6%) 씩 넓어짐
+#  (GOOD은 박자의 35%까지 - 그보다 넓으면 다음 박자를 치기 전에 다시 치기 제한에 걸림)
+JUDGE_UPGRADE_PERFECT_MS, JUDGE_UPGRADE_PERFECT_FRAC = 15, 0.03
+JUDGE_UPGRADE_GOOD_MS, JUDGE_UPGRADE_GOOD_FRAC = 18, 0.022
 JUDGE_UPGRADE_MAX = 5
 ENCORE_FRAMES = 360
 ENCORE_DEFENSE = 0.25        # 받는 피해 -25% ("앙코르 방어 +5%" 업그레이드로 증가, 최대 60%)
@@ -7429,7 +7430,7 @@ def build_upgrade_choices(player):
             {"name": f"{player.weapon.name} 공격력 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
             {"name": "앙코르 방어 +5%", "desc": "팀 받는 피해 감소", "type": "hammer_skill_damage", "color": (255, 120, 210)},
             {"name": "박자 버프 증가", "desc": "박자마다 쌓이는 팀 공격력 +50%, 최대치 +5%", "type": "hammer_beat_buff", "color": (255, 200, 90)},
-            {"name": "판정 범위 증가", "desc": "PERFECT/GOOD 판정이 넓어짐", "type": "hammer_judge", "color": (140, 230, 255)},
+            {"name": "판정 범위 증가", "desc": "PERFECT ±15ms, GOOD ±18ms 넓어짐", "type": "hammer_judge", "color": (140, 230, 255)},
             {"name": "박자 버프 지속 +0.5초", "desc": "박자를 놓쳐도 팀 버프가 더 오래 유지", "type": "hammer_beat_time", "color": (255, 170, 120)},
         ]
     elif weapon_type == "gloves":
@@ -8214,7 +8215,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102114          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102115          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
