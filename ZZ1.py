@@ -1605,7 +1605,7 @@ def draw_zombie_sprite(surface, camera, zombie, player):
         pygame.draw.rect(surface, (200, 240, 255), rotated.get_rect(center=center).inflate(-4, -4), 2, border_radius=3)
     if fire_art is not None:                          # 머리 위 불꽃 (도트)
         stacks = getattr(zombie, "burn_stacks", 1)
-        k = 1.5 + 0.12 * min(stacks, BURN_MAX_STACKS)   # 중첩이 쌓일수록 불꽃이 커짐
+        k = 1.5 + 0.12 * min(stacks, 20)   # 중첩이 쌓일수록 불꽃이 커짐 (20중첩부터는 같은 크기)
         flame = pygame.transform.scale(fire_art, (int(fire_art.get_width() * k), int(fire_art.get_height() * k)))
         flame_rect = flame.get_rect(midbottom=(center[0], center[1] - rotated.get_height() // 4))
         surface.blit(flame, flame_rect)
@@ -2265,7 +2265,8 @@ class Zombie(pygame.sprite.Sprite):
         self.burn_time = 0
         self.discord_time = 0   # 불협화음 (앙코르): 받는 피해 +25%
         self.burn_damage_cooldown = 0
-        self.burn_stacks = 0      # 화염탄 중첩 (불타는 중에 또 맞으면 +1, 최대 10)
+        self.burn_stacks = 0      # 화염탄 중첩 (불타는 중에 또 맞으면 쌓임, 제한 없음)
+        self.burn_hits = 0        # 다음 중첩까지 모은 타격 수
 
         # 소환자 좀비 추적 (왕좀비가 소환한 좀비 등)
         self.parent_zombie = parent_zombie
@@ -2595,6 +2596,7 @@ class Zombie(pygame.sprite.Sprite):
                 self.burn_damage_cooldown = 20
             if self.burn_time <= 0:
                 self.burn_stacks = 0
+                self.burn_hits = 0
 
         # 돌좀비: 화상·둔화 면역
         if self.zombie_type == "stone":
@@ -4073,15 +4075,24 @@ def draw_beat_ui(surface, player):
 
 
 BURN_TICK_DAMAGE = 0.4     # 화상 피해 (0.33초마다, 중첩 1당)
-BURN_MAX_STACKS = 10
+BURN_STACK_STEP = 10       # 중첩 제한 없음 - 대신 10중첩마다 다음 중첩에 필요한 타격 수가 1번씩 늘어남 (0~9: 1발, 10~19: 2발, 20~29: 3발...)
+
+
+def burn_hits_needed(stacks):
+    """지금 중첩에서 다음 중첩까지 맞혀야 하는 횟수"""
+    return stacks // BURN_STACK_STEP + 1
 
 
 def ignite(zombie):
-    """화염탄: 불붙임 3초 - 이미 불타고 있으면 중첩 +1 (최대 10, 피해가 중첩만큼 커짐)"""
+    """화염탄: 불붙임 3초 - 이미 불타고 있으면 맞힐 때마다 중첩이 쌓임 (10중첩마다 필요한 타격 +1)"""
     if zombie.burn_time > 0:
-        zombie.burn_stacks = min(BURN_MAX_STACKS, getattr(zombie, "burn_stacks", 1) + 1)
+        zombie.burn_hits = getattr(zombie, "burn_hits", 0) + 1
+        if zombie.burn_hits >= burn_hits_needed(zombie.burn_stacks):
+            zombie.burn_stacks += 1
+            zombie.burn_hits = 0
     else:
         zombie.burn_stacks = 1
+        zombie.burn_hits = 0
         zombie.burn_damage_cooldown = 0   # 처음 붙을 때만 바로 한 번 (연사로 피해가 매번 터지지 않게)
     zombie.burn_time = max(zombie.burn_time, 180)
 
@@ -7376,7 +7387,7 @@ def build_upgrade_choices(player):
     skill_options = [
         {"name": "무한탄약 (30초)", "desc": "일시적으로 탄약 무한 사용", "type": "skill_infinity_ammo", "color": (255, 215, 0), "min_level": 2},
         {"name": "투사체 관통 +1", "desc": f"총알이 1마리 더 관통 (현재 {player.pierce_level})", "type": "skill_piercing", "color": (100, 150, 255), "min_level": 3},
-        {"name": "화염탄", "desc": "불붙임, 불타는 적에게 또 맞히면 중첩 (최대 10)", "type": "skill_fire_bullets", "color": (255, 100, 0), "min_level": 2},
+        {"name": "화염탄", "desc": "불붙임, 또 맞히면 중첩 (10중첩마다 1발씩 더 맞혀야 쌓임)", "type": "skill_fire_bullets", "color": (255, 100, 0), "min_level": 2},
         {"name": "얼음탄", "desc": "좀비를 느리게 하는 총알", "type": "skill_ice_bullets", "color": (100, 200, 255), "min_level": 2},
         {"name": "전기탄", "desc": "인접한 좀비들에게 전기 전달", "type": "skill_electric_bullets", "color": (255, 255, 0), "min_level": 3},
         {"name": "자동조준", "desc": "가까운 적을 자동으로 조준", "type": "skill_auto_aim", "color": (150, 255, 100), "min_level": 4},
@@ -8215,7 +8226,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102115          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102116          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
