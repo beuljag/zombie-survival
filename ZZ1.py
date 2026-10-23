@@ -1603,8 +1603,13 @@ def draw_zombie_sprite(surface, camera, zombie, player):
     elif frozen:                                      # 얼음 테두리
         pygame.draw.rect(surface, (200, 240, 255), rotated.get_rect(center=center).inflate(-4, -4), 2, border_radius=3)
     if fire_art is not None:                          # 머리 위 불꽃 (도트)
-        flame = pygame.transform.scale(fire_art, (fire_art.get_width() * 3 // 2, fire_art.get_height() * 3 // 2))
-        surface.blit(flame, flame.get_rect(midbottom=(center[0], center[1] - rotated.get_height() // 4)))
+        stacks = getattr(zombie, "burn_stacks", 1)
+        k = 1.5 + 0.12 * min(stacks, BURN_MAX_STACKS)   # 중첩이 쌓일수록 불꽃이 커짐
+        flame = pygame.transform.scale(fire_art, (int(fire_art.get_width() * k), int(fire_art.get_height() * k)))
+        flame_rect = flame.get_rect(midbottom=(center[0], center[1] - rotated.get_height() // 4))
+        surface.blit(flame, flame_rect)
+        if stacks >= 2:
+            ui_text(surface, f"x{stacks}", font_label, (255, 170, 60), (flame_rect.right - 2, flame_rect.centery), "midleft")
     if electrified:                                   # 몸 주변으로 튀는 작은 번개
         for _ in range(2):
             a = fx_random.uniform(0, math.pi * 2)
@@ -2259,6 +2264,7 @@ class Zombie(pygame.sprite.Sprite):
         self.burn_time = 0
         self.discord_time = 0   # 불협화음 (앙코르): 받는 피해 +25%
         self.burn_damage_cooldown = 0
+        self.burn_stacks = 0      # 화염탄 중첩 (불타는 중에 또 맞으면 +1, 최대 10)
 
         # 소환자 좀비 추적 (왕좀비가 소환한 좀비 등)
         self.parent_zombie = parent_zombie
@@ -2584,12 +2590,15 @@ class Zombie(pygame.sprite.Sprite):
             self.burn_time -= 1
             self.burn_damage_cooldown -= 1
             if self.burn_damage_cooldown <= 0:
-                self.health -= 0.4
+                self.health -= BURN_TICK_DAMAGE * max(1, self.burn_stacks)   # 중첩만큼 강하게
                 self.burn_damage_cooldown = 20
+            if self.burn_time <= 0:
+                self.burn_stacks = 0
 
         # 돌좀비: 화상·둔화 면역
         if self.zombie_type == "stone":
             self.burn_time = 0
+            self.burn_stacks = 0
             self.slow_time = 0
             self.slow_multiplier = 1.0
 
@@ -4062,11 +4071,24 @@ def draw_beat_ui(surface, player):
     ui_text(surface, label, font_tiny, (255, 150, 220), (cx, cy + 26), "midtop")   # 막대 아래 (위쪽은 보스 체력 바)
 
 
+BURN_TICK_DAMAGE = 0.4     # 화상 피해 (0.33초마다, 중첩 1당)
+BURN_MAX_STACKS = 10
+
+
+def ignite(zombie):
+    """화염탄: 불붙임 3초 - 이미 불타고 있으면 중첩 +1 (최대 10, 피해가 중첩만큼 커짐)"""
+    if zombie.burn_time > 0:
+        zombie.burn_stacks = min(BURN_MAX_STACKS, getattr(zombie, "burn_stacks", 1) + 1)
+    else:
+        zombie.burn_stacks = 1
+        zombie.burn_damage_cooldown = 0   # 처음 붙을 때만 바로 한 번 (연사로 피해가 매번 터지지 않게)
+    zombie.burn_time = max(zombie.burn_time, 180)
+
+
 def apply_hit_elements(player, zombie, zombies, base_damage, chain_range=150):
     """속성탄 업그레이드 효과 (화염: 불붙임 / 얼음: 둔화 / 전기: 주변 2마리에게 연쇄 피해) - 일섬 등 스킬에도 적용"""
     if player.skills.get("skill_fire_bullets", False):
-        zombie.burn_time = max(zombie.burn_time, 180)
-        zombie.burn_damage_cooldown = 0
+        ignite(zombie)   # 화염탄 (이미 불타면 중첩)
         fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "fire")
     if player.skills.get("skill_ice_bullets", False):
         zombie.slow_time = max(zombie.slow_time, 120)
@@ -7353,7 +7375,7 @@ def build_upgrade_choices(player):
     skill_options = [
         {"name": "무한탄약 (30초)", "desc": "일시적으로 탄약 무한 사용", "type": "skill_infinity_ammo", "color": (255, 215, 0), "min_level": 2},
         {"name": "투사체 관통 +1", "desc": f"총알이 1마리 더 관통 (현재 {player.pierce_level})", "type": "skill_piercing", "color": (100, 150, 255), "min_level": 3},
-        {"name": "화염탄", "desc": "총알에 불이 붙어 화염 피해", "type": "skill_fire_bullets", "color": (255, 100, 0), "min_level": 2},
+        {"name": "화염탄", "desc": "불붙임, 불타는 적에게 또 맞히면 중첩 (최대 10)", "type": "skill_fire_bullets", "color": (255, 100, 0), "min_level": 2},
         {"name": "얼음탄", "desc": "좀비를 느리게 하는 총알", "type": "skill_ice_bullets", "color": (100, 200, 255), "min_level": 2},
         {"name": "전기탄", "desc": "인접한 좀비들에게 전기 전달", "type": "skill_electric_bullets", "color": (255, 255, 0), "min_level": 3},
         {"name": "자동조준", "desc": "가까운 적을 자동으로 조준", "type": "skill_auto_aim", "color": (150, 255, 100), "min_level": 4},
@@ -8192,7 +8214,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102113          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102114          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -8490,8 +8512,7 @@ def main():
                                     fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, FX_WEAPON_COLORS.get(player.weapon.weapon_type, WHITE))
 
                                     if player.skills.get("skill_fire_bullets", False):
-                                        zombie.burn_time = max(zombie.burn_time, 180)
-                                        zombie.burn_damage_cooldown = 0
+                                        ignite(zombie)   # 화염탄 (이미 불타면 중첩)
                                         fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "fire")
                                     if player.skills.get("skill_ice_bullets", False):
                                         zombie.slow_time = max(zombie.slow_time, 120)
@@ -9056,8 +9077,7 @@ def main():
 
                         if is_player_bullet:
                             if player.skills.get("skill_fire_bullets", False):
-                                zombie.burn_time = max(zombie.burn_time, 180)
-                                zombie.burn_damage_cooldown = 0
+                                ignite(zombie)   # 화염탄 (이미 불타면 중첩)
                                 fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "fire")
                             if player.skills.get("skill_ice_bullets", False):
                                 zombie.slow_time = max(zombie.slow_time, 120)

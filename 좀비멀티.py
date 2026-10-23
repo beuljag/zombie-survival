@@ -27,6 +27,8 @@ import ZZ1 as g
 from ZZ1 import *  # noqa: F401,F403 - 1인 모드의 클래스/함수/상수를 그대로 사용
 
 PORT = 50007
+DISCOVERY_PORT = 50008        # 같은 랜의 방 찾기 (방장이 1초마다 "방 있어요"를 UDP로 알림)
+DISCOVERY_TAG = "zombie-survival-room"
 MAX_PLAYERS = 4
 INPUT_DELAY = 3          # 입력이 반영되기까지의 프레임 (네트워크 지연을 감추는 버퍼). 내 이동은 예측해서 바로 보여주므로 지연이 느껴지지 않음
 MOB_FACTOR = 1.1         # 멀티 좀비 수 배율 (× 인원수 × 1.1)
@@ -616,8 +618,7 @@ class MatchState:
         """속성탄 (화염/얼음/전기) - 근접/총알 공용"""
         zombies = self.zombies
         if p.skills.get("skill_fire_bullets", False):
-            zombie.burn_time = max(zombie.burn_time, 180)
-            zombie.burn_damage_cooldown = 0
+            ignite(zombie)   # 화염탄 (이미 불타면 중첩)
             fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "fire")
         if p.skills.get("skill_ice_bullets", False):
             zombie.slow_time = max(zombie.slow_time, 120)
@@ -1669,6 +1670,164 @@ def choose_loadout():
     return {"ability": ability, "weapon": weapon}
 
 
+class RoomBeacon:
+    """방장: 대기실에 있는 동안 같은 랜에 "방 있어요"를 1초마다 알림 (UDP 방송)"""
+    def __init__(self):
+        self.sock = None
+        self.next_send = 0.0
+        try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        except OSError:
+            self.sock = None
+        targets = {"255.255.255.255", "127.0.0.1"}
+        for ip in local_ip_addresses():   # 공유기마다 255.255.255.255가 막힐 수 있어서 내 대역(x.x.x.255)에도 보냄
+            parts = ip.split(".")
+            if len(parts) == 4:
+                targets.add(".".join(parts[:3] + ["255"]))
+        self.targets = sorted(targets)
+        try:
+            self.name = socket.gethostname()[:24]
+        except OSError:
+            self.name = "방장"
+
+    def tick(self, players, weapon_name):
+        if self.sock is None or time.time() < self.next_send:
+            return
+        self.next_send = time.time() + 1.0
+        data = json.dumps({"tag": DISCOVERY_TAG, "build": GAME_BUILD, "name": self.name, "players": players,
+                           "max": MAX_PLAYERS, "port": PORT, "weapon": weapon_name}, ensure_ascii=False).encode("utf-8")
+        for target in self.targets:
+            try:
+                self.sock.sendto(data, (target, DISCOVERY_PORT))
+            except OSError:
+                pass
+
+    def close(self):
+        if self.sock is not None:
+            try:
+                self.sock.close()
+            except OSError:
+                pass
+            self.sock = None
+
+
+class RoomFinder:
+    """참가: 같은 랜에서 알림을 보내는 방들을 모음 (3.5초 동안 소식이 없으면 목록에서 뺌)"""
+    def __init__(self):
+        self.rooms = {}   # ip -> (정보, 마지막으로 들은 시각)
+        self.sock = None
+        try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.bind(("", DISCOVERY_PORT))
+            self.sock.setblocking(False)
+        except OSError:
+            self.sock = None
+
+    def poll(self):
+        if self.sock is not None:
+            while True:
+                try:
+                    data, (ip, _port) = self.sock.recvfrom(2048)
+                except (BlockingIOError, OSError):
+                    break
+                try:
+                    info = json.loads(data.decode("utf-8"))
+                except ValueError:
+                    continue
+                if isinstance(info, dict) and info.get("tag") == DISCOVERY_TAG:
+                    self.rooms[ip] = (info, time.time())
+        now = time.time()
+        for ip in [ip for ip, (_info, seen) in self.rooms.items() if now - seen > 3.5]:
+            del self.rooms[ip]
+        # 같은 PC의 방이 여러 주소(127.0.0.1, 랜, VPN 등)로 들릴 수 있음 → PC 이름별로 하나만, 집 공유기 주소를 우선
+        def priority(ip):
+            if ip.startswith("192.168.") or ip.startswith("10."):
+                return 0
+            parts = ip.split(".")
+            if ip.startswith("172.") and len(parts) == 4 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
+                return 0
+            return 2 if ip.startswith("127.") else 1
+        best = {}
+        for ip, (info, _seen) in self.rooms.items():
+            key = (info.get("name"), info.get("port"))
+            if key not in best or (priority(ip), ip) < (priority(best[key][0]), best[key][0]):
+                best[key] = (ip, info)
+        return sorted(best.values(), key=lambda item: item[0])
+
+    def close(self):
+        if self.sock is not None:
+            try:
+                self.sock.close()
+            except OSError:
+                pass
+            self.sock = None
+
+
+def browse_rooms():
+    """참가하기: 같은 랜의 방 목록 → 고른 방의 IP / "manual"(직접 입력) / None(뒤로)"""
+    finder = RoomFinder()
+    pygame.event.clear(pygame.MOUSEBUTTONDOWN)
+    notice, notice_until = "", 0
+    try:
+        while True:
+            rooms = finder.poll()
+            mouse = pygame.mouse.get_pos()
+            ui_background(screen)
+            top = ui_title(screen, "참가할 방 고르기", SCREEN_HEIGHT * 0.12,
+                           "같은 와이파이/공유기에서 열린 방이 자동으로 나와요")
+            cards = []
+            y = top + 30
+            if finder.sock is None:
+                ui_text(screen, f"방 찾기를 쓸 수 없어요 (포트 {DISCOVERY_PORT} 사용 중) - 'IP 직접 입력'을 쓰세요", font_desc, UI_DANGER,
+                        (SCREEN_WIDTH // 2, y + 20), "midtop", shadow=False)
+            elif not rooms:
+                dots = "." * (1 + (pygame.time.get_ticks() // 400) % 3)
+                ui_text(screen, f"방을 찾는 중{dots}", font_medium, UI_SUB, (SCREEN_WIDTH // 2, y + 20), "midtop", shadow=False)
+                ui_text(screen, "방장이 '방 만들기'를 눌렀는지, 같은 네트워크인지 확인하세요 (방화벽에서 게임 허용이 필요할 수 있어요)",
+                        font_tiny, UI_DIM, (SCREEN_WIDTH // 2, y + 70), "midtop", shadow=False)
+            for ip, info in rooms[:6]:
+                rect = pygame.Rect(SCREEN_WIDTH // 2 - 320, y, 640, 78)
+                same = info.get("build") == GAME_BUILD
+                full = info.get("players", 0) >= info.get("max", MAX_PLAYERS)
+                color = (128, 196, 132) if same and not full else (150, 140, 130)
+                card = ui_card(screen, rect, color, same and not full and rect.collidepoint(mouse),
+                               f"{info.get('name', '방')}의 방", [f"{ip}  ·  방장 무기: {info.get('weapon', '?')}"], title_font=font_hud)
+                status = "가득 참" if full else ("업데이트 필요" if not same else f"{info.get('players', 1)}/{info.get('max', MAX_PLAYERS)}명")
+                ui_text(screen, status, font_hud, UI_DANGER if (full or not same) else UI_GOOD, (card.right - 20, card.centery), "midright")
+                cards.append((rect, ip, same, full))
+                y += 92
+            manual = pygame.Rect(SCREEN_WIDTH // 2 - 320, SCREEN_HEIGHT - 150, 310, 64)
+            back = pygame.Rect(SCREEN_WIDTH // 2 + 10, SCREEN_HEIGHT - 150, 310, 64)
+            ui_button(screen, manual, "IP 직접 입력", (106, 155, 204), manual.collidepoint(mouse))
+            ui_button(screen, back, "뒤로", (228, 92, 78), back.collidepoint(mouse))
+            if notice and pygame.time.get_ticks() < notice_until:
+                ui_text(screen, notice, font_desc, UI_DANGER, (SCREEN_WIDTH // 2, manual.y - 40), "midtop")
+            pygame.display.flip()
+            for event in REAL_EVENT_GET():
+                ui_quit_event(event)
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    return None
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if manual.collidepoint(event.pos):
+                        return "manual"
+                    if back.collidepoint(event.pos):
+                        return None
+                    for rect, ip, same, full in cards:
+                        if rect.collidepoint(event.pos):
+                            if not same:
+                                notice = "게임 버전이 달라서 들어갈 수 없어요 - 둘 다 최신 버전으로 업데이트하세요"
+                            elif full:
+                                notice = "방이 가득 찼어요"
+                            else:
+                                return ip
+                            notice_until = pygame.time.get_ticks() + 3000
+            clock.tick(30)
+    finally:
+        finder.close()
+
+
 def host_lobby(loadout):
     """방 만들기: 참가자를 기다렸다가 시작 → (lockstep, seed, roster)"""
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1683,6 +1842,7 @@ def host_lobby(loadout):
     clients = {}          # pid -> Connection
     loadouts = {0: loadout}
     ips = local_ip_addresses()
+    beacon = RoomBeacon()   # 같은 랜에 "방 있어요" 알림
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
     while True:
         # 새 참가자
@@ -1705,13 +1865,15 @@ def host_lobby(loadout):
                 del clients[pid]
                 loadouts.pop(pid, None)
         roster_text = [f"P{i + 1}: {WEAPON_STATS[loadouts[pid]['weapon']]['name']}" for i, pid in enumerate(sorted(loadouts))]
+        beacon.tick(len(loadouts), WEAPON_STATS[loadout["weapon"]]["name"])
         for conn in clients.values():
             conn.send({"t": "lobby", "players": roster_text})
 
         ui_background(screen)
         top = ui_title(screen, "멀티 방 (호스트)", 40)
         ip_box = ui_panel(screen, (SCREEN_WIDTH // 2 - 260, top + 20, 520, 64), alpha=220, border=UI_ACCENT)
-        ui_text(screen, "참가자에게 알려줄 IP", font_tiny, UI_SUB, (ip_box.centerx, ip_box.y + 6), "midtop", shadow=False)
+        ui_text(screen, "같은 랜이면 참가자 화면에 이 방이 자동으로 떠요 (안 뜨면 이 IP를 알려 주세요)", font_tiny, UI_SUB,
+                (ip_box.centerx, ip_box.y + 6), "midtop", shadow=False)
         ui_text(screen, f"{', '.join(ips)}   (포트 {PORT})", font_hud, UI_ACCENT, (ip_box.centerx, ip_box.y + 28), "midtop")
         roster_box = draw_roster(roster_text, ip_box.bottom + 16, f"참가 인원 {len(loadouts)}/{MAX_PLAYERS}")
         start = pygame.Rect(SCREEN_WIDTH // 2 - 200, roster_box.bottom + 24, 190, 66)
@@ -1735,11 +1897,13 @@ def host_lobby(loadout):
                 elif cancel.collidepoint(event.pos):
                     go = "cancel"
         if go == "cancel":
+            beacon.close()
             for conn in clients.values():
                 conn.close()
             server.close()
             return None
         if go == "start" and all(pid in loadouts for pid in clients):
+            beacon.close()   # 게임이 시작되면 더 이상 알리지 않음
             server.close()
             seed = random.randrange(1 << 30)
             roster = [{"pid": pid, **loadouts[pid]} for pid in sorted(loadouts)]
@@ -1811,10 +1975,13 @@ def multiplayer_menu():
         if choice == "host":
             result = host_lobby(choose_loadout())
         else:
-            address = text_input("호스트 IP 주소", last_address)
+            address = browse_rooms()   # 같은 랜의 방 목록에서 고르기
+            if address == "manual":
+                address = text_input("호스트 IP 주소", last_address)
+                if address:
+                    last_address = address
             if not address:
                 continue
-            last_address = address
             result = join_lobby(choose_loadout(), address)
         if result is not None:
             lockstep, seed, roster, pid = result
