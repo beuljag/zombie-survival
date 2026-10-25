@@ -118,7 +118,7 @@
 - 재생: +0.3 또는 +0.5 초당 체력 회복
 - 치명타: 5% 확률로 1.3배 데미지 (중첩 가능, 5%씩 증가) / 저격총 전용 "치명타 피해 +25%"로 배율 증가 (최대 3.8배)
 - 회피: 5% 확률로 피해 회피 (중첩 가능, 5%씩 증가)
-- 경험치: +20% 좀비 처치 시 경험치 추가
+- 경험치: +40% 좀비 처치 시 경험치 추가
 - 완전 회복: 체력 100% 회복
 - 넉백: 적 넉백 강도 +10%
 
@@ -189,7 +189,7 @@
 9. 웨이브 시스템: 60초마다 난이도 상승, 새로운 좀비 타입 해금
    - 웨이브마다 등장하는 좀비 수 +2, 등장 간격 단축, 보스 소환 수도 증가
    - 보스/거대 좀비 체력 1.6배 (다른 좀비가 소환한 개체 제외)
-10. 경험치 부스트: 업그레이드로 추가 경험치 10%씩 증가
+10. 경험치 부스트: 업그레이드로 추가 경험치 40%씩 증가
 
 【연출 (게임 판정에는 영향 없음)】
 - 피격: 좀비 하얀 번쩍임, 데미지 숫자 (치명타는 노란색 큰 숫자), 타격 불꽃
@@ -4256,10 +4256,13 @@ def trigger_bomb_explosion(zombie, player, zombies, all_sprites, explosions, rad
         other_zombie.health -= damage * damage_multiplier
 
 
+EXP_BOOST_PER = 0.4   # "경험치 +40%" 업그레이드 1회당 (예전 20%)
+
+
 def get_exp_reward(player, wave):
-    """경험치 보상 계산 (exp_boost 중첩 반영: 획득 1회당 +20%)"""
+    """경험치 보상 계산 (exp_boost 중첩 반영: 획득 1회당 +40%)"""
     base_exp = int(20 + (wave - 1) * 8)
-    exp_multiplier = 1.0 + (0.2 * player.levels.get("exp_boost", 0))
+    exp_multiplier = 1.0 + (EXP_BOOST_PER * player.levels.get("exp_boost", 0))
     return int(base_exp * exp_multiplier)
 
 
@@ -7184,7 +7187,7 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"재생: +{fmt_num(regen_bonus)}/초")
 
     if counts.get("exp_boost", 0) > 0:
-        lines.append(f"경험치 보너스: +{counts.get('exp_boost', 0) * 20}%")
+        lines.append(f"경험치 보너스: +{round(counts.get('exp_boost', 0) * EXP_BOOST_PER * 100)}%")
 
     crit_percent = player.levels.get("crit", 0) * 5
     dodge_percent = player.levels.get("dodge", 0) * 5
@@ -7433,7 +7436,7 @@ def build_upgrade_choices(player):
         {"name": "재생 강화", "desc": "초당 체력 0.5 회복", "type": "regen_big", "color": (150, 255, 150)},
 
         # 경험치 관련
-        {"name": "경험치 +20%", "desc": "좀비 처치 시 경험치 20% 추가", "type": "exp_boost", "color": (255, 255, 100)},
+        {"name": "경험치 +40%", "desc": "좀비 처치 시 경험치 40% 추가", "type": "exp_boost", "color": (255, 255, 100)},
 
         # 특이 능력
         {"name": "치명타", "desc": f"치명타 확률 +5% ({get_crit_multiplier(player):.2f}배 피해)", "type": "crit", "color": (255, 50, 50)},
@@ -7795,7 +7798,7 @@ def get_upgrade_name(upgrade_type):
         "knockback": "넉백 강화",
         "regen": "재생 +0.3",
         "regen_big": "재생 +0.5",
-        "exp_boost": "경험치 +20%",
+        "exp_boost": "경험치 +40%",
         "crit": "치명타",
         "dodge": "회피",
         "attack_speed": "공격 속도 +5%",
@@ -8296,7 +8299,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102118          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102119          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
