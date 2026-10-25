@@ -2091,6 +2091,8 @@ class Player(pygame.sprite.Sprite):
         self.skill_cooldown_reduction = 0
         self.special_upgrades = []   # 100레벨마다 고르는 특수 업그레이드 (한 번씩만)
         self.special_tick = 0        # 특수 업그레이드 타이머 (게임 프레임)
+        self.damage_dealt = 0.0      # 게임 오버 화면: 총 피해
+        self.best_hit = 0.0          # 게임 오버 화면: 가장 강한 한 방
 
         # 무기별 스킬 업그레이드 효과
         self.skill_upgrades = {
@@ -2194,6 +2196,27 @@ class Player(pygame.sprite.Sprite):
 
 
 # 좀비 클래스
+DAMAGE_OWNER = [None]   # 지금 피해를 주고 있는 플레이어 (1인: 항상 나 / 멀티: 총알 · 근접 · 스킬마다 쏜 사람)
+
+
+def commit_damage(zombie):
+    """이번 프레임에 이 좀비가 받은 피해를 준 사람에게 기록 (총 피해 / 가장 강한 한 방) - 판정에는 영향 없음
+    결계 · 땅굴로 되돌려진 피해는 빼고, 넘친 피해(오버킬)는 총 피해에 넣지 않음"""
+    log = zombie.__dict__.get("_dmg_log")
+    if not log:
+        return
+    zombie._dmg_log = []
+    before, after = zombie.last_health, zombie.health
+    if before - after <= 0.01:
+        return
+    raw = sum(amount for _owner, amount in log)
+    scale = min(1.0, (max(0.0, before) - max(0.0, after)) / raw) if raw > 0 else 0.0
+    for owner, amount in log:
+        owner.damage_dealt += amount * scale
+        if amount > owner.best_hit:
+            owner.best_hit = amount
+
+
 class Zombie(pygame.sprite.Sprite):
     ZOMBIE_CONFIGS = {
         # 일반 계열 (6가지)
@@ -2253,6 +2276,18 @@ class Zombie(pygame.sprite.Sprite):
         "leviathan": {"w": 105, "h": 135, "color": (0, 100, 150), "speed": 0.28, "health": 650, "dmg": 2.4, "size": 120, "range": 215},
         "elder": {"w": 115, "h": 145, "color": (100, 150, 100), "speed": 0.22, "health": 800, "dmg": 2.8, "size": 130, "range": 225},
     }
+
+    @property
+    def health(self):
+        return self._health
+
+    @health.setter
+    def health(self, value):
+        """체력이 깎이면 누가 얼마나 깎았는지 적어 둠 (commit_damage가 프레임마다 정산)"""
+        old = self.__dict__.get("_health")
+        self._health = value
+        if old is not None and value < old and DAMAGE_OWNER[0] is not None:
+            self.__dict__.setdefault("_dmg_log", []).append((DAMAGE_OWNER[0], old - value))
 
     def __init__(self, x, y, zombie_type="normal", wave=1, parent_zombie=None):
         super().__init__()
@@ -2596,7 +2631,10 @@ class Zombie(pygame.sprite.Sprite):
             self.burn_time -= 1
             self.burn_damage_cooldown -= 1
             if self.burn_damage_cooldown <= 0:
+                owner_before = DAMAGE_OWNER[0]
+                DAMAGE_OWNER[0] = getattr(self, "burn_owner", None) or owner_before   # 화상 피해는 불붙인 사람 몫
                 self.health -= BURN_TICK_DAMAGE * max(1, self.burn_stacks)   # 중첩만큼 강하게
+                DAMAGE_OWNER[0] = owner_before
                 self.burn_damage_cooldown = 20
             if self.burn_time <= 0:
                 self.burn_stacks = 0
@@ -4100,6 +4138,8 @@ def ignite(zombie):
         zombie.burn_hits = 0
         zombie.burn_damage_cooldown = 0   # 처음 붙을 때만 바로 한 번 (연사로 피해가 매번 터지지 않게)
     zombie.burn_time = max(zombie.burn_time, 180)
+    if DAMAGE_OWNER[0] is not None:
+        zombie.burn_owner = DAMAGE_OWNER[0]
 
 
 def apply_hit_elements(player, zombie, zombies, base_damage, chain_range=150):
@@ -6687,11 +6727,15 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
         ui_text(surface, f"FPS {clock.get_fps():.0f}", font_tiny, UI_SUB, (width - 14, height - 52), "topright")
 
 
-def draw_game_over(surface, title, stats, hint):
-    """게임 오버 패널: 제목 + 기록 칸 + 안내"""
+def draw_game_over(surface, title, stats, hint, damage_rows=None):
+    """게임 오버 패널: 제목 + 기록 칸 + (멀티) 플레이어별 피해 표 + 안내
+    damage_rows: [(이름, 색, 총 피해, 가장 강한 한 방), ...] 총 피해 순"""
     ui_overlay(surface, 190)
     chip_w, gap = 140, 12
-    panel = pygame.Rect(0, 0, max(520, len(stats) * (chip_w + gap) + 48), 290)
+    rows = damage_rows or []
+    row_h = 40
+    table_h = (44 + len(rows) * row_h) if rows else 0
+    panel = pygame.Rect(0, 0, max(520 if not rows else 700, len(stats) * (chip_w + gap) + 48), 290 + table_h)
     panel.center = (surface.get_width() // 2, surface.get_height() // 2)
     ui_panel(surface, panel, alpha=240, border=(150, 50, 50), radius=16, width=2)
     ui_text(surface, title, font_title, UI_DANGER, (panel.centerx, panel.y + 26), "midtop")
@@ -6701,6 +6745,25 @@ def draw_game_over(surface, title, stats, hint):
         ui_text(surface, label, font_tiny, UI_SUB, (chip.centerx, chip.y + 8), "midtop", shadow=False)
         ui_text(surface, f"{value:,}" if isinstance(value, int) else value, font_hud, UI_TEXT, (chip.centerx, chip.y + 32), "midtop", shadow=False)
         x += chip_w + gap
+    if rows:   # 플레이어별: 총 피해 (막대 = 팀 전체 중 비율) / 가장 강한 한 방
+        left, width = panel.x + 30, panel.width - 60
+        y = panel.y + 208
+        col_total, col_best = left + 170, left + width - 150
+        ui_text(surface, "총 피해", font_tiny, UI_SUB, (col_total, y), "topleft", shadow=False)
+        ui_text(surface, "가장 강한 한 방", font_tiny, UI_SUB, (col_best, y), "topleft", shadow=False)
+        team = sum(r[2] for r in rows) or 1
+        y += 30
+        for i, (name, color, dealt, best) in enumerate(rows):
+            row = ui_panel(surface, (left, y, width, row_h - 6), alpha=220, fill=(42, 39, 36), radius=8)
+            pygame.draw.rect(surface, color, (row.x, row.y, 6, row.height), border_radius=3)
+            ui_text(surface, name + ("  MVP" if i == 0 and len(rows) > 1 and dealt > 0 else ""), font_desc,
+                    UI_ACCENT if i == 0 and len(rows) > 1 and dealt > 0 else UI_TEXT, (row.x + 16, row.centery), "midleft", shadow=False)
+            bar = pygame.Rect(col_total + 110, row.centery - 5, col_best - col_total - 130, 10)
+            pygame.draw.rect(surface, (60, 56, 52), bar, border_radius=5)
+            pygame.draw.rect(surface, color, (bar.x, bar.y, max(2, int(bar.width * dealt / team)), bar.height), border_radius=5)
+            ui_text(surface, f"{int(dealt):,}", font_desc, UI_TEXT, (col_total, row.centery), "midleft", shadow=False)
+            ui_text(surface, f"{int(best):,}", font_desc, UI_TEXT, (col_best, row.centery), "midleft", shadow=False)
+            y += row_h
     pulse = 0.8 + 0.2 * math.sin(pygame.time.get_ticks() / 250)
     ui_text(surface, hint, font_desc, (int(100 * pulse), int(230 * pulse), int(130 * pulse)), (panel.centerx, panel.bottom - 60), "midtop")
 
@@ -7084,9 +7147,10 @@ def show_pause_menu(player):
         {"name": "키 설정", "desc": "조작 키 바꾸기", "type": "keys", "color": (180, 160, 220)},
         {"name": "설정", "desc": "화면 모드 · 창 크기 · 볼륨", "type": "settings", "color": (120, 190, 200)},
         {"name": "저장하고 나가기", "desc": "다음에 실행하면 이어하기", "type": "save_exit", "color": (232, 180, 90)},
+        {"name": "게임 포기", "desc": "바로 게임 오버 (기록 보기)", "type": "give_up", "color": (200, 110, 90)},
         {"name": "처음으로", "desc": "저장하지 않고 능력 선택화면으로", "type": "exit", "color": (228, 92, 78)},
     ]
-    btn_w, btn_h, gap = 380, 76, 14
+    btn_w, btn_h, gap = 380, 66, 12
     panel = pygame.Rect(0, 0, btn_w + 60, 150 + len(buttons) * (btn_h + gap))
     panel.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
     rects = [pygame.Rect(panel.x + 30, panel.y + 130 + i * (btn_h + gap), btn_w, btn_h) for i in range(len(buttons))]
@@ -8350,7 +8414,7 @@ PLAYER_SAVE_FIELDS = [
     "ability", "health", "max_health", "speed", "damage", "exp", "exp_to_level", "level", "regen",
     "levels", "skills", "pierce_level", "skill_upgrades", "weapon_upgrades", "obtained_upgrades",
     "shield_active", "skill_cooldown_reduction", "infinity_ammo_time", "teleport_cooldown_max",
-    "special_upgrades",
+    "special_upgrades", "damage_dealt", "best_hit",
 ]
 WEAPON_SAVE_FIELDS = ["weapon_type", "damage", "fire_rate", "attack_speed"]
 
@@ -8429,7 +8493,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102121          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102122          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -8618,6 +8682,7 @@ def main():
     camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
     all_sprites = pygame.sprite.Group()
     all_sprites.add(player)
+    DAMAGE_OWNER[0] = player   # 1인: 좀비가 받는 피해는 모두 내 기록
 
     zombies = pygame.sprite.Group()
     bullets = pygame.sprite.Group()
@@ -8862,6 +8927,12 @@ def main():
                         pause_result = show_pause_menu(player)
                         if pause_result == "exit":
                             return "restart"  # 나가기: 능력 선택 화면부터 다시 시작
+                        if pause_result == "give_up":   # 게임 포기: 바로 게임 오버 (부활 천사 등도 무시)
+                            player.health = 0
+                            game_over = True
+                            delete_save()
+                            game_over_time = pygame.time.get_ticks()
+                            continue
                         if pause_result == "save_exit":
                             # 저장하고 게임 종료 (메뉴를 보는 동안 흐른 시간은 웨이브 진행에 넣지 않음)
                             save_game(player, score, wave, pause_start - wave_timer_start)
@@ -9532,6 +9603,7 @@ def main():
             # ===== 피격 연출: 이번 프레임에 깎인 체력만큼 데미지 숫자 + 하얀 번쩍임 =====
             # (총알/근접/스킬/폭발 등 피해를 주는 곳이 많아서, 체력 변화로 한 곳에서 처리 - 판정에는 영향 없음)
             for zombie in zombies:
+                commit_damage(zombie)   # 총 피해 / 가장 강한 한 방 기록
                 lost = zombie.last_health - zombie.health
                 zombie.last_health = zombie.health
                 if zombie.hit_flash > 0:
@@ -9772,7 +9844,8 @@ def main():
 
         # 게임 오버 화면
         if game_over:
-            draw_game_over(screen, "게임 오버!", [("점수", score), ("웨이브", wave), ("레벨", player.level), ("무기", player.weapon.name)],
+            draw_game_over(screen, "게임 오버!", [("점수", score), ("웨이브", wave), ("레벨", player.level), ("무기", player.weapon.name),
+                                                ("총 피해", int(player.damage_dealt)), ("가장 강한 한 방", int(player.best_hit))],
                            "SPACE: 다시 시작 · ESC: 종료")
 
         pygame.display.flip()

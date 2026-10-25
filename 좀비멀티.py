@@ -13,7 +13,7 @@
 - 경험치·점수는 공유, 레벨업 업그레이드는 각자 고름 (게임은 멈추지 않음: 화면 아래 카드 클릭 또는 1/2/3 키)
 - 죽으면 관전하다가, 죽은 뒤 웨이브 3개가 지나면 살아 있는 팀원 옆에서 부활
 - 전원이 죽으면 게임 오버
-- 멀티에서는 일시정지/저장 없음 (ESC: 나가기 메뉴)
+- 멀티에서는 일시정지/저장 없음 (ESC: 메뉴 - G 게임 포기 / Q 나가기)
 ===============================================
 """
 
@@ -218,7 +218,7 @@ class Lockstep:
 # =====================================================================
 # 입력
 # =====================================================================
-EMPTY_INPUT = {"k": 0, "x": 0, "y": 0, "l": 0, "h": 0, "r": 0, "e": 0, "u": -1, "s": 0}
+EMPTY_INPUT = {"k": 0, "x": 0, "y": 0, "l": 0, "h": 0, "r": 0, "e": 0, "u": -1, "s": 0, "g": 0}
 
 
 class KeyState:
@@ -240,7 +240,7 @@ REAL_GET_PRESSED = pygame.key.get_pressed
 
 
 # Bullet에 쏜 사람 기록 (멀티에서 치명타/관통/속성탄을 쏜 사람 기준으로 적용)
-_current_owner = [None]
+_current_owner = DAMAGE_OWNER   # ZZ1과 같은 목록: 여기에 적힌 사람이 지금 주는 피해의 주인 (게임 오버 화면 기록)
 _original_bullet_init = Bullet.__init__
 
 
@@ -349,6 +349,9 @@ class MatchState:
             p.aim = (inp["x"], inp["y"])
             if p.pending_choices and 0 <= inp["u"] < len(p.pending_choices[0]):
                 apply_upgrade(p, p.pending_choices.pop(0)[inp["u"]])
+            if inp.get("g") and not p.dead and not p.left:   # 포기: 바로 쓰러지고 부활하지 않음
+                p.surrendered = True
+                p.health = 0
             if p.dead or p.left:
                 continue
             _current_owner[0] = p
@@ -460,9 +463,13 @@ class MatchState:
         self.boss_summons()
 
         # 9) 총알/아이템/이펙트 갱신
-        bullets.update()
+        for bullet in bullets.sprites():   # 총알마다 쏜 사람이 피해의 주인 (사거리 끝 폭발 등)
+            _current_owner[0] = getattr(bullet, "owner", None)
+            bullet.update()
         for melee_attack in [b for b in bullets if isinstance(b, Melee)]:
+            _current_owner[0] = melee_attack.owner
             melee_sweep(melee_attack, zombies)   # 휘두르는 도중 들어온 좀비도 맞음
+        _current_owner[0] = None
         items.update()
         explosions.update()
         handled = set(bullets.sprites())
@@ -475,6 +482,7 @@ class MatchState:
 
         # 10) 총알-좀비 충돌
         self.bullet_hits()
+        _current_owner[0] = None
 
         # 11) 플레이어 쪽 충돌 (아이템, 좀비 접촉, 적 투사체, 장판)
         for p in alive:
@@ -491,12 +499,14 @@ class MatchState:
 
         # 15) 플레이어 사망 → 관전
         for p in alive:
-            if p.health <= 0:
+            if p.health <= 0 or getattr(p, "surrendered", False):   # 포기는 재생/회복으로 버티지 않게 바로
+                p.health = min(p.health, 0)
                 p.dead = True
                 p.death_wave = self.wave
                 p.active_skills.clear()
                 fx.death_burst(p.rect.centerx, p.rect.centery, p.color, 40)
-                fx.add_text(p.rect.centerx, p.rect.top - 30, f"{p.name} 쓰러짐! ({REVIVE_WAVES}웨이브 뒤 부활)", (255, 120, 120), big=True, life=90)
+                fx.add_text(p.rect.centerx, p.rect.top - 30, f"{p.name} 포기" if getattr(p, "surrendered", False)
+                            else f"{p.name} 쓰러짐! ({REVIVE_WAVES}웨이브 뒤 부활)", (255, 120, 120), big=True, life=90)
         if not self.alive_players():
             self.game_over = True
 
@@ -767,6 +777,7 @@ class MatchState:
                 if zombie in bullet.hit_targets or zombie in bullet.dodged:
                     continue
                 owner = bullet.owner if getattr(bullet, "owner", None) is not None else self.players[0]
+                _current_owner[0] = owner
                 if zombie.zombie_type == "shadow" and bullet.bullet_type != "rocket" and random.random() < 0.25:
                     bullet.dodged.add(zombie)
                     fx.add_text(zombie.rect.centerx, zombie.rect.top - 8, "회피", (180, 140, 255))
@@ -929,7 +940,7 @@ class MatchState:
                 all_sprites.add(zombie)
             # 죽은 뒤 웨이브 3개가 지난 팀원 부활
             for p in self.players:
-                if p.dead and not p.left and self.wave - p.death_wave >= REVIVE_WAVES:
+                if p.dead and not p.left and not getattr(p, "surrendered", False) and self.wave - p.death_wave >= REVIVE_WAVES:
                     buddy = random.choice(self.alive_players())
                     p.dead = False
                     p.health = p.max_health * 0.5
@@ -954,6 +965,7 @@ class MatchState:
                 zombie.custom_name = f"{zombie.base_name} [{zombie.block_hits}]"
                 fx.add_text(zombie.rect.centerx, zombie.rect.top - 8, "막음", (190, 160, 255))
         for zombie in self.zombies:
+            commit_damage(zombie)   # 총 피해 / 가장 강한 한 방 기록
             lost = zombie.last_health - zombie.health
             zombie.last_health = zombie.health
             if zombie.hit_flash > 0:
@@ -1341,15 +1353,18 @@ def draw_match(state, camera, ui):
         banner("동기화 오류가 감지되었습니다 (게임은 계속되지만 화면이 서로 다를 수 있음)", UI_DANGER, 262)
     if ui.get("menu"):
         ui_overlay(screen, 170)
-        box = pygame.Rect(0, 0, 420, 230)
+        box = pygame.Rect(0, 0, 460, 290)
         box.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
         ui_panel(screen, box, alpha=235, radius=16)
         ui_text(screen, "멀티 게임 메뉴", font_large, UI_TEXT, (box.centerx, box.y + 22), "midtop")
-        ui_text(screen, "Q  방 나가기", font_medium, UI_DANGER, (box.centerx, box.y + 110), "midtop")
-        ui_text(screen, "ESC  돌아가기", font_medium, UI_GOOD, (box.centerx, box.y + 160), "midtop")
+        ui_text(screen, "G  게임 포기 (내 캐릭터, 부활 없음)", font_medium, (230, 150, 110), (box.centerx, box.y + 105), "midtop")
+        ui_text(screen, "Q  방 나가기", font_medium, UI_DANGER, (box.centerx, box.y + 160), "midtop")
+        ui_text(screen, "ESC  돌아가기", font_medium, UI_GOOD, (box.centerx, box.y + 215), "midtop")
     if state.game_over:
+        ranking = sorted(state.players, key=lambda p: -p.damage_dealt)
+        rows = [(p.name + (" (나)" if p is local else ""), p.color, p.damage_dealt, p.best_hit) for p in ranking]
         draw_game_over(screen, "전원 쓰러짐 - 게임 오버!", [("점수", state.score), ("웨이브", state.wave), ("인원", state.n_players)],
-                       "SPACE / ESC: 멀티 메뉴로")
+                       "SPACE / ESC: 멀티 메뉴로", damage_rows=rows)
 
 
 def run_match(lockstep, seed, roster, local_pid):
@@ -1388,6 +1403,9 @@ def run_match(lockstep, seed, roster, local_pid):
                         ui["menu"] = not ui["menu"]
                     elif ui["menu"] and event.key == pygame.K_q:
                         return
+                    elif ui["menu"] and event.key == pygame.K_g:
+                        clicks["g"] = 1          # 포기 (모든 PC에 입력으로 전달)
+                        ui["menu"] = False
                     elif binding_event(event, "teleport"):
                         clicks["e"] = 1
                     elif binding_event(event, "mute"):
@@ -1438,7 +1456,7 @@ def run_match(lockstep, seed, roster, local_pid):
                 inp = {"k": bits, "x": int(mx + camera.x), "y": int(my + camera.y), "l": clicks["l"], "h": int(held),
                        "s": int(binding_held("skill", keys) and not ui["menu"]),
                        "b": clicks.get("b", state.sim_frame),
-                       "r": clicks["r"], "e": clicks["e"], "u": clicks["u"]}
+                       "r": clicks["r"], "e": clicks["e"], "u": clicks["u"], "g": clicks.get("g", 0)}
                 inp.update(INPUT_HOOK(state, local) if INPUT_HOOK else {})
                 lockstep.submit(next_send, inp)
                 my_moves[next_send] = inp["k"]
