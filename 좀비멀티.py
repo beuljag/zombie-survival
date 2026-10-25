@@ -424,7 +424,11 @@ class MatchState:
                 if healed:
                     fx.ring(source.rect.centerx, source.rect.centery, (120, 255, 150), radius, count=28)
 
-        # 6) 지속형 스킬
+        # 6) 지속형 스킬 (+ 100레벨 특수 업그레이드)
+        for p in self.alive_players():
+            if p.special_upgrades:
+                _current_owner[0] = p
+                tick_specials(p, zombies, bullets, all_sprites, explosions)
         for p in self.players:
             if not p.active_skills:
                 continue

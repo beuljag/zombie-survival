@@ -190,7 +190,7 @@
    - 웨이브마다 등장하는 좀비 수 +2, 등장 간격 단축, 보스 소환 수도 증가
    - 보스/거대 좀비 체력 1.6배 (다른 좀비가 소환한 개체 제외)
 10. 경험치 부스트: 업그레이드로 추가 경험치 40%씩 증가
-11. 100레벨 특수 업그레이드: 100/200/300... 레벨에는 ★ 각성 / 거인의 심장 / 시간 지배 / 광폭화 / 원소 지배 중 하나 (각각 1번)
+11. 100레벨 특수 업그레이드: 100/200/300... 레벨에는 ★ 수호 위성 / 천벌 / 시간 정지 / 사신의 낫 / 특이점 중 하나 (각각 1번)
 
 【연출 (게임 판정에는 영향 없음)】
 - 피격: 좀비 하얀 번쩍임, 데미지 숫자 (치명타는 노란색 큰 숫자), 타격 불꽃
@@ -2090,8 +2090,7 @@ class Player(pygame.sprite.Sprite):
         # 스킬 쿨타임 감소 (0~1.0 비율: 0.2 = 20% 감소)
         self.skill_cooldown_reduction = 0
         self.special_upgrades = []   # 100레벨마다 고르는 특수 업그레이드 (한 번씩만)
-        self.awaken_mult = 1.0       # 특수 "각성": 공격력 배율
-        self.special_cd_mult = 1.0   # 특수 "시간 지배": 스킬 쿨타임 배율
+        self.special_tick = 0        # 특수 업그레이드 타이머 (게임 프레임)
 
         # 무기별 스킬 업그레이드 효과
         self.skill_upgrades = {
@@ -4173,13 +4172,13 @@ def get_spear_speed_factor(player):
 
 
 def skill_cd_factor(player):
-    """스킬 쿨타임 배율 (쿨타임 감소 업그레이드 + 특수 업그레이드 "시간 지배")"""
-    return (1 - player.skill_cooldown_reduction) * getattr(player, "special_cd_mult", 1.0)
+    """스킬 쿨타임 배율 (쿨타임 감소 업그레이드)"""
+    return 1 - player.skill_cooldown_reduction
 
 
 def get_weapon_damage(player):
     """현재 무기 공격력 (공격력 아이템 버프 반영, 창은 이동속도 비례)"""
-    damage = player.weapon.damage * getattr(player, "awaken_mult", 1.0)   # 특수 업그레이드 "각성"
+    damage = player.weapon.damage
     if player.damage_buff_time > 0:
         damage *= ITEM_BUFF_MULTIPLIER
     if player.weapon.weapon_type == "spear":
@@ -7424,13 +7423,91 @@ def filter_upgrades_by_limit(player, upgrades):
 SPECIAL_UPGRADE_EVERY = 100   # 100, 200, 300... 레벨에는 특수 업그레이드만 나옴
 SPECIAL_COLOR = (255, 200, 60)
 SPECIAL_UPGRADES = [
-    {"name": "★ 각성", "desc": "공격력 x1.5 (스킬 · 포탑 · 폭발 모두)", "type": "special_awaken", "color": (255, 120, 60)},
-    {"name": "★ 거인의 심장", "desc": "최대 체력 x2 + 체력 모두 회복", "type": "special_titan", "color": (255, 90, 110)},
-    {"name": "★ 시간 지배", "desc": "스킬 쿨타임 절반 (지금 남은 쿨타임도 절반)", "type": "special_chrono", "color": (170, 120, 255)},
-    {"name": "★ 광폭화", "desc": "공격 속도 +50%", "type": "special_frenzy", "color": (255, 170, 60)},
-    {"name": "★ 원소 지배", "desc": "화염 · 얼음 · 전기탄 + 폭발 공격 한꺼번에 획득", "type": "special_elements", "color": (120, 220, 255)},
+    {"name": "★ 수호 위성", "desc": "빛나는 구슬 3개가 내 주위를 돌며 닿는 좀비를 공격 (공격력 x1.5)", "type": "special_orbit", "color": (120, 220, 255)},
+    {"name": "★ 천벌", "desc": "3초마다 하늘에서 번개 - 체력 높은 좀비 3마리에게 공격력 x6 + 기절", "type": "special_smite", "color": (255, 230, 90)},
+    {"name": "★ 시간 정지", "desc": "15초마다 주변 좀비의 시간을 3초 동안 멈춤", "type": "special_timestop", "color": (170, 140, 255)},
+    {"name": "★ 사신의 낫", "desc": "주변 좀비 체력이 15% 아래로 떨어지면 즉시 처형 (보스급은 5%)", "type": "special_reaper", "color": (255, 80, 90)},
+    {"name": "★ 특이점", "desc": "10초마다 좀비가 가장 많이 몰린 곳에 블랙홀 생성", "type": "special_singularity", "color": (200, 110, 255)},
 ]
-ELEMENT_SKILLS = ("skill_fire_bullets", "skill_ice_bullets", "skill_electric_bullets", "skill_explosion")
+SPECIAL_ORBIT_COUNT, SPECIAL_ORBIT_RADIUS, SPECIAL_ORBIT_PERIOD = 3, 125, 90   # 구슬 3개, 반경 125, 1.5초에 한 바퀴
+SPECIAL_ORBIT_MULT, SPECIAL_ORBIT_HIT_EVERY = 1.5, 20                         # 같은 좀비는 0.33초에 한 번
+SPECIAL_SMITE_EVERY, SPECIAL_SMITE_TARGETS, SPECIAL_SMITE_MULT, SPECIAL_SMITE_RANGE = 180, 3, 6.0, 750
+SPECIAL_TIMESTOP_EVERY, SPECIAL_TIMESTOP_FRAMES, SPECIAL_TIMESTOP_RANGE = 900, 180, 700
+SPECIAL_REAPER_RATIO, SPECIAL_REAPER_BOSS_RATIO, SPECIAL_REAPER_RANGE = 0.15, 0.05, 600
+SPECIAL_SINGULARITY_EVERY = 600
+
+
+def tick_specials(player, zombies, bullets, all_sprites, explosions):
+    """100레벨 특수 업그레이드 효과 (매 프레임, 1인 · 멀티 공용)"""
+    owned = player.special_upgrades
+    if not owned or player.weapon is None:
+        return
+    player.special_tick += 1
+    t = player.special_tick
+    cx, cy = player.rect.center
+    base = get_weapon_damage(player)
+
+    if "special_orbit" in owned:   # 수호 위성
+        for i in range(SPECIAL_ORBIT_COUNT):
+            a = 2 * math.pi * (t / SPECIAL_ORBIT_PERIOD + i / SPECIAL_ORBIT_COUNT)
+            ox, oy = cx + math.cos(a) * SPECIAL_ORBIT_RADIUS, cy + math.sin(a) * SPECIAL_ORBIT_RADIUS
+            fx.trail(ox, oy, (120, 210, 255), size=9, life=10)   # 빛나는 구슬 + 꼬리
+            fx.trail(ox, oy, (235, 250, 255), size=4, life=4)
+            for zombie in zombies:
+                if zombie.health <= 0 or getattr(zombie, "orbit_ready", 0) > t:
+                    continue
+                reach = 26 + max(zombie.rect.width, zombie.rect.height) / 2
+                if abs(zombie.rect.centerx - ox) < reach and abs(zombie.rect.centery - oy) < reach:
+                    zombie.orbit_ready = t + SPECIAL_ORBIT_HIT_EVERY
+                    skill_damage(zombie, base * SPECIAL_ORBIT_MULT)
+                    fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (140, 230, 255))
+
+    if "special_smite" in owned and t % SPECIAL_SMITE_EVERY == 0:   # 천벌
+        near = [z for z in zombies if z.health > 0 and math.hypot(z.rect.centerx - cx, z.rect.centery - cy) < SPECIAL_SMITE_RANGE]
+        near.sort(key=lambda z: -z.health)
+        for zombie in near[:SPECIAL_SMITE_TARGETS]:
+            zx, zy = zombie.rect.center
+            skill_damage(zombie, base * SPECIAL_SMITE_MULT)
+            zombie.slow_time = max(zombie.slow_time, 30)
+            zombie.slow_multiplier = 0.0   # 0.5초 기절
+            fx.lightning(zx + 30, zy - 420, zx, zy, (255, 240, 140))
+            fx.ring(zx, zy, (255, 240, 140), 60, count=16)
+        if near:
+            fx.add_shake(4)
+
+    if "special_timestop" in owned and t % SPECIAL_TIMESTOP_EVERY == 0:   # 시간 정지
+        for zombie in zombies:
+            if math.hypot(zombie.rect.centerx - cx, zombie.rect.centery - cy) < SPECIAL_TIMESTOP_RANGE:
+                zombie.slow_time = max(zombie.slow_time, SPECIAL_TIMESTOP_FRAMES)
+                zombie.slow_multiplier = 0.0
+        fx.ring(cx, cy, (170, 140, 255), SPECIAL_TIMESTOP_RANGE // 2, count=48, size=5)
+        fx.add_text(cx, player.rect.top - 40, "시간 정지!", (190, 170, 255), big=True, life=70)
+
+    if "special_reaper" in owned:   # 사신의 낫
+        for zombie in zombies:
+            if zombie.health <= 0 or zombie.max_health <= 0:
+                continue
+            ratio = SPECIAL_REAPER_BOSS_RATIO if zombie.zombie_type in GUARANTEED_DROP_TYPES else SPECIAL_REAPER_RATIO
+            if zombie.health < zombie.max_health * ratio and \
+                    math.hypot(zombie.rect.centerx - cx, zombie.rect.centery - cy) < SPECIAL_REAPER_RANGE:
+                zombie.health = 0
+                size = max(zombie.rect.width, zombie.rect.height) * 0.8
+                all_sprites.add(LineFlash(zombie.rect.centerx - size, zombie.rect.centery - size,
+                                          zombie.rect.centerx + size, zombie.rect.centery + size, (255, 60, 80), width=7, duration=16))
+                fx.add_text(zombie.rect.centerx, zombie.rect.top - 20, "처형", (255, 90, 100), life=30)
+
+    if "special_singularity" in owned and t % SPECIAL_SINGULARITY_EVERY == 0:   # 특이점
+        best, best_count = None, 0
+        near = [z for z in zombies if z.health > 0 and math.hypot(z.rect.centerx - cx, z.rect.centery - cy) < 800]
+        for zombie in near:
+            count = sum(1 for o in near if abs(o.rect.centerx - zombie.rect.centerx) < 160 and abs(o.rect.centery - zombie.rect.centery) < 160)
+            if count > best_count:
+                best, best_count = zombie, count
+        if best is not None:
+            player.active_skills.append(BlackHoleSkill(best.rect.centerx, best.rect.centery, 220, base * 0.8, all_sprites))
+            fx.add_text(best.rect.centerx, best.rect.top - 40, "특이점!", (210, 140, 255), big=True, life=60)
+
+
 
 
 def is_special_level(level):
@@ -7440,8 +7517,6 @@ def is_special_level(level):
 def special_upgrade_choices(player):
     """특수 업그레이드 후보 3개 (이미 고른 것은 빠짐, 남은 게 없으면 빈 목록)"""
     pool = [dict(u) for u in SPECIAL_UPGRADES if u["type"] not in player.special_upgrades]
-    if all(player.skills.get(k, False) for k in ELEMENT_SKILLS):
-        pool = [u for u in pool if u["type"] != "special_elements"]   # 이미 다 있으면 의미 없음
     for u in pool:
         u["special"] = True
     return random.sample(pool, min(3, len(pool)))
@@ -7716,24 +7791,7 @@ def apply_upgrade(player, selected_upgrade):
     elif selected_upgrade["type"] == "dodge":
         player.levels["dodge"] = min(20, player.levels.get("dodge", 0) + 1)
     elif selected_upgrade["type"].startswith("special_"):   # 100레벨 특수 업그레이드
-        kind = selected_upgrade["type"]
-        player.special_upgrades.append(kind)
-        if kind == "special_awaken":
-            player.awaken_mult *= 1.5
-        elif kind == "special_titan":
-            player.max_health *= 2
-            player.health = player.max_health
-        elif kind == "special_chrono":
-            player.special_cd_mult *= 0.5
-            now = pygame.time.get_ticks()
-            for key, ready_at in player.skill_cooldowns.items():
-                if ready_at > now:
-                    player.skill_cooldowns[key] = now + (ready_at - now) // 2
-        elif kind == "special_frenzy":
-            player.weapon.fire_rate *= 1.5
-        elif kind == "special_elements":
-            for key in ELEMENT_SKILLS:
-                player.skills[key] = True
+        player.special_upgrades.append(selected_upgrade["type"])   # 효과는 tick_specials가 매 프레임
         if LOCAL_PLAYER is None or player is LOCAL_PLAYER:
             fx.ring(player.rect.centerx, player.rect.centery, SPECIAL_COLOR, 220, count=48, size=5)
             fx.add_text(player.rect.centerx, player.rect.top - 50, selected_upgrade.get("name", "특수 업그레이드"), SPECIAL_COLOR, big=True, life=90)
@@ -7873,8 +7931,8 @@ def get_upgrade_name(upgrade_type):
         "attack_speed": "공격 속도 +5%",
         "skill_cooldown_reduction": "스킬 쿨 -5%",
         "skill_cooldown_reduction_big": "스킬 쿨 -10%",
-        "special_awaken": "★ 각성", "special_titan": "★ 거인의 심장", "special_chrono": "★ 시간 지배",
-        "special_frenzy": "★ 광폭화", "special_elements": "★ 원소 지배",
+        "special_orbit": "★ 수호 위성", "special_smite": "★ 천벌", "special_timestop": "★ 시간 정지",
+        "special_reaper": "★ 사신의 낫", "special_singularity": "★ 특이점",
         # 스킬
         "skill_infinity_ammo": "무한탄약 (30초)",
         "skill_piercing": "투사체 관통 +1",
@@ -8292,7 +8350,7 @@ PLAYER_SAVE_FIELDS = [
     "ability", "health", "max_health", "speed", "damage", "exp", "exp_to_level", "level", "regen",
     "levels", "skills", "pierce_level", "skill_upgrades", "weapon_upgrades", "obtained_upgrades",
     "shield_active", "skill_cooldown_reduction", "infinity_ammo_time", "teleport_cooldown_max",
-    "special_upgrades", "awaken_mult", "special_cd_mult",
+    "special_upgrades",
 ]
 WEAPON_SAVE_FIELDS = ["weapon_type", "damage", "fire_rate", "attack_speed"]
 
@@ -8371,7 +8429,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102120          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102121          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -8968,6 +9026,7 @@ def main():
                     if healed:
                         fx.ring(source.rect.centerx, source.rect.centery, (120, 255, 150), radius, count=28)
 
+            tick_specials(player, zombies, bullets, all_sprites, explosions)   # 100레벨 특수 업그레이드
             # 지속형 스킬 (대회전 베기 / 항공 폭격 / 포탑 / 블랙홀 / 미사일 폭격)
             for skill in list(player.active_skills):
                 if not skill.update(player, zombies, bullets, all_sprites, explosions):
