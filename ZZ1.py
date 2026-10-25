@@ -38,16 +38,16 @@
 - 카타나: 데미지 26, 초당 4회, 범위 120, 가장 높은 근접 DPS
 - 도끼: 데미지 65, 초당 1.5회, 범위 125, 강한 넉백
 - 창: 데미지 36, 초당 2회, 범위 165 (가장 긴 근접 사거리)
-- 일렉 기타 (예전 해머 자리): 데미지 25, 초당 2.5회, 범위 150 - 박자(0.5초)에 맞춰 치면 PERFECT 2배 / GOOD 1.4배 / MISS 0.6배
-- 글로브: 데미지 18, 초당 5회, 범위 100
+- 일렉 기타 (예전 해머 자리): 데미지 22, 초당 2.5회, 범위 150 - 박자(0.5초)에 맞춰 치면 PERFECT 1.8배 / GOOD 1.3배 / MISS 0.6배
+- 글로브: 데미지 15, 초당 5회, 범위 100
 
 【원거리 무기 (6가지)】
 - 글록: 데미지 16, 초당 4회, 균형 잡힌 기본 권총
 - 샷건: 데미지 15 × 3발, 초당 1.5회, 사거리 380 (근거리 전용)
 - 저격총: 데미지 50, 초당 1회, 기본 공격이 관통
-- 기관총: 데미지 7, 초당 9회, 꾹 누르고 있으면 연사
+- 기관총: 데미지 9, 초당 9회, 꾹 누르고 있으면 연사
 - 플라즈마: 데미지 28, 초당 2회, 착탄 시 반경 70 폭발 (주변 50%)
-- 로켓: 데미지 55, 초당 0.8회, 반경 115 큰 폭발 (주변 50%)
+- 로켓: 데미지 70, 초당 0.9회, 반경 115 큰 폭발 (주변 55%)
 
 【일반 좀비 (6가지)】
 - 일반: 체력 30, 공격력 0.5, 가장 약함, 15% 확률로 한 번 다시 일어남
@@ -151,21 +151,21 @@
 - 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 피해) + 내 상태 이상 해제 (8초)
   창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 일렉 기타: 공격 속도가 빠를수록 박자도 빨라짐, 박자 맞출 때마다 기타 멜로디가 한 음씩 이어짐
-- 일렉 기타: 박자 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +50%, 2초 동안 못 맞추면 사라짐)
+- 일렉 기타: 박자 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +35%, 2초 동안 못 맞추면 사라짐)
 - 일렉 기타: 앙코르 - 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% · 상태 이상 정화/면역,
   팀 전체 남은 스킬 쿨타임 -10% (팀원은 추가로 -3초) + 내 주변 음파 + 넓은 범위 좀비 불협화음 (5초 동안 받는 피해 +25%, 40% 느려짐) (20초)
-- 글로브: 초당 공격 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 60%)
-- 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공속 +2% (최대 +50%),
-  10콤보마다 강타 충격파 (3배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동), 백열권은 콤보당 +3% 후 어퍼컷에서 콤보 소모
-- 글로브: 백열권 - 1.2초 동안 마우스 방향 앞쪽을 주먹으로 마구 두드리고(0.07초마다 0.6배), 마지막 어퍼컷(4배)으로 날려 보내며 1초 기절 (15초)
+- 글로브: 초당 공격 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 45%)
+- 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공속 +2% (최대 +35%),
+  10콤보마다 강타 충격파 (2.5배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동), 백열권은 콤보당 +3% 후 어퍼컷에서 콤보 소모
+- 글로브: 백열권 - 1.2초 동안 마우스 방향 앞쪽을 주먹으로 마구 두드리고(0.07초마다 0.5배), 마지막 어퍼컷(4배)으로 날려 보내며 1초 기절 (15초)
 - 글록: 항공 폭격 - 비행기가 날아와 조준 방향 직선(약 1000px)에 폭탄을 줄줄이 떨어뜨림
   폭탄 1발 기본 1000 피해, 공격력이 오르면 같은 비율로 증가 (80초)
-- 기관총: 포탑 설치 - 6초 동안 자동으로 쏘는 포탑 (18초)
+- 기관총: 포탑 설치 (충전식) - 마우스 쪽에 10초 동안 자동으로 쏘는 포탑, 최대 3개까지 모아 두고 연달아 설치 (충전 12초)
 - 샷건: 용의 숨결 - 앞쪽 부채꼴 화염 방사 + 불붙임 (10초)
 - 저격총: 도탄 사격 - 한 발이 맞은 좀비에서 주변 좀비로 10번 튕김 (맞을 때마다 3배 데미지, "도탄 +3회" 업그레이드) (12초)
   튕길 때마다 기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발 공격) 적용, 도탄은 치명타 확률 +20%
 - 플라즈마: 블랙홀 - 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발 (18초)
-- 로켓: 유도 로켓 (조준점 근처 좀비를 잠그고 따라감, 점점 빨라짐) / 락온 미사일 - 주변 좀비를 하나씩 잠근 미사일 8발 (15초)
+- 로켓: 유도 로켓 (조준점 근처 좀비를 잠그고 따라감, 점점 빨라짐) / 락온 미사일 - 주변 좀비를 하나씩 잠근 미사일 8발 (12초)
 
 【주요 게임 메카닉】
 1. 넉백 시스템: 좀비마다 다른 넉백 저항도 (탱크는 완전 저항)
@@ -407,28 +407,28 @@ MELEE_SPEED_UPGRADE_RATES = {"melee": 0.08, "katana": 0.12, "spear": 0.08, "glov
 WEAPON_STATS = {
     # ----- 원거리 -----
     "glock":      {"name": "글록",   "dmg": 16, "rate": 4.0,  "speed": 14, "color": YELLOW},  # DPS 64  기본 권총
-    "machinegun": {"name": "기관총", "dmg": 7,  "rate": 9.0, "speed": 14, "color": (100, 100, 100)},  # DPS 63  꾹 눌러 연사
+    "machinegun": {"name": "기관총", "dmg": 9,  "rate": 9.0, "speed": 14, "color": (100, 100, 100)},  # DPS 81  꾹 눌러 연사
     "shotgun":    {"name": "샷건",   "dmg": 15, "rate": 1.5,  "speed": 13, "color": (200, 100, 0),
                    "max_range": 380},  # DPS 68  (3발 전탄) 근거리 전용
     "sniper":     {"name": "저격총", "dmg": 50, "rate": 1.0,  "speed": 24, "color": GRAY,
                    "pierce": 9999},  # DPS 50  기본 공격이 무한 관통 (사거리 끝까지 지나가는 좀비 모두)
     "plasma":     {"name": "플라즈마", "dmg": 28, "rate": 2.0, "speed": 13, "color": CYAN,
                    "splash_radius": 70, "splash_ratio": 0.4},  # DPS 56  + 착탄 폭발(주변 40%)
-    "rocket":     {"name": "로켓",   "dmg": 55, "rate": 0.8,  "speed": 9,  "color": RED,
-                   "splash_radius": 115, "splash_ratio": 0.4},  # DPS 44  + 큰 폭발(주변 40%)
+    "rocket":     {"name": "로켓",   "dmg": 70, "rate": 0.9,  "speed": 9,  "color": RED,
+                   "splash_radius": 115, "splash_ratio": 0.55},  # DPS 63  + 큰 폭발(주변 55%)
     # ----- 근접 (플레이어 주변 원형 범위 전체 타격, 사거리는 Melee 클래스의 attack_range) -----
     "melee":  {"name": "나무 방망이", "dmg": 36, "rate": 2.8,  "color": (139, 69, 19)},  # DPS 101  범위 110
     "katana": {"name": "카타나",      "dmg": 26, "rate": 4.0,  "color": (255, 215, 0)},  # DPS 104  범위 120
     "axe":    {"name": "도끼",        "dmg": 65, "rate": 1.5,  "color": (139, 35, 69)},  # DPS 98   범위 125, 강한 넉백
     "spear":  {"name": "창",          "dmg": 36, "rate": 2.0,  "color": (128, 128, 0)},  # DPS 72   범위 165 (가장 김)
-    "hammer": {"name": "일렉 기타",   "dmg": 25, "rate": 2.5,  "color": (220, 60, 150)},  # 박자에 맞춰 치면 강해짐 (PERFECT 2배) - 내부 이름은 예전 해머 그대로
-    "gloves": {"name": "글로브",      "dmg": 18, "rate": 5.0,  "color": (255, 192, 203)},  # DPS 90   범위 100
+    "hammer": {"name": "일렉 기타",   "dmg": 22, "rate": 2.5,  "color": (220, 60, 150)},  # 박자에 맞춰 치면 강해짐 (PERFECT 2배) - 내부 이름은 예전 해머 그대로
+    "gloves": {"name": "글로브",      "dmg": 15, "rate": 5.0,  "color": (255, 192, 203)},  # DPS 90   범위 100
 }
 
 # 우클릭 스킬 기본 쿨타임(ms) - "스킬 쿨타임 감소" 업그레이드가 모든 무기에 똑같이 적용됨
 SKILL_COOLDOWNS = {
     "melee": 8000, "katana": 6000, "axe": 12000, "spear": 8000, "hammer": 20000, "gloves": 15000,
-    "glock": 80000, "machinegun": 18000, "shotgun": 10000, "sniper": 12000, "plasma": 18000, "rocket": 15000,
+    "glock": 80000, "machinegun": 12000, "shotgun": 10000, "sniper": 12000, "plasma": 18000, "rocket": 12000,
 }
 
 # 카타나 일섬: 끝난 뒤 무적 시간(프레임), 연속 처치(쿨 초기화) 1회당 데미지 증가
@@ -478,27 +478,27 @@ SNIPER_RICOCHET_UPGRADE = 3
 GLOVES_FLURRY_FRAMES = 72
 GLOVES_FLURRY_RADIUS = 170
 GLOVES_FLURRY_HALF_ARC = 50
-GLOVES_FLURRY_HIT_MULT = 0.6
+GLOVES_FLURRY_HIT_MULT = 0.5
 GLOVES_UPPERCUT_MULT = 4.0
 GLOVES_UPPERCUT_KNOCKBACK = 22
 GLOVES_UPPERCUT_STUN = 60
 # 글로브 추가 타격: 초당 공격 횟수가 기준 이상이면 한 번 칠 때 몇 대씩 더 때림 (추가 타격은 60% 데미지, 치명타 따로)
 GLOVES_EXTRA_HIT_STEPS = ((9, 3), (7, 2), (5.5, 1))   # 초당 5.5회 이상 +1, 7회 +2, 9회 +3
-GLOVES_EXTRA_HIT_RATIO = 0.6
+GLOVES_EXTRA_HIT_RATIO = 0.45
 # 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 다시 못 맞히면 끊김)
-#  콤보 1당 공격 속도 +2% (최대 +50%) / 10콤보마다 "강타" 충격파 (3배) / 25콤보 이상 "폭주": 주먹마다 앞으로 주먹 파동 (0.8배)
-#  백열권은 콤보 1당 +3% (최대 +90%), 마지막 어퍼컷에서 콤보를 모두 터뜨림
+#  콤보 1당 공격 속도 +2% (최대 +35%) / 10콤보마다 "강타" 충격파 (3배) / 25콤보 이상 "폭주": 주먹마다 앞으로 주먹 파동 (0.8배)
+#  백열권은 콤보 1당 +3% (최대 +60%), 마지막 어퍼컷에서 콤보를 모두 터뜨림
 GLOVE_COMBO_WINDOW = 72
 GLOVE_COMBO_SPEED = 0.02
-GLOVE_COMBO_SPEED_MAX = 0.5
+GLOVE_COMBO_SPEED_MAX = 0.35
 GLOVE_POWER_EVERY = 10
-GLOVE_POWER_MULT = 3.0
+GLOVE_POWER_MULT = 2.5
 GLOVE_POWER_RADIUS = 110
 GLOVE_FRENZY_COMBO = 25
 GLOVE_WAVE_MULT = 0.8
 GLOVE_WAVE_RANGE = 220
 GLOVE_SKILL_COMBO_BONUS = 0.03
-GLOVE_SKILL_COMBO_MAX = 0.9
+GLOVE_SKILL_COMBO_MAX = 0.6
 # 나무 방망이: 기본 공격 넉백이 저항을 무시 (보스·넉백 면역 좀비도 밀림)
 #  스킬 "풀스윙 홈런" (차징형): 스킬 키를 누르고 있으면 힘을 모음 (최대 1.5초, 모으는 동안 느려짐), 떼면 휘두름
 #   모은 만큼 피해 2배→6배, 범위 160→260, 부채꼴 ±50°→±75°, 넉백 22→52 / 끝까지 모으면 "만루 홈런": 1초 기절
@@ -516,8 +516,8 @@ MISSILE_COUNT = 8
 MISSILE_LOCK_RANGE = 500
 # 일렉 기타 (리듬 무기): 기본 120BPM (0.5초마다 박자), 공격 속도가 빠를수록 박자도 빨라짐 (최대 0.24초) - 박자에 맞춰 치면 강해짐
 #  박자에 맞출 때마다 노래(기타 멜로디)가 한 음씩 이어서 연주됨
-#  PERFECT(±60ms) 2배 / GOOD(±120ms) 1.4배 / MISS 0.6배, PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +5%), MISS면 그루브 0
-#  박자 버프: 박자에 맞춰 칠 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +50%), 2초 동안 못 맞추면 사라짐
+#  PERFECT(±60ms) 1.8배 / GOOD(±120ms) 1.3배 / MISS 0.6배, PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +4%), MISS면 그루브 0
+#  박자 버프: 박자에 맞춰 칠 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +35%), 2초 동안 못 맞추면 사라짐
 #  스킬 앙코르: 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% · 상태 이상 정화+면역,
 #             팀원 스킬 쿨타임 3초 감소 + 주변 음파 (1.5배, 넉백) + 넓은 범위 좀비에게 "불협화음" (5초 동안 받는 피해 +25%, 40% 느려짐)
 BEAT_MS = 500             # 기본 박자 (가장 느림)
@@ -525,16 +525,16 @@ BEAT_MS_MIN = 240         # 가장 빠른 박자
 BEAT_PER_ATTACK = 1.25    # 박자 = 공격 간격 x 1.25
 RHYTHM_PERFECT_MS = 60    # 박자가 빨라지면 판정 범위도 같이 좁아짐 (박자의 12% / 24%)
 RHYTHM_GOOD_MS = 120
-RHYTHM_PERFECT_MULT = 2.0
-RHYTHM_GOOD_MULT = 1.4
+RHYTHM_PERFECT_MULT = 1.8
+RHYTHM_GOOD_MULT = 1.3
 RHYTHM_MISS_MULT = 0.6
 RHYTHM_DOUBLE_MULT = 0.3   # 같은 박자에 두 번 이상 치면 (연타 방지)
 GROOVE_MAX = 10
-GROOVE_BONUS = 0.05
+GROOVE_BONUS = 0.04
 BEAT_BUFF_FRAMES = 120
 BEAT_BUFF_PERFECT = 0.005
 BEAT_BUFF_GOOD = 0.0025
-BEAT_BUFF_MAX = 0.50
+BEAT_BUFF_MAX = 0.35
 BEAT_BUFF_UPGRADE = 0.5        # 전용 업그레이드 "박자 버프 증가": 1회당 쌓이는 양 +50% (PERFECT +0.25%p), 최대치 +5%p
 BEAT_BUFF_UPGRADE_CAP = 0.05
 BEAT_BUFF_UPGRADE_MAX = 10
@@ -2049,6 +2049,7 @@ class Player(pygame.sprite.Sprite):
         self.glove_combo = 0     # 글로브 콤보 수
         self.glove_combo_timer = 0
         self.groove = 0          # 일렉 기타: PERFECT 연속 (그루브)
+        self.turret_charges = TURRET_MAX_CHARGES   # 기관총 포탑 충전 개수
         self.bat_charging = False   # 나무 방망이 풀스윙: 힘 모으는 중
         self.bat_charge = 0
         self.encore_time = 0     # 앙코르 버프 남은 시간 (팀 전체)
@@ -3380,6 +3381,7 @@ def tick_glove_combo(player):
         cleanse(player)   # 앙코르 중 상태 이상 면역
         if player.encore_time % 30 == 0 and not getattr(player, "dead", False):   # 앙코르 재생: 0.5초마다
             player.health = min(player.max_health, player.health + player.max_health * ENCORE_REGEN / 2)
+    tick_turret_charges(player)   # 기관총 포탑 충전
     if getattr(player, "beat_buff_time", 0) > 0:
         player.beat_buff_time -= 1
         if player.beat_buff_time <= 0:
@@ -3496,7 +3498,7 @@ def cleanse(player):
 
 
 def give_beat_buff(player, amount):
-    """박자 맞춘 한 방: 팀 전체 공격력 버프가 조금씩 쌓임 (최대 +50%), 2초 안에 다시 맞추지 못하면 사라짐"""
+    """박자 맞춘 한 방: 팀 전체 공격력 버프가 조금씩 쌓임 (최대 +35%), 2초 안에 다시 맞추지 못하면 사라짐"""
     level = player.skill_upgrades["hammer"].get("beat", 0)   # 전용 업그레이드 "박자 버프 증가"
     amount *= 1 + BEAT_BUFF_UPGRADE * level
     cap = BEAT_BUFF_MAX + BEAT_BUFF_UPGRADE_CAP * level
@@ -4836,7 +4838,28 @@ class FlurrySkill(ActiveSkill):
         return True
 
 
-TURRET_DAMAGE_MULT = 1.2   # 포탑 한 발 = 지금 내 공격력 x 1.2
+TURRET_DAMAGE_MULT = 1.5   # 포탑 한 발 = 지금 내 공격력 x 1.5
+TURRET_MAX_CHARGES = 3     # 포탑 충전: 최대 3개까지 모아 두고 한꺼번에 설치 가능 ("포탑 최대 충전 +1" 업그레이드)
+TURRET_PLACE_RANGE = 220   # 포탑은 마우스 쪽 (최대 220px) 에 설치 - 원하는 곳에 모아서 깔 수 있게
+TURRET_FIRE_EVERY = 5      # 프레임마다 한 발 (예전 7)
+TURRET_RANGE = 600
+
+
+def turret_max_charges(player):
+    return TURRET_MAX_CHARGES + player.skill_upgrades["machinegun"].get("charges", 0)
+
+
+def tick_turret_charges(player):
+    """포탑 충전 (매 프레임): 다 차 있지 않으면 쿨타임마다 1개씩 충전"""
+    if player.weapon is None or player.weapon.weapon_type != "machinegun":
+        return
+    ready_at = player.skill_cooldowns.get("machinegun", 0)
+    if player.turret_charges < turret_max_charges(player) and 0 < ready_at <= pygame.time.get_ticks():
+        player.turret_charges += 1
+        if player.turret_charges < turret_max_charges(player):
+            player.skill_cooldowns["machinegun"] = pygame.time.get_ticks() + int(SKILL_COOLDOWNS["machinegun"] * (1 - player.skill_cooldown_reduction))
+        else:
+            player.skill_cooldowns["machinegun"] = 0
 
 
 def bullet_hit_damage(owner, bullet, zombie):
@@ -4858,10 +4881,10 @@ class TurretSkill(ActiveSkill):
         fx.ring(x, y, (180, 180, 180), 50, count=16)
 
     def tick(self, player, zombies, bullets, all_sprites, explosions):
-        target = nearest_zombie(zombies, self.x, self.y, 520)
+        target = nearest_zombie(zombies, self.x, self.y, TURRET_RANGE)
         if target is not None:
             self.aim = math.atan2(target.rect.centery - self.y, target.rect.centerx - self.x)
-            if self.frames % 7 == 0:
+            if self.frames % TURRET_FIRE_EVERY == 0:
                 # 지금 내 공격력 기준 (설치 뒤에 받은 버프/강화도 반영)
                 damage = get_weapon_damage(player) * TURRET_DAMAGE_MULT if player.weapon is not None else self.damage
                 bullet = Bullet(self.x, self.y, target.rect.centerx, target.rect.centery, damage, "normal", "machinegun")
@@ -5111,8 +5134,11 @@ class BombardmentSkill(ActiveSkill):
 def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zombies, bullets, all_sprites, explosions):
     current_time = pygame.time.get_ticks()
 
-    # 쿨타임 체크
-    if player.skill_cooldowns[weapon_type] > current_time:
+    # 쿨타임 체크 (기관총 포탑은 충전 개수로 - 충전이 남아 있으면 쿨타임 중에도 설치)
+    if weapon_type == "machinegun":
+        if player.turret_charges <= 0:
+            return
+    elif player.skill_cooldowns[weapon_type] > current_time:
         return
     if weapon_type != "hammer":   # 앙코르는 파워 코드 소리가 따로 남
         sfx("skill", player.rect.centerx, player.rect.centery)
@@ -5294,9 +5320,13 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         player.active_skills.append(AirStrikeSkill(player, all_sprites, bomb_damage, direction_x, direction_y, length, blast))
 
     elif weapon_type == "machinegun":
-        # 포탑 설치: 그 자리에서 자동 사격하는 포탑
-        duration = 360 + up["burst"] * 30
-        player.active_skills.append(TurretSkill(cx, cy, duration, base * TURRET_DAMAGE_MULT, all_sprites))
+        # 포탑 설치 (충전식): 마우스 쪽(최대 220px)에 설치 - 충전이 남아 있으면 연달아 여러 개
+        duration = 600 + up["burst"] * 30
+        reach = min(distance, TURRET_PLACE_RANGE)
+        tx, ty = cx + direction_x * reach, cy + direction_y * reach
+        player.active_skills.append(TurretSkill(tx, ty, duration, base * TURRET_DAMAGE_MULT, all_sprites))
+        player.turret_charges -= 1
+        fx.add_text(tx, ty - 40, f"포탑 {player.turret_charges}/{turret_max_charges(player)}", (200, 210, 230), life=30)
 
     elif weapon_type == "shotgun":
         # 용의 숨결: 앞쪽 부채꼴로 화염 방사 + 불붙임
@@ -5332,8 +5362,12 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         # 락온 미사일: 조준점 주변 좀비를 하나씩 잠근 미사일 8발 (목표가 적으면 나머지는 조준점으로)
         radius = 90 + up["explosion"] // 2
         player.active_skills.append(LockOnMissileSkill(player, all_sprites, zombies, mouse_world_x, mouse_world_y, MISSILE_COUNT,
-                                                       base * 1.4 * (1 + 0.05 * up["damage"]), radius))
+                                                       base * 2.0 * (1 + 0.05 * up["damage"]), radius))
 
+    if weapon_type == "machinegun":   # 충전식: 이미 충전 중이면 그 시간 그대로, 다 차 있었으면 지금부터 충전
+        if player.skill_cooldowns[weapon_type] <= current_time:
+            player.skill_cooldowns[weapon_type] = current_time + int(SKILL_COOLDOWNS[weapon_type] * (1 - player.skill_cooldown_reduction))
+        return
     player.skill_cooldowns[weapon_type] = current_time + int(SKILL_COOLDOWNS[weapon_type] * (1 - player.skill_cooldown_reduction))
     if weapon_type == "hammer":   # 앙코르: 시전자도 팀 전체 쿨타임 10% 감소를 받음
         player.skill_cooldowns[weapon_type] = current_time + int((player.skill_cooldowns[weapon_type] - current_time) * (1 - ENCORE_COOLDOWN_RATIO))
@@ -6519,7 +6553,15 @@ def draw_player_status(surface, player, x=14, y=14):
     remain = max(0, player.skill_cooldowns[weapon_type] - now)
     total = max(1, SKILL_COOLDOWNS.get(weapon_type, 10000) * (1 - player.skill_cooldown_reduction))
     skill_rect = (x + 12, y + 116, w - 24, 22)
-    if remain <= 0:
+    if weapon_type == "machinegun":   # 포탑 충전식: 남은 개수 + 다음 충전까지
+        charges, most = getattr(player, "turret_charges", 0), turret_max_charges(player)
+        if charges > 0:
+            label = f"우클릭 포탑 {charges}/{most}" + (f" · 충전 {remain / 1000:.1f}초" if remain > 0 and charges < most else "")
+            ui_bar(surface, skill_rect, charges / most, (90, 200, 120), back=(20, 40, 28), label=label, font=font_tiny, label_color=(230, 255, 235))
+        else:
+            ui_bar(surface, skill_rect, 1 - remain / total, (106, 155, 204), back=(44, 41, 38),
+                   label=f"포탑 충전 {remain / 1000:.1f}초", font=font_tiny)
+    elif remain <= 0:
         pulse = 0.5 + 0.5 * math.sin(now / 180)
         ui_bar(surface, skill_rect, 1, (int(70 + 50 * pulse), 210, int(110 + 40 * pulse)), back=(20, 40, 28),
                label="우클릭 스킬 준비 완료!", font=font_hud, label_color=(10, 40, 20))
@@ -6768,8 +6810,9 @@ WEAPON_HELP = {
                "폭탄 1발 기본 1000 피해 (반경 75), 공격력이 오르면 같은 비율로 증가.",
                "업그레이드 \"폭격 범위 증가\": 길이 +100px, 폭 +15px. 쿨타임 80초."]),
     "machinegun": (["누르고 있으면 연사. 한 발은 약하지만 매우 빠름."],
-                   ["포탑 설치: 6초 동안 가까운 좀비를 자동으로 쏘는 포탑 (한 발 = 지금 공격력 x 1.2).",
-                    "포탑 총알도 평타처럼 화염 · 얼음 · 전기탄, 폭발 공격, 관통이 적용됨 (치명타만 없음). 쿨타임 18초."]),
+                   ["포탑 설치 (충전식): 마우스 쪽(최대 220px)에 10초 동안 가까운 좀비를 자동으로 쏘는 포탑 (한 발 = 지금 공격력 x 1.5).",
+                    "충전 최대 3개 - 모아 뒀다가 연달아 여러 개 설치 가능, 12초마다 1개 충전 (업그레이드 \"포탑 최대 충전 +1\", 최대 5개).",
+                    "포탑 총알도 평타처럼 화염 · 얼음 · 전기탄, 폭발 공격, 관통이 적용됨 (치명타만 없음)."]),
     "shotgun": (["한 번에 3발 산탄. 사거리 380 (근거리 전용)."],
                 ["용의 숨결: 앞쪽 부채꼴로 불을 뿜어 피해 + 불붙임. 쿨타임 10초."]),
     "sniper": (["강한 한 발. 기본 공격이 무한 관통 (사거리 끝까지)."],
@@ -6779,9 +6822,9 @@ WEAPON_HELP = {
     "plasma": (["맞으면 작은 폭발 (주변 40%)."],
                ["블랙홀: 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
     "rocket": (["유도 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 따라감 (잠근 좀비에 붉은 조준선).",
-                "느리게 출발해서 점점 빨라짐. 맞으면 큰 폭발 (주변 40%)."],
-               ["락온 미사일: 조준점 주변(500px) 좀비를 하나씩 잠근 미사일 8발이 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 1.4배).",
-                "목표가 8마리보다 적으면 남은 미사일은 조준점으로. 쿨타임 15초."]),
+                "느리게 출발해서 점점 빨라짐. 맞으면 큰 폭발 (주변 55%)."],
+               ["락온 미사일: 조준점 주변(500px) 좀비를 하나씩 잠근 미사일 8발이 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 2배).",
+                "목표가 8마리보다 적으면 남은 미사일은 조준점으로. 쿨타임 12초."]),
     "melee": (["초보자용 근접 무기. 조준 방향 부채꼴 안의 좀비를 모두 때림.",
                "넉백이 저항을 무시함 - 보스와 넉백 면역 좀비도 밀려남."],
               ["풀스윙 홈런 (차징): 스킬 키를 누르고 있으면 힘을 모음 (최대 1.5초, 모으는 동안 느려짐), 떼면 휘두름.",
@@ -6798,19 +6841,19 @@ WEAPON_HELP = {
                "창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해(80%) + 넉백."],
               ["물보라: 큰 창이 떨어진 뒤 물결이 퍼져 좀비를 튕겨 내고 3초 동안 50% 느리게 (2배).",
                "쓰는 순간 내 상태 이상(독 · 둔화 · 감전 · 부식)을 모두 해제. 쿨타임 8초."]),
-    "hammer": (["리듬 무기: 박자에 맞춰 치면 PERFECT 2배 / GOOD 1.4배 / MISS 0.6배.",
-                "PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +5%), MISS면 그루브 0.",
-                "박자를 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +50%, 2초 동안 못 맞추면 사라짐).",
+    "hammer": (["리듬 무기: 박자에 맞춰 치면 PERFECT 1.8배 / GOOD 1.3배 / MISS 0.6배.",
+                "PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +4%), MISS면 그루브 0.",
+                "박자를 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +35%, 2초 동안 못 맞추면 사라짐).",
                 "공격 속도가 빠를수록 박자도 빨라짐. 판정 밑에 빠름/느림 표시, 박자를 맞추면 기타 멜로디가 이어짐.",
                 "전용 업그레이드: 박자 버프 증가 / 박자 버프 지속 +0.5초 / 판정 범위 증가."],
                ["앙코르: 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% · 상태 이상 정화 + 면역.",
                 "팀 전체 남은 스킬 쿨타임 -10% (팀원은 추가로 -3초), 주변 음파 (1.5배, 넉백).",
                 "반경 320 좀비에게 불협화음: 5초 동안 받는 피해 +25%, 40% 느려짐. 쿨타임 20초."]),
     "gloves": (["초고속 연타. 공격 속도가 초당 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림.",
-                "콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공격 속도 +2% (최대 +50%).",
-                "10콤보마다 강타 충격파 (3배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동)."],
+                "콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공격 속도 +2% (최대 +35%).",
+                "10콤보마다 강타 충격파 (2.5배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동)."],
                ["백열권: 1.2초 동안 앞쪽을 마구 두드린 뒤 어퍼컷 (4배, 멀리 날림, 1초 기절).",
-                "콤보당 +3% (최대 +90%) 강해지고 어퍼컷에서 콤보를 모두 터뜨림. 쿨타임 15초."]),
+                "콤보당 +3% (최대 +60%) 강해지고 어퍼컷에서 콤보를 모두 터뜨림. 쿨타임 15초."]),
 }
 
 
@@ -7169,6 +7212,8 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"도탄 사격 튕김: +{counts['sniper_skill_pierces'] * SNIPER_RICOCHET_UPGRADE}회")
     if counts.get("machinegun_skill_burst", 0) > 0:
         lines.append(f"포탑 지속: +{counts['machinegun_skill_burst']}초")
+    if counts.get("machinegun_skill_charge", 0) > 0:
+        lines.append(f"포탑 최대 충전: {TURRET_MAX_CHARGES + counts['machinegun_skill_charge']}개")
 
     if counts.get("katana_skill_strikes", 0) > 0:
         lines.append(f"일섬 거리: +{counts['katana_skill_strikes'] * 40}px")
@@ -7303,6 +7348,8 @@ def is_upgrade_at_limit(player, upgrade_type):
     # 명시적 횟수 제한
     if upgrade_type == "crit":
         return player.levels.get("crit", 0) >= 16  # 최대 80%
+    if upgrade_type == "machinegun_skill_charge":   # 최대 5개까지
+        return player.skill_upgrades["machinegun"].get("charges", 0) >= 2
     if upgrade_type == "hammer_skill_damage":   # 앙코르 방어: 25% + 5% x 7 = 60%에서 끝
         return ENCORE_DEFENSE + 0.05 * player.skill_upgrades["hammer"]["damage"] >= ENCORE_DEFENSE_MAX - 1e-9
     if upgrade_type == "hammer_judge":
@@ -7488,6 +7535,7 @@ def build_upgrade_choices(player):
     elif weapon_type == "machinegun":
         weapon_upgrades = [
             {"name": "포탑 지속 +1초", "desc": "포탑이 더 오래 유지", "type": "machinegun_skill_burst", "color": (150, 150, 200)},
+            {"name": "포탑 최대 충전 +1", "desc": "포탑을 하나 더 모아 둘 수 있음", "type": "machinegun_skill_charge", "color": (170, 200, 230)},
             {"name": "공격력 +1", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 1},
         ]
     elif weapon_type == "plasma":
@@ -7716,6 +7764,9 @@ def apply_upgrade(player, selected_upgrade):
         player.skill_upgrades["sniper"]["crit_damage"] = player.skill_upgrades["sniper"].get("crit_damage", 0) + 1
     elif selected_upgrade["type"] == "sniper_skill_pierces":
         player.skill_upgrades["sniper"]["pierces"] += 1
+    elif selected_upgrade["type"] == "machinegun_skill_charge":
+        player.skill_upgrades["machinegun"]["charges"] = player.skill_upgrades["machinegun"].get("charges", 0) + 1
+        player.turret_charges += 1   # 바로 하나 더
     elif selected_upgrade["type"] == "machinegun_skill_burst":
         player.skill_upgrades["machinegun"]["burst"] += 2
     elif selected_upgrade["type"] == "plasma_skill_range":
@@ -7795,6 +7846,7 @@ def get_upgrade_name(upgrade_type):
         "sniper_skill_pierces": "도탄 +3회",
         "sniper_skill_critdmg": "치명타 피해 +25%",
         "machinegun_skill_burst": "포탑 지속 +1초",
+        "machinegun_skill_charge": "포탑 최대 충전 +1",
         "plasma_skill_range": "블랙홀 범위 +15px",
         "plasma_skill_damage": "블랙홀 피해 +8%",
         "rocket_skill_count": "로켓 범위 +15px",
@@ -8244,7 +8296,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102117          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102118          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
