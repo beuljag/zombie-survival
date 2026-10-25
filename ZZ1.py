@@ -190,6 +190,7 @@
    - 웨이브마다 등장하는 좀비 수 +2, 등장 간격 단축, 보스 소환 수도 증가
    - 보스/거대 좀비 체력 1.6배 (다른 좀비가 소환한 개체 제외)
 10. 경험치 부스트: 업그레이드로 추가 경험치 40%씩 증가
+11. 100레벨 특수 업그레이드: 100/200/300... 레벨에는 ★ 각성 / 거인의 심장 / 시간 지배 / 광폭화 / 원소 지배 중 하나 (각각 1번)
 
 【연출 (게임 판정에는 영향 없음)】
 - 피격: 좀비 하얀 번쩍임, 데미지 숫자 (치명타는 노란색 큰 숫자), 타격 불꽃
@@ -2088,6 +2089,9 @@ class Player(pygame.sprite.Sprite):
 
         # 스킬 쿨타임 감소 (0~1.0 비율: 0.2 = 20% 감소)
         self.skill_cooldown_reduction = 0
+        self.special_upgrades = []   # 100레벨마다 고르는 특수 업그레이드 (한 번씩만)
+        self.awaken_mult = 1.0       # 특수 "각성": 공격력 배율
+        self.special_cd_mult = 1.0   # 특수 "시간 지배": 스킬 쿨타임 배율
 
         # 무기별 스킬 업그레이드 효과
         self.skill_upgrades = {
@@ -4168,9 +4172,14 @@ def get_spear_speed_factor(player):
     return max(0.4, speed / SPEAR_BASE_SPEED)
 
 
+def skill_cd_factor(player):
+    """스킬 쿨타임 배율 (쿨타임 감소 업그레이드 + 특수 업그레이드 "시간 지배")"""
+    return (1 - player.skill_cooldown_reduction) * getattr(player, "special_cd_mult", 1.0)
+
+
 def get_weapon_damage(player):
     """현재 무기 공격력 (공격력 아이템 버프 반영, 창은 이동속도 비례)"""
-    damage = player.weapon.damage
+    damage = player.weapon.damage * getattr(player, "awaken_mult", 1.0)   # 특수 업그레이드 "각성"
     if player.damage_buff_time > 0:
         damage *= ITEM_BUFF_MULTIPLIER
     if player.weapon.weapon_type == "spear":
@@ -4860,7 +4869,7 @@ def tick_turret_charges(player):
     if player.turret_charges < turret_max_charges(player) and 0 < ready_at <= pygame.time.get_ticks():
         player.turret_charges += 1
         if player.turret_charges < turret_max_charges(player):
-            player.skill_cooldowns["machinegun"] = pygame.time.get_ticks() + int(SKILL_COOLDOWNS["machinegun"] * (1 - player.skill_cooldown_reduction))
+            player.skill_cooldowns["machinegun"] = pygame.time.get_ticks() + int(SKILL_COOLDOWNS["machinegun"] * skill_cd_factor(player))
         else:
             player.skill_cooldowns["machinegun"] = 0
 
@@ -5369,9 +5378,9 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
 
     if weapon_type == "machinegun":   # 충전식: 이미 충전 중이면 그 시간 그대로, 다 차 있었으면 지금부터 충전
         if player.skill_cooldowns[weapon_type] <= current_time:
-            player.skill_cooldowns[weapon_type] = current_time + int(SKILL_COOLDOWNS[weapon_type] * (1 - player.skill_cooldown_reduction))
+            player.skill_cooldowns[weapon_type] = current_time + int(SKILL_COOLDOWNS[weapon_type] * skill_cd_factor(player))
         return
-    player.skill_cooldowns[weapon_type] = current_time + int(SKILL_COOLDOWNS[weapon_type] * (1 - player.skill_cooldown_reduction))
+    player.skill_cooldowns[weapon_type] = current_time + int(SKILL_COOLDOWNS[weapon_type] * skill_cd_factor(player))
     if weapon_type == "hammer":   # 앙코르: 시전자도 팀 전체 쿨타임 10% 감소를 받음
         player.skill_cooldowns[weapon_type] = current_time + int((player.skill_cooldowns[weapon_type] - current_time) * (1 - ENCORE_COOLDOWN_RATIO))
     if reset_cooldown:
@@ -6554,7 +6563,7 @@ def draw_player_status(surface, player, x=14, y=14):
     now = pygame.time.get_ticks()
     weapon_type = player.weapon.weapon_type
     remain = max(0, player.skill_cooldowns[weapon_type] - now)
-    total = max(1, SKILL_COOLDOWNS.get(weapon_type, 10000) * (1 - player.skill_cooldown_reduction))
+    total = max(1, SKILL_COOLDOWNS.get(weapon_type, 10000) * skill_cd_factor(player))
     skill_rect = (x + 12, y + 116, w - 24, 22)
     if weapon_type == "machinegun":   # 포탑 충전식: 남은 개수 + 다음 충전까지
         charges, most = getattr(player, "turret_charges", 0), turret_max_charges(player)
@@ -6864,7 +6873,7 @@ def class_live_lines(player):
     """지금 내 상태 (공격력, 공격 속도, 쿨타임 등)"""
     weapon = player.weapon
     rate = 1000.0 / max(1.0, weapon.get_attack_interval())
-    cooldown = SKILL_COOLDOWNS[weapon.weapon_type] * (1 - player.skill_cooldown_reduction) / 1000
+    cooldown = SKILL_COOLDOWNS[weapon.weapon_type] * skill_cd_factor(player) / 1000
     lines = [f"체력 {int(player.health)}/{int(player.max_health)} · 이동속도 {player.speed:.1f} · 레벨 {player.level}",
              f"공격력 {get_weapon_damage(player):.1f} · 초당 공격 {rate:.2f}회 · 스킬 쿨타임 {cooldown:.1f}초"]
     if weapon.weapon_type == "hammer":
@@ -7188,6 +7197,8 @@ def build_cumulative_upgrade_lines(player):
 
     if counts.get("exp_boost", 0) > 0:
         lines.append(f"경험치 보너스: +{round(counts.get('exp_boost', 0) * EXP_BOOST_PER * 100)}%")
+    for kind in getattr(player, "special_upgrades", []):
+        lines.append(f"특수: {get_upgrade_name(kind)}")
 
     crit_percent = player.levels.get("crit", 0) * 5
     dodge_percent = player.levels.get("dodge", 0) * 5
@@ -7410,8 +7421,39 @@ def filter_upgrades_by_limit(player, upgrades):
 
 
 # 업그레이드 선택 메뉴
-def build_upgrade_choices(player):
-    """레벨업 업그레이드 후보 3개를 고름 (화면 없이 - 멀티에서도 사용)"""
+SPECIAL_UPGRADE_EVERY = 100   # 100, 200, 300... 레벨에는 특수 업그레이드만 나옴
+SPECIAL_COLOR = (255, 200, 60)
+SPECIAL_UPGRADES = [
+    {"name": "★ 각성", "desc": "공격력 x1.5 (스킬 · 포탑 · 폭발 모두)", "type": "special_awaken", "color": (255, 120, 60)},
+    {"name": "★ 거인의 심장", "desc": "최대 체력 x2 + 체력 모두 회복", "type": "special_titan", "color": (255, 90, 110)},
+    {"name": "★ 시간 지배", "desc": "스킬 쿨타임 절반 (지금 남은 쿨타임도 절반)", "type": "special_chrono", "color": (170, 120, 255)},
+    {"name": "★ 광폭화", "desc": "공격 속도 +50%", "type": "special_frenzy", "color": (255, 170, 60)},
+    {"name": "★ 원소 지배", "desc": "화염 · 얼음 · 전기탄 + 폭발 공격 한꺼번에 획득", "type": "special_elements", "color": (120, 220, 255)},
+]
+ELEMENT_SKILLS = ("skill_fire_bullets", "skill_ice_bullets", "skill_electric_bullets", "skill_explosion")
+
+
+def is_special_level(level):
+    return level > 0 and level % SPECIAL_UPGRADE_EVERY == 0
+
+
+def special_upgrade_choices(player):
+    """특수 업그레이드 후보 3개 (이미 고른 것은 빠짐, 남은 게 없으면 빈 목록)"""
+    pool = [dict(u) for u in SPECIAL_UPGRADES if u["type"] not in player.special_upgrades]
+    if all(player.skills.get(k, False) for k in ELEMENT_SKILLS):
+        pool = [u for u in pool if u["type"] != "special_elements"]   # 이미 다 있으면 의미 없음
+    for u in pool:
+        u["special"] = True
+    return random.sample(pool, min(3, len(pool)))
+
+
+def build_upgrade_choices(player, level=None):
+    """레벨업 업그레이드 후보 3개를 고름 (화면 없이 - 멀티에서도 사용)
+    level: 이 선택이 몇 레벨 보상인지 (한 번에 여러 레벨이 올라도 100레벨 보상을 놓치지 않게)"""
+    if is_special_level(player.level if level is None else level):
+        special = special_upgrade_choices(player)
+        if special:
+            return special
     # 기본 보상 옵션들
     all_upgrades = [
         # 체력 관련
@@ -7571,8 +7613,10 @@ def build_upgrade_choices(player):
     return random.sample(all_upgrades, min(3, len(all_upgrades)))
 
 
-def show_upgrade_menu(player, camera):
-    selected_upgrades = build_upgrade_choices(player)
+def show_upgrade_menu(player, camera, level=None):
+    level = player.level if level is None else level
+    selected_upgrades = build_upgrade_choices(player, level)
+    special = bool(selected_upgrades) and selected_upgrades[0].get("special", False)
     background = ui_snapshot()     # 멈춘 게임 화면을 뒤에 보여줌
 
     # 공격하느라 연타하던 클릭이 메뉴가 뜨자마자 아무 업그레이드나 골라버리지 않도록
@@ -7587,7 +7631,10 @@ def show_upgrade_menu(player, camera):
 
         # 카드가 아래에서 살짝 떠오르며 나타남
         rise = max(0, 40 - elapsed // 5)
-        top = ui_title(screen, "레벨 업!", SCREEN_HEIGHT // 2 - 230, f"LV.{player.level} · 한 가지를 선택하세요", color=UI_ACCENT)
+        if special:   # 100레벨: 특수 업그레이드
+            top = ui_title(screen, f"LV.{level} 특수 업그레이드!", SCREEN_HEIGHT // 2 - 230, "아주 강력한 보상 · 한 가지를 선택하세요", color=SPECIAL_COLOR)
+        else:
+            top = ui_title(screen, "레벨 업!", SCREEN_HEIGHT // 2 - 230, f"LV.{level} · 한 가지를 선택하세요", color=UI_ACCENT)
         rects = _card_row(len(selected_upgrades), 300, 140, max(top + 40, SCREEN_HEIGHT // 2 - 85) + rise, gap=30)
         mouse_pos = pygame.mouse.get_pos()
         for i, (upgrade, rect) in enumerate(zip(selected_upgrades, rects)):
@@ -7668,6 +7715,28 @@ def apply_upgrade(player, selected_upgrade):
         player.levels["crit"] = min(16, player.levels.get("crit", 0) + 1)
     elif selected_upgrade["type"] == "dodge":
         player.levels["dodge"] = min(20, player.levels.get("dodge", 0) + 1)
+    elif selected_upgrade["type"].startswith("special_"):   # 100레벨 특수 업그레이드
+        kind = selected_upgrade["type"]
+        player.special_upgrades.append(kind)
+        if kind == "special_awaken":
+            player.awaken_mult *= 1.5
+        elif kind == "special_titan":
+            player.max_health *= 2
+            player.health = player.max_health
+        elif kind == "special_chrono":
+            player.special_cd_mult *= 0.5
+            now = pygame.time.get_ticks()
+            for key, ready_at in player.skill_cooldowns.items():
+                if ready_at > now:
+                    player.skill_cooldowns[key] = now + (ready_at - now) // 2
+        elif kind == "special_frenzy":
+            player.weapon.fire_rate *= 1.5
+        elif kind == "special_elements":
+            for key in ELEMENT_SKILLS:
+                player.skills[key] = True
+        if LOCAL_PLAYER is None or player is LOCAL_PLAYER:
+            fx.ring(player.rect.centerx, player.rect.centery, SPECIAL_COLOR, 220, count=48, size=5)
+            fx.add_text(player.rect.centerx, player.rect.top - 50, selected_upgrade.get("name", "특수 업그레이드"), SPECIAL_COLOR, big=True, life=90)
     elif selected_upgrade["type"] == "attack_speed":
         # fire_rate는 클수록 빠름 (공격 간격 = 1000 / fire_rate / attack_speed ms)
         # 예전에는 0.95를 곱해서 오히려 공격이 5%씩 느려졌음
@@ -7804,6 +7873,8 @@ def get_upgrade_name(upgrade_type):
         "attack_speed": "공격 속도 +5%",
         "skill_cooldown_reduction": "스킬 쿨 -5%",
         "skill_cooldown_reduction_big": "스킬 쿨 -10%",
+        "special_awaken": "★ 각성", "special_titan": "★ 거인의 심장", "special_chrono": "★ 시간 지배",
+        "special_frenzy": "★ 광폭화", "special_elements": "★ 원소 지배",
         # 스킬
         "skill_infinity_ammo": "무한탄약 (30초)",
         "skill_piercing": "투사체 관통 +1",
@@ -8221,6 +8292,7 @@ PLAYER_SAVE_FIELDS = [
     "ability", "health", "max_health", "speed", "damage", "exp", "exp_to_level", "level", "regen",
     "levels", "skills", "pierce_level", "skill_upgrades", "weapon_upgrades", "obtained_upgrades",
     "shield_active", "skill_cooldown_reduction", "infinity_ammo_time", "teleport_cooldown_max",
+    "special_upgrades", "awaken_mult", "special_cd_mult",
 ]
 WEAPON_SAVE_FIELDS = ["weapon_type", "damage", "fire_rate", "attack_speed"]
 
@@ -8299,7 +8371,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102119          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102120          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -8803,9 +8875,9 @@ def main():
                 fx.ring(player.rect.centerx, player.rect.centery, (255, 230, 90), 140, count=36, size=4)
                 fx.add_text(player.rect.centerx, player.rect.top - 30, "LEVEL UP!", (255, 230, 90), big=True, life=70)
                 sfx("levelup")
-            for _ in range(levels_gained):
+            for gained_i in range(levels_gained):
                 menu_start = pygame.time.get_ticks()
-                selected_upgrade = show_upgrade_menu(player, camera)
+                selected_upgrade = show_upgrade_menu(player, camera, player.level - levels_gained + 1 + gained_i)
                 # 메뉴를 보는 동안 웨이브 타이머/스킬 쿨타임이 흐르지 않도록 보정
                 paused_ms = pygame.time.get_ticks() - menu_start
                 wave_timer_start += paused_ms

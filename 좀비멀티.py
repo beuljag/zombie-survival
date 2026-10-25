@@ -673,8 +673,8 @@ class MatchState:
             p.level += 1
             p.exp_to_level = int(100 * (1.1 ** p.level))
             gained += 1
-        for _ in range(gained):
-            p.pending_choices.append(build_upgrade_choices(p))
+        for gained_i in range(gained):   # 레벨마다 맞는 보상 (100레벨은 특수 업그레이드)
+            p.pending_choices.append(build_upgrade_choices(p, p.level - gained + 1 + gained_i))
         if gained:
             fx.ring(p.rect.centerx, p.rect.centery, (255, 230, 90), 140, count=36, size=4)
             fx.add_text(p.rect.centerx, p.rect.top - 30, "LEVEL UP!", (255, 230, 90), big=True, life=70)
@@ -1313,8 +1313,9 @@ def draw_match(state, camera, ui):
         width, height, gap = 270, 104, 18
         x0 = SCREEN_WIDTH // 2 - (len(choices) * width + (len(choices) - 1) * gap) // 2
         y0 = SCREEN_HEIGHT - 190
-        ui_text(screen, f"레벨업! 업그레이드 선택 (클릭 또는 {binding_label('pick1')}/{binding_label('pick2')}/{binding_label('pick3')}) "
-                        f"· 남은 선택 {len(local.pending_choices)}", font_hud, UI_ACCENT,
+        special = bool(choices) and choices[0].get("special", False)
+        ui_text(screen, f"{'★ 특수 업그레이드!' if special else '레벨업! 업그레이드'} 선택 (클릭 또는 {binding_label('pick1')}/{binding_label('pick2')}/{binding_label('pick3')}) "
+                        f"· 남은 선택 {len(local.pending_choices)}", font_hud, g.SPECIAL_COLOR if special else UI_ACCENT,
                 (SCREEN_WIDTH // 2, y0 - 34), "midtop")
         mouse = pygame.mouse.get_pos()
         for i, choice in enumerate(choices):
