@@ -166,7 +166,7 @@
 - 저격총: 도탄 사격 - 한 발이 맞은 좀비에서 주변 좀비로 10번 튕김 (맞을 때마다 3배 데미지, "도탄 +3회" 업그레이드) (12초)
   튕길 때마다 기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발 공격) 적용, 도탄은 치명타 확률 +20%
 - 플라즈마: 블랙홀 - 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발 (18초)
-- 로켓: 유도 로켓 (조준점 근처 좀비를 잠그고 따라감, 점점 빨라짐) / 락온 미사일 - 주변 좀비를 하나씩 잠근 미사일 8발 (12초)
+- 로켓: 유도 로켓 (조준점 근처 좀비를 잠그고 따라감, 점점 빨라짐) / 락온 미사일 - 주변 좀비 전부에게 미사일 1발씩 (최소 8발) (12초)
 
 【주요 게임 메카닉】
 1. 넉백 시스템: 좀비마다 다른 넉백 저항도 (탱크는 완전 저항)
@@ -508,13 +508,13 @@ BAT_CHARGE_MAX = 90
 BAT_CHARGE_SLOW = 0.55
 BAT_KNOCK_IGNORE_FRAMES = 30
 # 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 살짝 따라감 (1프레임에 최대 5°), 느리게 출발해서 빨라짐
-#  스킬 "락온 미사일": 조준점 주변(500px) 좀비를 하나씩 잠근 미사일 8발이 퍼져 나갔다가 휘어져 날아가 폭발
+#  스킬 "락온 미사일": 조준점 주변(500px) 좀비를 전부 잠가서 한 마리당 미사일 1발 (최소 8발), 퍼져 나갔다가 휘어져 날아가 폭발
 ROCKET_LOCK_RANGE = 180
 ROCKET_TURN = math.radians(5)
 ROCKET_START_SPEED = 5.0
 ROCKET_ACCEL = 0.45
 ROCKET_MAX_SPEED = 16.0
-MISSILE_COUNT = 8
+MISSILE_COUNT = 8          # 최소 발 수 (잠근 좀비가 적으면 남는 미사일은 다시 앞에서부터 나눠 맞힘)
 MISSILE_LOCK_RANGE = 500
 # 일렉 기타 (리듬 무기): 기본 120BPM (0.5초마다 박자), 공격 속도가 빠를수록 박자도 빨라짐 (최대 0.24초) - 박자에 맞춰 치면 강해짐
 #  박자에 맞출 때마다 노래(기타 멜로디)가 한 음씩 이어서 연주됨
@@ -5067,22 +5067,24 @@ class BlackHoleSkill(ActiveSkill):
 
 
 class LockOnMissileSkill(ActiveSkill):
-    """로켓 락온 미사일: 조준점 주변 좀비를 하나씩 잠근 미사일이 부채꼴로 퍼져 나갔다가 휘어져 날아가 폭발"""
+    """로켓 락온 미사일: 조준점 주변 좀비를 전부 잠가 한 마리당 1발씩 (최소 count발), 부채꼴로 퍼져 나갔다가 휘어져 날아가 폭발"""
     def __init__(self, player, all_sprites, zombies, aim_x, aim_y, count, damage, radius):
-        super().__init__(200)
+        super().__init__(240)
         self.damage, self.radius = damage, radius
         self.aim_x, self.aim_y = aim_x, aim_y
         cx, cy = player.rect.center
         targets = sorted((z for z in zombies if z.health > 0 and math.hypot(z.rect.centerx - aim_x, z.rect.centery - aim_y) < MISSILE_LOCK_RANGE),
                          key=lambda z: (math.hypot(z.rect.centerx - aim_x, z.rect.centery - aim_y), z.rect.x, z.rect.y))
         base = math.atan2(aim_y - cy, aim_x - cx)
+        count = max(count, len(targets))
+        step = min(3.0, 90 / count)   # 많아도 1.5초 안에 다 발사
         self.missiles = []
         for i in range(count):
             spread = (i - (count - 1) / 2) / max(1, count - 1) * math.radians(150)   # 뒤쪽까지 넓게 퍼짐
             a = base + spread
             visual = SkillVisual(_EMPTY_IMAGE, (cx, cy), pixel_art=True)   # 발사 전에는 안 보임
             all_sprites.add(visual)
-            self.missiles.append({"x": float(cx), "y": float(cy), "a": a, "v": 3.0, "delay": i * 3, "life": 0,
+            self.missiles.append({"x": float(cx), "y": float(cy), "a": a, "v": 3.0, "delay": int(i * step), "life": 0,
                                   "target": targets[i % len(targets)] if targets else None, "visual": visual, "alive": True})
         fx.add_text(cx, player.rect.top - 30, f"락온 x{len(targets)}" if targets else "미사일!", (255, 150, 90), big=True)
 
@@ -5122,7 +5124,7 @@ class LockOnMissileSkill(ActiveSkill):
             if m["life"] % 2 == 0:
                 fx.trail(m["x"] - math.cos(m["a"]) * 10, m["y"] - math.sin(m["a"]) * 10, (200, 200, 200), 4, 14)
             hit = math.hypot(tx - m["x"], ty - m["y"]) < 22 or m["life"] > 130
-            if not hit:
+            if not hit and target is None:   # 목표가 있으면 가는 길에 터지지 않고 꼭 그 좀비에게
                 for zombie in zombies:
                     if zombie.health > 0 and abs(zombie.rect.centerx - m["x"]) < 22 and abs(zombie.rect.centery - m["y"]) < 22:
                         hit = True
@@ -5411,7 +5413,7 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
                                                    base * 0.8 * (1 + 0.08 * up["damage"]), all_sprites))
 
     elif weapon_type == "rocket":
-        # 락온 미사일: 조준점 주변 좀비를 하나씩 잠근 미사일 8발 (목표가 적으면 나머지는 조준점으로)
+        # 락온 미사일: 조준점 주변 좀비 전부에게 1발씩 (최소 8발, 목표가 적으면 다시 나눠 맞힘)
         radius = 90 + up["explosion"] // 2
         player.active_skills.append(LockOnMissileSkill(player, all_sprites, zombies, mouse_world_x, mouse_world_y, MISSILE_COUNT,
                                                        base * 2.0 * (1 + 0.05 * up["damage"]), radius))
@@ -6898,7 +6900,7 @@ WEAPON_HELP = {
                ["블랙홀: 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
     "rocket": (["유도 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 따라감 (잠근 좀비에 붉은 조준선).",
                 "느리게 출발해서 점점 빨라짐. 맞으면 큰 폭발 (주변 65%)."],
-               ["락온 미사일: 조준점 주변(500px) 좀비를 하나씩 잠근 미사일 8발이 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 2배).",
+               ["락온 미사일: 조준점 주변(500px) 좀비를 전부 잠가 한 마리당 미사일 1발 (최소 8발), 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 2배).",
                 "목표가 8마리보다 적으면 남은 미사일은 조준점으로. 쿨타임 12초."]),
     "melee": (["초보자용 근접 무기. 조준 방향 부채꼴 안의 좀비를 모두 때림.",
                "넉백이 저항을 무시함 - 보스와 넉백 면역 좀비도 밀려남."],
@@ -8514,7 +8516,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102123          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102124          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
