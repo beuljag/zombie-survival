@@ -911,7 +911,7 @@ class MatchState:
         alive = self.alive_players()
         self.zombie_spawn_counter += 1
         self.max_zombies = self.scaled(get_max_zombies(self.wave))
-        if len(zombies) < self.max_zombies and self.zombie_spawn_counter > get_spawn_interval(self.wave):
+        if len(zombies) < self.max_zombies and self.zombie_spawn_counter > get_spawn_interval(self.wave) and not is_boss_wave(self.wave):
             anchor = alive[0] if len(alive) == 1 else random.choice(alive)
             angle = random.uniform(0, 2 * math.pi)
             zombie = Zombie(anchor.rect.centerx + math.cos(angle) * 600, anchor.rect.centery + math.sin(angle) * 600,
@@ -925,7 +925,17 @@ class MatchState:
             sfx("wave")
             self.wave_timer_start = pygame.time.get_ticks()
             boss_spawned = False
-            for _ in range(self.scaled(3 + self.wave * 2)):
+            num_zombies = self.scaled(3 + self.wave * 2)
+            if is_boss_wave(self.wave):
+                # 보스 웨이브: 잡몹 없이 보스 1마리 (체력 = 1인 기준 × 인원 × 1.1)
+                anchor = alive[0] if len(alive) == 1 else random.choice(alive)
+                angle = random.uniform(0, 2 * math.pi)
+                zombie = make_wave_boss(anchor.rect.centerx + math.cos(angle) * 500, anchor.rect.centery + math.sin(angle) * 500,
+                                        self.wave, self.n_players * MOB_FACTOR)
+                zombies.add(zombie)
+                all_sprites.add(zombie)
+                num_zombies = 0
+            for _ in range(num_zombies):
                 anchor = alive[0] if len(alive) == 1 else random.choice(alive)
                 angle = random.uniform(0, 2 * math.pi)
                 distance = random.uniform(300, 800)

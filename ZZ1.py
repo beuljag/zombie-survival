@@ -31,6 +31,7 @@
 - 경험치가 다 차면 레벨업되고 업그레이드 3가지 중 선택 가능
 - 웨이브 시스템: 60초마다 난이도 상승 및 보스 등장
 - 웨이브 3부터 보스 좀비 출현 시작
+- 10의 배수 웨이브는 보스 웨이브: 잡몹 없이 체력 50배 보스 1마리
 - 플레이어 체력이 0 이하면 게임 오버
 
 【근접 무기 (6가지)】 - 조준 방향 부채꼴 범위의 좀비를 모두 타격 (몸에 붙은 좀비는 방향 상관없이)
@@ -47,7 +48,7 @@
 - 저격총: 데미지 50, 초당 1회, 기본 공격이 관통
 - 기관총: 데미지 9, 초당 9회, 꾹 누르고 있으면 연사
 - 플라즈마: 데미지 28, 초당 2회, 착탄 시 반경 70 폭발 (주변 50%)
-- 로켓: 데미지 70, 초당 0.9회, 반경 115 큰 폭발 (주변 55%)
+- 로켓: 데미지 85, 초당 1회, 반경 130 큰 폭발 (주변 65%)
 
 【일반 좀비 (6가지)】
 - 일반: 체력 30, 공격력 0.5, 가장 약함, 15% 확률로 한 번 다시 일어남
@@ -415,8 +416,8 @@ WEAPON_STATS = {
                    "pierce": 9999},  # DPS 50  기본 공격이 무한 관통 (사거리 끝까지 지나가는 좀비 모두)
     "plasma":     {"name": "플라즈마", "dmg": 28, "rate": 2.0, "speed": 13, "color": CYAN,
                    "splash_radius": 70, "splash_ratio": 0.4},  # DPS 56  + 착탄 폭발(주변 40%)
-    "rocket":     {"name": "로켓",   "dmg": 70, "rate": 0.9,  "speed": 9,  "color": RED,
-                   "splash_radius": 115, "splash_ratio": 0.55},  # DPS 63  + 큰 폭발(주변 55%)
+    "rocket":     {"name": "로켓",   "dmg": 85, "rate": 1.0,  "speed": 9,  "color": RED,
+                   "splash_radius": 130, "splash_ratio": 0.65},  # DPS 85  + 큰 폭발(주변 65%)
     # ----- 근접 (플레이어 주변 원형 범위 전체 타격, 사거리는 Melee 클래스의 attack_range) -----
     "melee":  {"name": "나무 방망이", "dmg": 36, "rate": 2.8,  "color": (139, 69, 19)},  # DPS 101  범위 110
     "katana": {"name": "카타나",      "dmg": 26, "rate": 4.0,  "color": (255, 215, 0)},  # DPS 104  범위 120
@@ -6896,7 +6897,7 @@ WEAPON_HELP = {
     "plasma": (["맞으면 작은 폭발 (주변 40%)."],
                ["블랙홀: 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
     "rocket": (["유도 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 따라감 (잠근 좀비에 붉은 조준선).",
-                "느리게 출발해서 점점 빨라짐. 맞으면 큰 폭발 (주변 55%)."],
+                "느리게 출발해서 점점 빨라짐. 맞으면 큰 폭발 (주변 65%)."],
                ["락온 미사일: 조준점 주변(500px) 좀비를 하나씩 잠근 미사일 8발이 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 2배).",
                 "목표가 8마리보다 적으면 남은 미사일은 조준점으로. 쿨타임 12초."]),
     "melee": (["초보자용 근접 무기. 조준 방향 부채꼴 안의 좀비를 모두 때림.",
@@ -8129,6 +8130,26 @@ def get_zombie_type_by_wave(wave):
             return random.choice(boss_types)
         else:
             return random.choice(giant_types)
+
+
+# ===== 보스 웨이브 =====
+# 10의 배수 웨이브: 잡몹 대신 체력이 아주 높은 보스 1마리만 나옴 (보스가 소환하는 부하는 그대로)
+BOSS_WAVE_EVERY = 10
+BOSS_WAVE_HEALTH_MULT = 50      # 같은 웨이브 일반 보스 체력의 50배
+
+
+def is_boss_wave(wave):
+    return wave > 0 and wave % BOSS_WAVE_EVERY == 0
+
+
+def make_wave_boss(x, y, wave, health_mult=1.0):
+    """보스 웨이브의 보스 (health_mult: 멀티 인원 보정)"""
+    zombie_type = random.choice(["boss", "paladin", "demon", "angel", "dragon", "king", "god"])
+    zombie = Zombie(x, y, zombie_type=zombie_type, wave=wave)
+    zombie.health *= BOSS_WAVE_HEALTH_MULT * health_mult
+    zombie.max_health = zombie.last_health = zombie.health
+    zombie.custom_name = f"웨이브 보스 {ZOMBIE_DISPLAY_NAMES.get(zombie_type, '보스')}"
+    return zombie
 
 
 # ===== 저장 / 이어하기 =====
@@ -9549,7 +9570,7 @@ def main():
             zombie_spawn_counter += 1
             max_zombies = get_max_zombies(wave)  # 웨이브가 진행될수록 더 많은 좀비 (웨이브마다 +2)
 
-            if len(zombies) < max_zombies and zombie_spawn_counter > get_spawn_interval(wave):
+            if len(zombies) < max_zombies and zombie_spawn_counter > get_spawn_interval(wave) and not is_boss_wave(wave):
                 angle = random.uniform(0, 2 * math.pi)
                 distance = 600
                 x = player.rect.centerx + math.cos(angle) * distance
@@ -9571,6 +9592,15 @@ def main():
                 wave_timer_start = pygame.time.get_ticks()  # 타이머 리셋
                 boss_spawned = False
                 num_zombies = 3 + wave * 2  # 웨이브 시작 시 한꺼번에 나오는 좀비 (웨이브마다 +2)
+                if is_boss_wave(wave):
+                    # 보스 웨이브: 잡몹 없이 보스 1마리
+                    angle = random.uniform(0, 2 * math.pi)
+                    zombie = make_wave_boss(player.rect.centerx + math.cos(angle) * 500,
+                                            player.rect.centery + math.sin(angle) * 500, wave)
+                    zombies.add(zombie)
+                    all_sprites.add(zombie)
+                    fx.add_shake(8)
+                    num_zombies = 0
 
                 for _ in range(num_zombies):
                     angle = random.uniform(0, 2 * math.pi)
