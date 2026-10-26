@@ -349,6 +349,8 @@ class MatchState:
             p.aim = (inp["x"], inp["y"])
             if p.pending_choices and 0 <= inp["u"] < len(p.pending_choices[0]):
                 apply_upgrade(p, p.pending_choices.pop(0)[inp["u"]])
+                if p.pending_choices and isinstance(p.pending_choices[0], int):   # 다음 레벨 후보는 지금 고른 것을 반영해서 뽑음
+                    p.pending_choices[0] = build_upgrade_choices(p, p.pending_choices[0])
             if inp.get("g") and not p.dead and not p.left:   # 포기: 바로 쓰러지고 부활하지 않음
                 p.surrendered = True
                 p.health = 0
@@ -386,6 +388,7 @@ class MatchState:
             target = self.nearest_player(zombie.rect.centerx, zombie.rect.centery)
             zombie.chase_target = target   # 그리기(눈 방향)와 아래 거리 확인에서 다시 찾지 않도록 기억
             zombie.update(target, bullets, all_sprites, explosions)
+        update_wave_bosses(zombies, alive, bullets, all_sprites, explosions)
         for p in alive:
             spear_charge(p, zombies)   # 창을 들고 달리면 정면 좀비에게 피해 + 넉백
 
@@ -666,6 +669,7 @@ class MatchState:
             p.shock_time -= 1
         tick_katana_chain(p)   # 연참: 3초 안에 다시 안 쓰면 스택 초기화
         tick_overshield(p)     # 흡혈 보호막 3초
+        tick_shield(p)         # 방어막 충전
         tick_glove_combo(p)    # 글로브 콤보 (유지 시간 + 공격 속도 보너스)
         if p.regen > 0:
             p.health = min(p.health + p.regen / 60, p.max_health)
@@ -687,8 +691,11 @@ class MatchState:
             p.level += 1
             p.exp_to_level = int(100 * (1.1 ** p.level))
             gained += 1
-        for gained_i in range(gained):   # 레벨마다 맞는 보상 (100레벨은 특수 업그레이드)
-            p.pending_choices.append(build_upgrade_choices(p, p.level - gained + 1 + gained_i))
+        # 레벨마다 맞는 보상 (100레벨은 특수 업그레이드). 맨 앞 것만 바로 뽑고 나머지는 레벨 번호로 두었다가
+        # 앞의 선택이 끝난 뒤 뽑음 - 미리 다 뽑으면 이미 고른 1회성 업그레이드(화염탄 등)가 다음 선택에 또 나왔음
+        for gained_i in range(gained):
+            level = p.level - gained + 1 + gained_i
+            p.pending_choices.append(level if p.pending_choices else build_upgrade_choices(p, level))
         if gained:
             fx.ring(p.rect.centerx, p.rect.centery, (255, 230, 90), 140, count=36, size=4)
             fx.add_text(p.rect.centerx, p.rect.top - 30, "LEVEL UP!", (255, 230, 90), big=True, life=70)

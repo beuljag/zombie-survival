@@ -31,7 +31,7 @@
 - 경험치가 다 차면 레벨업되고 업그레이드 3가지 중 선택 가능
 - 웨이브 시스템: 60초마다 난이도 상승 및 보스 등장
 - 웨이브 3부터 보스 좀비 출현 시작
-- 10의 배수 웨이브는 보스 웨이브: 잡몹 없이 체력 50배 보스 1마리
+- 10의 배수 웨이브는 보스 웨이브: 잡몹 없이 체력 50배 보스 1마리 (탄막 / 낙하 공격 / 회전 탄막 패턴, 체력 50% 아래면 분노)
 - 플레이어 체력이 0 이하면 게임 오버
 
 【근접 무기 (6가지)】 - 조준 방향 부채꼴 범위의 좀비를 모두 타격 (몸에 붙은 좀비는 방향 상관없이)
@@ -129,7 +129,7 @@
 - 얼음탄 (Lv2): 좀비 속도 저하
 - 전기탄 (Lv3): 인접한 좀비들에게 전기 전달
 - 자동조준 (Lv4): 가까운 적 자동 조준
-- 방어막 (Lv3): 플레이어 주변 방어막 생성
+- 방어막 (Lv3): 최대 체력 30%만큼 피해를 먼저 막는 보호막, 4초 동안 안 맞으면 다시 차오름
 - 순간이동 (Lv4): 마우스 위치로 즉시 이동
 - 시간감속 (Lv5): 주변 좀비 속도 감소
 - 폭발 공격 (Lv4): 공격 시 작은 폭발 (주변 30%, 근접 무기는 12%, 0.2초에 한 번)
@@ -353,6 +353,38 @@ def apply_display():
 
 if SETTINGS["display"] != "fullscreen":
     apply_display()
+
+
+# ---------- 최소화/Alt+Tab 뒤 검은 화면 고치기 ----------
+#  전체 화면에서 창이 내려갔다 돌아오면 그래픽 장치가 초기화되어, 확대 모드(SCALED)의 화면이 검게 남는 경우가 있음
+#  → 내려갔다(최소화/포커스 잃음) 다시 돌아오면 같은 크기·모드로 화면을 다시 만듦 (screen 객체는 그대로 유지됨)
+#  게임의 모든 이벤트 처리 화면(메뉴/게임/멀티)에서 쓰도록 pygame.event.get을 한 번 감쌈
+_LOST_EVENTS = {pygame.WINDOWMINIMIZED, pygame.WINDOWHIDDEN, pygame.WINDOWFOCUSLOST}
+_BACK_EVENTS = {pygame.WINDOWRESTORED, pygame.WINDOWSHOWN, pygame.WINDOWFOCUSGAINED}
+_pygame_event_get = pygame.event.get
+
+
+def _restore_display():
+    try:
+        pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SCALED | pygame.FULLSCREEN)
+    except pygame.error:
+        pass
+
+
+def _event_get_with_restore(*args, **kwargs):
+    events = _pygame_event_get(*args, **kwargs)
+    for event in events:
+        if not _display_state["fullscreen"]:
+            continue
+        if event.type in _LOST_EVENTS:
+            _display_state["lost"] = True
+        elif event.type in _BACK_EVENTS and _display_state.get("lost"):
+            _display_state["lost"] = False
+            _restore_display()
+    return events
+
+
+pygame.event.get = _event_get_with_restore
 # 한글 입력기(IME)가 켜져 있으면 글자 키가 "조합 중인 글자"로 가로채져 키 입력/키 설정이 안 될 수 있어서 끔
 # (글자를 입력하는 화면 - 멀티 IP 입력 - 에서만 잠깐 켬)
 pygame.key.stop_text_input()
@@ -456,6 +488,10 @@ AXE_SKILL_KNOCKBACK = 20
 OVERHEAL_SHIELD_RATIO = 0.5
 OVERHEAL_SHIELD_FRAMES = 300
 OVERHEAL_SHIELD_MAX = 0.5
+# 방어막 업그레이드: 최대 체력 30%만큼 피해를 먼저 막는 충전식 보호막, 4초 동안 안 맞으면 초당 최대치의 25%씩 다시 참
+SHIELD_MAX_RATIO = 0.3
+SHIELD_RECHARGE_DELAY = 240
+SHIELD_RECHARGE_PER_FRAME = 0.25 / 60
 # 글록 항공 폭격 (쿨타임 80초): 폭탄 1발 기본 데미지 1000, 공격력이 오른 만큼 같은 비율로 증가
 #  (폭탄 데미지 = 1000 × 현재 공격력 / 글록 기본 공격력)
 #  "폭격 범위" 업그레이드 1회당: 폭격 길이 +100px, 폭발 반경(폭) +15px
@@ -595,6 +631,22 @@ def add_overshield(player, amount):
         return
     player.overshield = min(player.max_health * OVERHEAL_SHIELD_MAX, getattr(player, "overshield", 0) + amount)
     player.overshield_time = OVERHEAL_SHIELD_FRAMES
+
+
+def shield_capacity(player):
+    """방어막 업그레이드 보호막 최대치 (없으면 0)"""
+    return player.max_health * SHIELD_MAX_RATIO if player.shield_active else 0.0
+
+
+def tick_shield(player):
+    """방어막: 마지막으로 맞은 뒤 4초가 지나면 다시 차오름"""
+    cap = shield_capacity(player)
+    if cap <= 0:
+        return
+    if player.shield_delay > 0:
+        player.shield_delay -= 1
+    elif player.shield_hp < cap:
+        player.shield_hp = min(cap, player.shield_hp + cap * SHIELD_RECHARGE_PER_FRAME)
 
 
 def tick_overshield(player):
@@ -1679,6 +1731,9 @@ def draw_player_sprite(surface, camera, player):
         font = font_hud_big if combo >= GLOVE_FRENZY_COMBO else font_hud
         color = (255, 90, 60) if combo >= GLOVE_FRENZY_COMBO else (255, 170, 80)
         ui_text(surface, f"{combo} COMBO", font, color, (int(sx), int(sy) - player.rect.height // 2 - 26), "midbottom")
+    if getattr(player, "shield_hp", 0) >= 1:   # 방어막: 하늘색 고리 (남은 양만큼 진하게)
+        fill = player.shield_hp / max(1, shield_capacity(player))
+        pygame.draw.circle(surface, (110, 190, 255), (int(sx), int(sy)), 34, 2 if fill < 0.5 else 3)
     if getattr(player, "overshield", 0) >= 1:   # 흡혈 보호막: 노란 고리 (끝나기 1초 전부터 깜빡임)
         if player.overshield_time > 60 or player.overshield_time % 10 < 5:
             pygame.draw.circle(surface, (245, 205, 70), (int(sx), int(sy)), 30, 2)
@@ -2039,7 +2094,9 @@ class Player(pygame.sprite.Sprite):
             "skill_slowdown": False,
             "skill_explosion": False,
         }
-        self.shield_active = False  # 방어막 활성화
+        self.shield_active = False  # 방어막 업그레이드 보유
+        self.shield_hp = 0.0        # 방어막 남은 양 (최대 체력의 30%까지, 피해를 먼저 막음)
+        self.shield_delay = 0       # 맞은 뒤 다시 차오르기까지 남은 프레임
         self.pierce_level = 0  # 투사체 관통 레벨 (총알이 이 수만큼 좀비를 더 관통)
         self.crit_chance = 0  # 치명타 확률
         self.dodge_chance = 0  # 회피 확률
@@ -3313,8 +3370,11 @@ def apply_player_damage(player, amount, explosion=False):
         amount *= 1 - player.encore_power   # 앙코르: 받는 피해 감소
     if player.corrode_time > 0:
         amount *= 1.3  # 부식 (산성좀비)
-    if player.shield_active:
-        amount *= 0.5
+    if player.shield_active and amount > 0:   # 방어막: 남은 만큼 먼저 막고, 맞으면 충전이 4초 미뤄짐
+        player.shield_delay = SHIELD_RECHARGE_DELAY
+        absorbed = min(player.shield_hp, amount)
+        player.shield_hp -= absorbed
+        amount -= absorbed
     if getattr(player, "overshield", 0) > 0:   # 흡혈 보호막이 먼저 받음
         absorbed = min(player.overshield, amount)
         player.overshield -= absorbed
@@ -6546,6 +6606,8 @@ def get_player_buffs(player):
         buffs.append((f"콤보 {player.glove_combo} (공속 +{speed}%{state})", "combo", player.glove_combo_timer, (255, 150, 90)))
     if player.ability == "damage" and player.health <= player.max_health * 0.5:
         buffs.append(("광전사: 공격력 +25%", "rage", 1, (255, 120, 90)))
+    if getattr(player, "shield_hp", 0) >= 1:
+        buffs.append((f"방어막 {int(player.shield_hp)} / {int(shield_capacity(player))}", "shield", int(player.shield_hp), (110, 190, 255)))
     if getattr(player, "overshield", 0) >= 1:
         buffs.append((f"흡혈 보호막 {int(player.overshield)}", "overshield", player.overshield_time, (245, 205, 70)))
     if player.invuln_time > 20:   # 부활 무적 등 (일섬 직후 0.2초 무적은 너무 짧아서 표시 안 함)
@@ -7643,7 +7705,7 @@ def build_upgrade_choices(player, level=None):
         {"name": "얼음탄", "desc": "좀비를 느리게 하는 총알", "type": "skill_ice_bullets", "color": (100, 200, 255), "min_level": 2},
         {"name": "전기탄", "desc": "인접한 좀비들에게 전기 전달", "type": "skill_electric_bullets", "color": (255, 255, 0), "min_level": 3},
         {"name": "자동조준", "desc": "가까운 적을 자동으로 조준", "type": "skill_auto_aim", "color": (150, 255, 100), "min_level": 4},
-        {"name": "방어막", "desc": "플레이어 주변 방어막 생성", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3},
+        {"name": "방어막", "desc": "최대 체력 30% 보호막 (4초 안 맞으면 다시 참)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3},
         {"name": "순간이동", "desc": "마우스 위치로 즉시 이동", "type": "skill_teleport", "color": (200, 100, 255), "min_level": 4},
         {"name": "시간감속", "desc": "주변 좀비를 느리게 함", "type": "skill_slowdown", "color": (100, 255, 255), "min_level": 5},
         {"name": "폭발 공격", "desc": f"공격 시 작은 폭발 (주변 {int((EXPLOSION_SKILL_RATIO_MELEE if player.weapon.weapon_type in MELEE_WEAPONS else EXPLOSION_SKILL_RATIO) * 100)}%)",
@@ -7908,6 +7970,7 @@ def apply_upgrade(player, selected_upgrade):
     elif selected_upgrade["type"] == "skill_shield":
         player.skills["skill_shield"] = True
         player.shield_active = True
+        player.shield_hp = shield_capacity(player)   # 얻자마자 가득 참
     elif selected_upgrade["type"] == "skill_teleport":
         player.skills["skill_teleport"] = True
     elif selected_upgrade["type"] == "skill_slowdown":
@@ -8151,7 +8214,122 @@ def make_wave_boss(x, y, wave, health_mult=1.0):
     zombie.health *= BOSS_WAVE_HEALTH_MULT * health_mult
     zombie.max_health = zombie.last_health = zombie.health
     zombie.custom_name = f"웨이브 보스 {ZOMBIE_DISPLAY_NAMES.get(zombie_type, '보스')}"
+    zombie.wave_boss = True
+    zombie.boss_pattern_cd = 150     # 나오고 2.5초 뒤 첫 패턴
+    zombie.boss_pattern_index = 0
+    zombie.boss_spiral = 0           # 회전 탄막 남은 프레임
+    zombie.boss_ring2 = 0            # 탄막 두 번째 고리까지 남은 프레임
+    zombie.boss_strikes = []         # 낙하 공격 [x, y, 남은 프레임, 경고 표시]
+    zombie.boss_enraged = False
     return zombie
+
+
+# ----- 웨이브 보스 특수 패턴 (1인/멀티 공용, 프레임 기준이라 멀티에서도 모든 PC가 같음) -----
+#  탄막: 사방으로 불덩이 고리 2번 / 낙하 공격: 플레이어 자리에 붉은 경고 원 → 1초 뒤 폭발 / 회전 탄막: 1.5초 동안 소용돌이
+#  체력 50% 아래로 떨어지면 분노: 패턴이 더 자주, 불덩이 수와 속도 증가
+BOSS_PATTERNS = ("ring", "strike", "spiral")
+BOSS_PATTERN_INTERVAL, BOSS_PATTERN_INTERVAL_ENRAGED = 240, 160
+BOSS_STRIKE_DELAY, BOSS_STRIKE_RADIUS = 60, 110
+
+
+class BossStrikeMarker(pygame.sprite.Sprite):
+    """낙하 공격 경고 원 (그리기 전용 - 판정은 update_wave_bosses에서). 터질 때가 가까울수록 안쪽이 차오름"""
+    def __init__(self, x, y, radius, frames):
+        super().__init__()
+        self.radius, self.frames, self.left = radius, frames, frames
+        self.image = pygame.Surface((radius * 2 + 4, radius * 2 + 4), pygame.SRCALPHA)
+        self.rect = self.image.get_rect(center=(int(x), int(y)))
+
+    def update(self):
+        self.left -= 1
+        if self.left <= 0:
+            self.kill()
+            return
+        r, c = self.radius, self.radius + 2
+        self.image.fill((0, 0, 0, 0))
+        pygame.draw.circle(self.image, (255, 60, 40, 50), (c, c), r)
+        pygame.draw.circle(self.image, (255, 70, 50, 120), (c, c), int(r * (1 - self.left / self.frames)))
+        pygame.draw.circle(self.image, (255, 90, 60, 230), (c, c), r, 3)
+
+
+def _boss_fireball(boss, angle, speed, damage, bullets, all_sprites):
+    cx, cy = boss.rect.center
+    ball = Bullet(cx, cy, cx + math.cos(angle) * 500, cy + math.sin(angle) * 500,
+                  damage=damage, bullet_type="normal", weapon_type="dragon_fireball")
+    ball.speed = speed
+    bullets.add(ball)
+    all_sprites.add(ball)
+
+
+def update_wave_bosses(zombies, players, bullets, all_sprites, explosions):
+    """웨이브 보스 패턴 (매 프레임). players: 살아 있는 플레이어들"""
+    if not players:
+        return
+    for boss in zombies:
+        if not getattr(boss, "wave_boss", False) or boss.health <= 0:
+            continue
+        cx, cy = boss.rect.center
+        power = 1 + boss.wave / 20   # 웨이브가 높을수록 패턴 피해도 셈
+        if not boss.boss_enraged and boss.health < boss.max_health * 0.5:
+            boss.boss_enraged = True
+            fx.add_text(cx, boss.rect.top - 40, "분노!", (255, 70, 50), big=True, life=90)
+            fx.ring(cx, cy, (255, 70, 50), 160, count=40, size=5)
+            fx.add_shake(8)
+        enraged = boss.boss_enraged
+        speed = 7.5 if enraged else 6
+
+        # 진행 중인 패턴
+        if boss.boss_ring2 > 0:
+            boss.boss_ring2 -= 1
+            if boss.boss_ring2 == 0:
+                count = 24 if enraged else 16
+                for i in range(count):
+                    _boss_fireball(boss, (i + 0.5) / count * 2 * math.pi, speed, 8 * power, bullets, all_sprites)
+        if boss.boss_spiral > 0:
+            boss.boss_spiral -= 1
+            if boss.boss_spiral % 5 == 0:
+                arms = 4 if enraged else 3
+                base = boss.boss_spiral * 0.22
+                for i in range(arms):
+                    _boss_fireball(boss, base + i * 2 * math.pi / arms, speed, 7 * power, bullets, all_sprites)
+        for strike in boss.boss_strikes[:]:
+            strike[2] -= 1
+            if strike[2] > 0:
+                continue
+            boss.boss_strikes.remove(strike)
+            sx, sy = strike[0], strike[1]
+            boom = Explosion(sx, sy, BOSS_STRIKE_RADIUS, "nuclear")
+            explosions.add(boom)
+            all_sprites.add(boom)
+            for p in players:
+                if math.hypot(p.rect.centerx - sx, p.rect.centery - sy) < BOSS_STRIKE_RADIUS:
+                    apply_player_damage(p, 18 * power, explosion=True)
+
+        # 다음 패턴
+        boss.boss_pattern_cd -= 1
+        if boss.boss_pattern_cd > 0:
+            continue
+        boss.boss_pattern_cd = BOSS_PATTERN_INTERVAL_ENRAGED if enraged else BOSS_PATTERN_INTERVAL
+        pattern = BOSS_PATTERNS[boss.boss_pattern_index % len(BOSS_PATTERNS)]
+        boss.boss_pattern_index += 1
+        if pattern == "ring":
+            count = 24 if enraged else 16
+            for i in range(count):
+                _boss_fireball(boss, i / count * 2 * math.pi, speed, 8 * power, bullets, all_sprites)
+            boss.boss_ring2 = 25
+            fx.ring(cx, cy, (255, 130, 30), 90, count=24)
+        elif pattern == "strike":
+            targets = [p for p in players if math.hypot(p.rect.centerx - cx, p.rect.centery - cy) < 1100]
+            for p in targets:
+                spots = [(p.rect.centerx, p.rect.centery)]
+                for _ in range(3 if enraged else 2):
+                    a, d = random.uniform(0, 2 * math.pi), random.uniform(120, 220)
+                    spots.append((p.rect.centerx + math.cos(a) * d, p.rect.centery + math.sin(a) * d))
+                for x, y in spots:
+                    boss.boss_strikes.append([x, y, BOSS_STRIKE_DELAY])
+                    all_sprites.add(BossStrikeMarker(x, y, BOSS_STRIKE_RADIUS, BOSS_STRIKE_DELAY))
+        else:
+            boss.boss_spiral = 90
 
 
 # ===== 저장 / 이어하기 =====
@@ -8516,7 +8694,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102124          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102125          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -8996,6 +9174,7 @@ def main():
                 player.invuln_time -= 1
             tick_katana_chain(player)
             tick_overshield(player)
+            tick_shield(player)
 
             # 글로브 콤보 (유지 시간 + 공격 속도 보너스)
             tick_glove_combo(player)
@@ -9077,6 +9256,7 @@ def main():
             # 좀비 이동
             for zombie in zombies:
                 zombie.update(player, bullets, all_sprites, explosions)
+            update_wave_bosses(zombies, [player], bullets, all_sprites, explosions)
             spear_charge(player, zombies)   # 창을 들고 달리면 정면 좀비에게 피해 + 넉백
 
             # 오라 능력 (매 프레임 다시 계산)
