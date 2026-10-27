@@ -430,7 +430,7 @@ class MatchState:
                 if healed:
                     fx.ring(source.rect.centerx, source.rect.centery, (120, 255, 150), radius, count=28)
 
-        # 6) 지속형 스킬 (+ 100레벨 특수 업그레이드)
+        # 6) 지속형 스킬 (+ 50레벨 특수 업그레이드)
         for p in self.alive_players():
             if p.special_upgrades:
                 _current_owner[0] = p
@@ -691,7 +691,7 @@ class MatchState:
             p.level += 1
             p.exp_to_level = int(100 * (1.1 ** p.level))
             gained += 1
-        # 레벨마다 맞는 보상 (100레벨은 특수 업그레이드). 맨 앞 것만 바로 뽑고 나머지는 레벨 번호로 두었다가
+        # 레벨마다 맞는 보상 (50레벨은 특수 업그레이드). 맨 앞 것만 바로 뽑고 나머지는 레벨 번호로 두었다가
         # 앞의 선택이 끝난 뒤 뽑음 - 미리 다 뽑으면 이미 고른 1회성 업그레이드(화염탄 등)가 다음 선택에 또 나왔음
         for gained_i in range(gained):
             level = p.level - gained + 1 + gained_i

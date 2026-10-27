@@ -191,7 +191,7 @@
    - 웨이브마다 등장하는 좀비 수 +2, 등장 간격 단축, 보스 소환 수도 증가
    - 보스/거대 좀비 체력 1.6배 (다른 좀비가 소환한 개체 제외)
 10. 경험치 부스트: 업그레이드로 추가 경험치 40%씩 증가
-11. 100레벨 특수 업그레이드: 100/200/300... 레벨에는 ★ 수호 위성 / 천벌 / 시간 정지 / 사신의 낫 / 특이점 중 하나 (각각 1번)
+11. 50레벨 특수 업그레이드: 50/100/150... 레벨에는 ★ 특수 업그레이드 20종 중 3개가 나와 하나를 고름 (각각 1번)
 
 【연출 (게임 판정에는 영향 없음)】
 - 피격: 좀비 하얀 번쩍임, 데미지 숫자 (치명타는 노란색 큰 숫자), 타격 불꽃
@@ -2147,7 +2147,8 @@ class Player(pygame.sprite.Sprite):
 
         # 스킬 쿨타임 감소 (0~1.0 비율: 0.2 = 20% 감소)
         self.skill_cooldown_reduction = 0
-        self.special_upgrades = []   # 100레벨마다 고르는 특수 업그레이드 (한 번씩만)
+        self.special_upgrades = []   # 50레벨마다 고르는 특수 업그레이드 (한 번씩만)
+        self.phoenix_ready = 0       # ★ 불사조를 다시 쓸 수 있는 special_tick
         self.special_tick = 0        # 특수 업그레이드 타이머 (게임 프레임)
         self.damage_dealt = 0.0      # 게임 오버 화면: 총 피해
         self.best_hit = 0.0          # 게임 오버 화면: 가장 강한 한 방
@@ -3371,6 +3372,8 @@ def apply_player_damage(player, amount, explosion=False):
         amount *= 1 - player.encore_power   # 앙코르: 받는 피해 감소
     if player.corrode_time > 0:
         amount *= 1.3  # 부식 (산성좀비)
+    if "special_thorns" in player.special_upgrades:
+        amount *= SPECIAL_THORNS_TAKEN   # ★ 가시 갑옷
     if player.shield_active and amount > 0:   # 방어막: 남은 만큼 먼저 막고, 맞으면 충전이 4초 미뤄짐
         player.shield_delay = SHIELD_RECHARGE_DELAY
         absorbed = min(player.shield_hp, amount)
@@ -3381,6 +3384,13 @@ def apply_player_damage(player, amount, explosion=False):
         player.overshield -= absorbed
         amount -= absorbed
     player.health -= amount
+    if player.health <= 0 and "special_phoenix" in player.special_upgrades and player.special_tick >= player.phoenix_ready:
+        # ★ 불사조: 쓰러지는 대신 체력 가득 부활 + 3초 무적 (90초에 한 번)
+        player.health = player.max_health
+        player.invuln_time = max(player.invuln_time, SPECIAL_PHOENIX_INVULN)
+        player.phoenix_ready = player.special_tick + SPECIAL_PHOENIX_COOLDOWN
+        fx.ring(player.rect.centerx, player.rect.centery, (255, 170, 50), 160, count=40, size=5)
+        fx.add_text(player.rect.centerx, player.rect.top - 40, "불사조 부활!", (255, 180, 60), big=True, life=90)
 
 
 def get_crit_multiplier(player):
@@ -4289,6 +4299,8 @@ def get_weapon_damage(player):
         damage *= DAMAGE_TRAIT_RAGE   # 특성 광전사: 체력 절반 이하면 공격력 +25%
     if getattr(player, "beat_buff_time", 0) > 0:
         damage *= 1 + player.beat_buff_power   # 박자 버프 (일렉 기타 팀 버프)
+    if "special_power" in player.special_upgrades:
+        damage *= SPECIAL_POWER_MULT   # ★ 파괴신
     return damage
 
 
@@ -4373,6 +4385,8 @@ def get_exp_reward(player, wave):
     """경험치 보상 계산 (exp_boost 중첩 반영: 획득 1회당 +40%)"""
     base_exp = int(20 + (wave - 1) * 8)
     exp_multiplier = 1.0 + (EXP_BOOST_PER * player.levels.get("exp_boost", 0))
+    if "special_wisdom" in player.special_upgrades:
+        exp_multiplier *= SPECIAL_WISDOM_MULT   # ★ 현자
     return int(base_exp * exp_multiplier)
 
 
@@ -7550,7 +7564,7 @@ def filter_upgrades_by_limit(player, upgrades):
 
 
 # 업그레이드 선택 메뉴
-SPECIAL_UPGRADE_EVERY = 100   # 100, 200, 300... 레벨에는 특수 업그레이드만 나옴
+SPECIAL_UPGRADE_EVERY = 50    # 50, 100, 150... 레벨에는 특수 업그레이드만 나옴
 SPECIAL_COLOR = (255, 200, 60)
 SPECIAL_UPGRADES = [
     {"name": "★ 수호 위성", "desc": "빛나는 구슬 3개가 내 주위를 돌며 닿는 좀비를 공격 (공격력 x1.5)", "type": "special_orbit", "color": (120, 220, 255)},
@@ -7558,6 +7572,21 @@ SPECIAL_UPGRADES = [
     {"name": "★ 시간 정지", "desc": "15초마다 주변 좀비의 시간을 3초 동안 멈춤", "type": "special_timestop", "color": (170, 140, 255)},
     {"name": "★ 사신의 낫", "desc": "주변 좀비 체력이 15% 아래로 떨어지면 즉시 처형 (보스급은 5%)", "type": "special_reaper", "color": (255, 80, 90)},
     {"name": "★ 특이점", "desc": "10초마다 좀비가 가장 많이 몰린 곳에 블랙홀 생성", "type": "special_singularity", "color": (200, 110, 255)},
+    {"name": "★ 유성우", "desc": "4초마다 주변 좀비 5곳에 유성 낙하 (폭발, 공격력 x4)", "type": "special_meteor", "color": (255, 140, 60)},
+    {"name": "★ 절대 영도", "desc": "6초마다 주변 좀비 얼림 (공격력 x3 + 2초 동안 70% 느려짐)", "type": "special_frostnova", "color": (140, 220, 255)},
+    {"name": "★ 연쇄 번개", "desc": "1.5초마다 좀비 사이를 8번 튕기는 번개 (공격력 x2.5)", "type": "special_chain", "color": (255, 245, 120)},
+    {"name": "★ 지옥불", "desc": "내 주위 좀비를 계속 태움 (0.5초마다 공격력 x0.6 + 불붙임)", "type": "special_inferno", "color": (255, 90, 30)},
+    {"name": "★ 흡혈 오라", "desc": "1초마다 주변 좀비 체력을 빼앗아 회복 (공격력 x0.5)", "type": "special_drain", "color": (220, 60, 110)},
+    {"name": "★ 공격 드론", "desc": "드론이 0.4초마다 가장 가까운 좀비를 레이저로 공격 (공격력 x1.2)", "type": "special_drone", "color": (120, 255, 200)},
+    {"name": "★ 칼날 폭풍", "desc": "칼날 6개가 넓게 돌며 닿는 좀비를 벰 (공격력 x1.2)", "type": "special_blades", "color": (210, 210, 230)},
+    {"name": "★ 대지진", "desc": "8초마다 땅을 내려쳐 주변 좀비에게 공격력 x5 + 크게 밀어냄", "type": "special_quake", "color": (190, 140, 90)},
+    {"name": "★ 파괴신", "desc": "모든 공격력 +50%", "type": "special_power", "color": (255, 70, 70)},
+    {"name": "★ 신속", "desc": "공격 속도 +40%, 이동 속도 +1", "type": "special_haste", "color": (100, 255, 255)},
+    {"name": "★ 거인의 심장", "desc": "최대 체력 2배 + 완전 회복", "type": "special_titan", "color": (255, 120, 120)},
+    {"name": "★ 불사조", "desc": "쓰러질 피해를 받으면 체력 가득 부활 + 3초 무적 (90초에 한 번)", "type": "special_phoenix", "color": (255, 170, 50)},
+    {"name": "★ 신의 가호", "desc": "20초마다 3초 동안 무적", "type": "special_aegis", "color": (255, 250, 200)},
+    {"name": "★ 가시 갑옷", "desc": "받는 피해 -30%, 붙어 있는 좀비에게 0.5초마다 반격 (공격력 x1.5)", "type": "special_thorns", "color": (150, 200, 90)},
+    {"name": "★ 현자", "desc": "경험치 2배", "type": "special_wisdom", "color": (255, 255, 140)},
 ]
 SPECIAL_ORBIT_COUNT, SPECIAL_ORBIT_RADIUS, SPECIAL_ORBIT_PERIOD = 3, 125, 90   # 구슬 3개, 반경 125, 1.5초에 한 바퀴
 SPECIAL_ORBIT_MULT, SPECIAL_ORBIT_HIT_EVERY = 1.5, 20                         # 같은 좀비는 0.33초에 한 번
@@ -7565,10 +7594,23 @@ SPECIAL_SMITE_EVERY, SPECIAL_SMITE_TARGETS, SPECIAL_SMITE_MULT, SPECIAL_SMITE_RA
 SPECIAL_TIMESTOP_EVERY, SPECIAL_TIMESTOP_FRAMES, SPECIAL_TIMESTOP_RANGE = 900, 180, 700
 SPECIAL_REAPER_RATIO, SPECIAL_REAPER_BOSS_RATIO, SPECIAL_REAPER_RANGE = 0.15, 0.05, 600
 SPECIAL_SINGULARITY_EVERY = 600
+SPECIAL_METEOR_EVERY, SPECIAL_METEOR_COUNT, SPECIAL_METEOR_MULT, SPECIAL_METEOR_RADIUS = 240, 5, 4.0, 100
+SPECIAL_FROST_EVERY, SPECIAL_FROST_RANGE, SPECIAL_FROST_MULT = 360, 320, 3.0
+SPECIAL_CHAIN_EVERY, SPECIAL_CHAIN_BOUNCES, SPECIAL_CHAIN_MULT, SPECIAL_CHAIN_JUMP = 90, 8, 2.5, 280
+SPECIAL_INFERNO_RANGE, SPECIAL_INFERNO_MULT = 200, 0.6
+SPECIAL_DRAIN_RANGE, SPECIAL_DRAIN_MULT, SPECIAL_DRAIN_HEAL_MAX = 260, 0.5, 0.03   # 1초에 최대 체력의 3%까지 회복
+SPECIAL_DRONE_EVERY, SPECIAL_DRONE_RANGE, SPECIAL_DRONE_MULT = 24, 600, 1.2
+SPECIAL_BLADE_COUNT, SPECIAL_BLADE_RADIUS, SPECIAL_BLADE_PERIOD, SPECIAL_BLADE_MULT = 6, 220, 120, 1.2
+SPECIAL_QUAKE_EVERY, SPECIAL_QUAKE_RANGE, SPECIAL_QUAKE_MULT = 480, 420, 5.0
+SPECIAL_POWER_MULT = 1.5
+SPECIAL_PHOENIX_COOLDOWN, SPECIAL_PHOENIX_INVULN = 5400, 180
+SPECIAL_AEGIS_EVERY, SPECIAL_AEGIS_FRAMES = 1200, 180
+SPECIAL_THORNS_TAKEN, SPECIAL_THORNS_RANGE, SPECIAL_THORNS_MULT = 0.7, 100, 1.5
+SPECIAL_WISDOM_MULT = 2.0
 
 
 def tick_specials(player, zombies, bullets, all_sprites, explosions):
-    """100레벨 특수 업그레이드 효과 (매 프레임, 1인 · 멀티 공용)"""
+    """50레벨 특수 업그레이드 효과 (매 프레임, 1인 · 멀티 공용)"""
     owned = player.special_upgrades
     if not owned or player.weapon is None:
         return
@@ -7637,6 +7679,101 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
             player.active_skills.append(BlackHoleSkill(best.rect.centerx, best.rect.centery, 220, base * 0.8, all_sprites))
             fx.add_text(best.rect.centerx, best.rect.top - 40, "특이점!", (210, 140, 255), big=True, life=60)
 
+    def near(radius):
+        return [z for z in zombies if z.health > 0 and math.hypot(z.rect.centerx - cx, z.rect.centery - cy) < radius]
+
+    if "special_meteor" in owned and t % SPECIAL_METEOR_EVERY == 0:   # 유성우
+        targets = near(700)
+        for target in random.sample(targets, min(SPECIAL_METEOR_COUNT, len(targets))):
+            mx, my = target.rect.center
+            fx.lightning(mx - 160, my - 520, mx, my, (255, 160, 80))
+            boom = Explosion(mx, my, SPECIAL_METEOR_RADIUS, "airstrike")
+            explosions.add(boom)
+            all_sprites.add(boom)
+            for zombie in near(1200):
+                if math.hypot(zombie.rect.centerx - mx, zombie.rect.centery - my) < SPECIAL_METEOR_RADIUS:
+                    skill_damage(zombie, base * SPECIAL_METEOR_MULT)
+
+    if "special_frostnova" in owned and t % SPECIAL_FROST_EVERY == 0:   # 절대 영도
+        for zombie in near(SPECIAL_FROST_RANGE):
+            skill_damage(zombie, base * SPECIAL_FROST_MULT)
+            zombie.slow_time = max(zombie.slow_time, 120)
+            zombie.slow_multiplier = min(zombie.slow_multiplier, 0.3)
+        fx.ring(cx, cy, (160, 225, 255), SPECIAL_FROST_RANGE, count=48, size=5)
+
+    if "special_chain" in owned and t % SPECIAL_CHAIN_EVERY == 0:   # 연쇄 번개
+        hit, x, y = set(), cx, cy
+        for _ in range(SPECIAL_CHAIN_BOUNCES):
+            options = [z for z in zombies if z.health > 0 and z not in hit
+                       and math.hypot(z.rect.centerx - x, z.rect.centery - y) < (SPECIAL_CHAIN_JUMP if hit else 500)]
+            if not options:
+                break
+            zombie = min(options, key=lambda z: (math.hypot(z.rect.centerx - x, z.rect.centery - y), z.rect.x, z.rect.y))
+            fx.lightning(x, y, zombie.rect.centerx, zombie.rect.centery, (255, 245, 140))
+            skill_damage(zombie, base * SPECIAL_CHAIN_MULT)
+            hit.add(zombie)
+            x, y = zombie.rect.center
+
+    if "special_inferno" in owned:   # 지옥불
+        if t % 6 == 0:
+            a = fx_random.uniform(0, 2 * math.pi)
+            r = fx_random.uniform(30, SPECIAL_INFERNO_RANGE)
+            fx.trail(cx + math.cos(a) * r, cy + math.sin(a) * r, (255, 110, 30), size=6, life=14)
+        if t % 30 == 0:
+            for zombie in near(SPECIAL_INFERNO_RANGE):
+                skill_damage(zombie, base * SPECIAL_INFERNO_MULT)
+                ignite(zombie)
+
+    if "special_drain" in owned and t % 60 == 0:   # 흡혈 오라
+        drained = near(SPECIAL_DRAIN_RANGE)
+        for zombie in drained:
+            skill_damage(zombie, base * SPECIAL_DRAIN_MULT)
+            fx.trail(zombie.rect.centerx, zombie.rect.centery, (230, 60, 110), size=5, life=12)
+        if drained:
+            heal = min(len(drained), player.max_health * SPECIAL_DRAIN_HEAL_MAX)
+            player.health = min(player.max_health, player.health + heal)
+
+    if "special_drone" in owned:   # 공격 드론 (머리 위를 맴돎)
+        drone_x, drone_y = cx + math.cos(t * 0.05) * 50, cy - 60 + math.sin(t * 0.1) * 10
+        fx.trail(drone_x, drone_y, (120, 255, 200), size=7, life=4)
+        if t % SPECIAL_DRONE_EVERY == 0:
+            targets = near(SPECIAL_DRONE_RANGE)
+            if targets:
+                zombie = min(targets, key=lambda z: (math.hypot(z.rect.centerx - cx, z.rect.centery - cy), z.rect.x, z.rect.y))
+                all_sprites.add(LineFlash(drone_x, drone_y, zombie.rect.centerx, zombie.rect.centery, (120, 255, 200), width=3, duration=8))
+                skill_damage(zombie, base * SPECIAL_DRONE_MULT)
+
+    if "special_blades" in owned:   # 칼날 폭풍 (수호 위성과 반대 방향)
+        for i in range(SPECIAL_BLADE_COUNT):
+            a = -2 * math.pi * (t / SPECIAL_BLADE_PERIOD + i / SPECIAL_BLADE_COUNT)
+            bx, by = cx + math.cos(a) * SPECIAL_BLADE_RADIUS, cy + math.sin(a) * SPECIAL_BLADE_RADIUS
+            fx.trail(bx, by, (220, 220, 240), size=7, life=8)
+            for zombie in zombies:
+                if zombie.health <= 0 or getattr(zombie, "blade_ready", 0) > t:
+                    continue
+                reach = 24 + max(zombie.rect.width, zombie.rect.height) / 2
+                if abs(zombie.rect.centerx - bx) < reach and abs(zombie.rect.centery - by) < reach:
+                    zombie.blade_ready = t + 20
+                    skill_damage(zombie, base * SPECIAL_BLADE_MULT)
+                    fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (230, 230, 255))
+
+    if "special_quake" in owned and t % SPECIAL_QUAKE_EVERY == 0:   # 대지진
+        for zombie in near(SPECIAL_QUAKE_RANGE):
+            skill_damage(zombie, base * SPECIAL_QUAKE_MULT)
+            push_zombie(zombie, cx, cy, 14)
+        all_sprites.add(MeleePoundEffect(cx, cy, SPECIAL_QUAKE_RANGE))
+        fx.add_shake(8)
+
+    if "special_aegis" in owned and t % SPECIAL_AEGIS_EVERY == 0:   # 신의 가호
+        player.invuln_time = max(player.invuln_time, SPECIAL_AEGIS_FRAMES)
+        fx.ring(cx, cy, (255, 250, 200), 80, count=28, size=4)
+        fx.add_text(cx, player.rect.top - 40, "신의 가호!", (255, 250, 200), big=True, life=60)
+
+    if "special_thorns" in owned and t % 30 == 0:   # 가시 갑옷 반격
+        for zombie in near(SPECIAL_THORNS_RANGE):
+            skill_damage(zombie, base * SPECIAL_THORNS_MULT)
+            fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (160, 210, 100))
+
 
 
 
@@ -7654,7 +7791,7 @@ def special_upgrade_choices(player):
 
 def build_upgrade_choices(player, level=None):
     """레벨업 업그레이드 후보 3개를 고름 (화면 없이 - 멀티에서도 사용)
-    level: 이 선택이 몇 레벨 보상인지 (한 번에 여러 레벨이 올라도 100레벨 보상을 놓치지 않게)"""
+    level: 이 선택이 몇 레벨 보상인지 (한 번에 여러 레벨이 올라도 50레벨 보상을 놓치지 않게)"""
     if is_special_level(player.level if level is None else level):
         special = special_upgrade_choices(player)
         if special:
@@ -7836,7 +7973,7 @@ def show_upgrade_menu(player, camera, level=None):
 
         # 카드가 아래에서 살짝 떠오르며 나타남
         rise = max(0, 40 - elapsed // 5)
-        if special:   # 100레벨: 특수 업그레이드
+        if special:   # 50레벨: 특수 업그레이드
             top = ui_title(screen, f"LV.{level} 특수 업그레이드!", SCREEN_HEIGHT // 2 - 230, "아주 강력한 보상 · 한 가지를 선택하세요", color=SPECIAL_COLOR)
         else:
             top = ui_title(screen, "레벨 업!", SCREEN_HEIGHT // 2 - 230, f"LV.{level} · 한 가지를 선택하세요", color=UI_ACCENT)
@@ -7920,8 +8057,14 @@ def apply_upgrade(player, selected_upgrade):
         player.levels["crit"] = min(16, player.levels.get("crit", 0) + 1)
     elif selected_upgrade["type"] == "dodge":
         player.levels["dodge"] = min(20, player.levels.get("dodge", 0) + 1)
-    elif selected_upgrade["type"].startswith("special_"):   # 100레벨 특수 업그레이드
-        player.special_upgrades.append(selected_upgrade["type"])   # 효과는 tick_specials가 매 프레임
+    elif selected_upgrade["type"].startswith("special_"):   # 50레벨 특수 업그레이드
+        player.special_upgrades.append(selected_upgrade["type"])   # 효과는 tick_specials가 매 프레임 (신속/거인의 심장은 얻을 때 한 번)
+        if selected_upgrade["type"] == "special_haste":
+            player.weapon.fire_rate *= 1.4
+            player.speed += 1
+        elif selected_upgrade["type"] == "special_titan":
+            player.max_health *= 2
+            player.health = player.max_health
         if LOCAL_PLAYER is None or player is LOCAL_PLAYER:
             fx.ring(player.rect.centerx, player.rect.centery, SPECIAL_COLOR, 220, count=48, size=5)
             fx.add_text(player.rect.centerx, player.rect.top - 50, selected_upgrade.get("name", "특수 업그레이드"), SPECIAL_COLOR, big=True, life=90)
@@ -8064,6 +8207,7 @@ def get_upgrade_name(upgrade_type):
         "skill_cooldown_reduction_big": "스킬 쿨 -10%",
         "special_orbit": "★ 수호 위성", "special_smite": "★ 천벌", "special_timestop": "★ 시간 정지",
         "special_reaper": "★ 사신의 낫", "special_singularity": "★ 특이점",
+        **{u["type"]: u["name"] for u in SPECIAL_UPGRADES},
         # 스킬
         "skill_infinity_ammo": "무한탄약 (30초)",
         "skill_piercing": "투사체 관통 +1",
@@ -8695,7 +8839,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102126          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102127          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -9301,7 +9445,7 @@ def main():
                     if healed:
                         fx.ring(source.rect.centerx, source.rect.centery, (120, 255, 150), radius, count=28)
 
-            tick_specials(player, zombies, bullets, all_sprites, explosions)   # 100레벨 특수 업그레이드
+            tick_specials(player, zombies, bullets, all_sprites, explosions)   # 50레벨 특수 업그레이드
             # 지속형 스킬 (대회전 베기 / 항공 폭격 / 포탑 / 블랙홀 / 미사일 폭격)
             for skill in list(player.active_skills):
                 if not skill.update(player, zombies, bullets, all_sprites, explosions):
