@@ -809,7 +809,7 @@ class MatchState:
                                 other.knockback_vel_x = (other.rect.centerx - bullet.rect.centerx) / dist * 5 * knock
                                 other.knockback_vel_y = (other.rect.centery - bullet.rect.centery) / dist * 5 * knock
                     continue
-                zombie.health -= bullet_hit_damage(owner, bullet, zombie) * damage_multiplier   # 포탑 총알은 치명타 없음
+                zombie.health -= bullet_hit_damage(owner, bullet, zombie) * damage_multiplier
                 fx.hit_spark(bullet.rect.centerx, bullet.rect.centery, FX_WEAPON_COLORS.get(bullet.weapon_type, YELLOW))
                 if bullet.splash_radius > 0:
                     splash = Explosion(bullet.rect.centerx, bullet.rect.centery, bullet.splash_radius, "plasma")

@@ -1003,6 +1003,9 @@ FX_TRAILS = {
 }
 
 
+_disc_cache = {}   # 반투명 원 그림 (색, 반경) → 표면
+
+
 class EffectManager:
     """가벼운 파티클/글자 효과 관리 (스프라이트 대신 리스트로 관리해서 많이 띄워도 가벼움)"""
     MAX_PARTICLES = 800
@@ -1023,6 +1026,9 @@ class EffectManager:
         self.elements = []  # 플레이어가 가진 속성탄 ("fire", "ice", "electric") - 총알 꼬리 색에 사용
         # 도트 효과 애니메이션: [그림 경로, x, y, 나이(프레임), 프레임당 시간, 크기 배율, 각도, 프레임 수]
         self.anims = []
+        # 도형 효과 (특수 업그레이드 등 잘 보여야 하는 것): [종류, x, y, x2, y2, 시작 반경, 끝 반경, 남은수명, 전체수명, 색, 굵기, 투명도]
+        #  "ring": 퍼지는 굵은 고리 / "disc": 반투명 원 / "beam": 굵은 빛줄기 (x,y → x2,y2)
+        self.shapes = []
 
     def anim(self, rel, x, y, scale=1.0, frame_time=6, angle=0.0):
         """도트 효과 애니메이션 한 번 재생 (그림이 없으면 아무것도 안 함) → 재생했으면 True"""
@@ -1101,6 +1107,25 @@ class EffectManager:
             self.burst(x, y, WHITE, 3, speed=(0.5, 2.0), size=(1, 2), life=(12, 20), drag=0.9)
         elif element == "electric":
             self.burst(x, y, (255, 245, 110), 6, speed=(3.0, 6.0), size=(1.5, 2.5), life=(4, 9), drag=0.75)
+
+    MAX_SHAPES = 160
+
+    def _shape(self, kind, x, y, color, r0=0, r1=0, life=12, width=4, x2=0, y2=0, alpha=255):
+        self.shapes.append([kind, x, y, x2, y2, r0, r1, life, life, color, width, alpha])
+        if len(self.shapes) > self.MAX_SHAPES:
+            del self.shapes[:len(self.shapes) - self.MAX_SHAPES]
+
+    def wave(self, x, y, color, r0, r1, life=18, width=6):
+        """r0 → r1로 퍼지며 얇아지는 굵은 고리"""
+        self._shape("ring", x, y, color, r0, r1, life, width)
+
+    def disc(self, x, y, color, radius, life=12, alpha=110, r1=None):
+        """반투명 원 (점점 투명해짐, r1을 주면 크기도 변함)"""
+        self._shape("disc", x, y, color, radius, radius if r1 is None else r1, life, 0, alpha=alpha)
+
+    def beam(self, x1, y1, x2, y2, color, width=8, life=8):
+        """굵은 빛줄기 (가운데는 하얗게, 점점 가늘어짐)"""
+        self._shape("beam", x1, y1, color, 0, 0, life, width, x2, y2)
 
     def trail(self, x, y, color, size=3, life=10):
         self.particles.append([x + fx_random.uniform(-1.5, 1.5), y + fx_random.uniform(-1.5, 1.5),
@@ -1182,9 +1207,49 @@ class EffectManager:
             if a[3] < a[4] * a[7]:
                 anims.append(a)
         self.anims = anims
+        shapes = []
+        for sh in self.shapes:
+            sh[7] -= 1
+            if sh[7] > 0:
+                shapes.append(sh)
+        self.shapes = shapes
+
+    def _draw_shapes(self, surface, camera):
+        width, height = camera.width, camera.height
+        for kind, x, y, x2, y2, r0, r1, life, max_life, color, w, alpha in self.shapes:
+            left = life / max_life                 # 1 → 0
+            sx, sy = camera.apply(x, y)
+            if kind == "beam":
+                ex, ey = camera.apply(x2, y2)
+                if max(sx, ex) < -20 or min(sx, ex) > width + 20 or max(sy, ey) < -20 or min(sy, ey) > height + 20:
+                    continue
+                bw = max(1, int(w * left))
+                pygame.draw.line(surface, color, (int(sx), int(sy)), (int(ex), int(ey)), bw)
+                if bw >= 3:
+                    pygame.draw.line(surface, WHITE, (int(sx), int(sy)), (int(ex), int(ey)), max(1, bw // 3))
+                continue
+            r = int(r0 + (r1 - r0) * (1 - left))
+            if r <= 0 or sx + r < 0 or sx - r > width or sy + r < 0 or sy - r > height:
+                continue
+            if kind == "ring":
+                pygame.draw.circle(surface, color, (int(sx), int(sy)), r, max(1, min(r, int(w * (0.3 + 0.7 * left)))))
+            else:   # disc: 큰 원은 비싸서 반경 260까지만 (색·반경별로 한 번 그려 두고 투명도만 바꿔서 씀)
+                r = min(r, 260)
+                key = (color[:3], r)
+                glow = _disc_cache.get(key)
+                if glow is None:
+                    if len(_disc_cache) > 300:
+                        _disc_cache.clear()
+                    glow = pygame.Surface((r * 2, r * 2))
+                    glow.set_colorkey(BLACK)
+                    pygame.draw.circle(glow, color[:3], (r, r), r)
+                    _disc_cache[key] = glow
+                glow.set_alpha(int(alpha * left))
+                surface.blit(glow, (int(sx) - r, int(sy) - r))
 
     def draw(self, surface, camera):
         width, height = camera.width, camera.height
+        self._draw_shapes(surface, camera)
         for rel, x, y, age, frame_time, scale, angle, count in self.anims:
             sx, sy = camera.apply(x, y)
             if -300 < sx < width + 300 and -300 < sy < height + 300:
@@ -3390,6 +3455,10 @@ def apply_player_damage(player, amount, explosion=False):
         player.invuln_time = max(player.invuln_time, SPECIAL_PHOENIX_INVULN)
         player.phoenix_ready = player.special_tick + SPECIAL_PHOENIX_COOLDOWN
         fx.ring(player.rect.centerx, player.rect.centery, (255, 170, 50), 160, count=40, size=5)
+        fx.wave(player.rect.centerx, player.rect.centery, (255, 150, 40), 30, 220, life=26, width=12)
+        fx.disc(player.rect.centerx, player.rect.centery, (255, 130, 30), 160, life=30, alpha=130)
+        fx.beam(player.rect.centerx, player.rect.centery + 20, player.rect.centerx, player.rect.centery - 400, (255, 170, 60), width=30, life=20)
+        fx.burst(player.rect.centerx, player.rect.centery, (255, 150, 40), 50, speed=(2, 9), size=(3, 7), life=(18, 34), gravity=-0.1)
         fx.add_text(player.rect.centerx, player.rect.top - 40, "불사조 부활!", (255, 180, 60), big=True, life=90)
 
 
@@ -4990,15 +5059,13 @@ def tick_turret_charges(player):
 
 
 def bullet_hit_damage(owner, bullet, zombie):
-    """총알 한 발의 피해 (포탑 총알은 치명타 없음, 나머지는 치명타 판정)"""
-    if getattr(bullet, "no_crit", False):
-        return bullet.damage
+    """총알 한 발의 피해 (치명타 판정 - 포탑 총알도 평타처럼)"""
     return roll_crit_damage(owner, bullet.damage, zombie)
 
 
 class TurretSkill(ActiveSkill):
     """기관총 포탑: 설치한 자리에서 가장 가까운 좀비를 자동 사격
-    총알은 평타와 같은 효과(화염/얼음/전기탄, 폭발 공격, 관통, 사거리)를 받음 - 단 치명타는 없음"""
+    총알은 평타와 똑같이 취급 (치명타, 화염/얼음/전기탄, 폭발 공격, 관통, 사거리) + 무한탄약 동안은 매 프레임 사격"""
     def __init__(self, x, y, duration, damage, all_sprites):
         super().__init__(duration)
         self.x, self.y, self.damage = x, y, damage
@@ -5011,12 +5078,12 @@ class TurretSkill(ActiveSkill):
         target = nearest_zombie(zombies, self.x, self.y, TURRET_RANGE)
         if target is not None:
             self.aim = math.atan2(target.rect.centery - self.y, target.rect.centerx - self.x)
-            if self.frames % TURRET_FIRE_EVERY == 0:
+            infinite = player.skills.get("skill_infinity_ammo", False) and player.infinity_ammo_time > 0
+            if infinite or self.frames % TURRET_FIRE_EVERY == 0:
                 # 지금 내 공격력 기준 (설치 뒤에 받은 버프/강화도 반영)
                 damage = get_weapon_damage(player) * TURRET_DAMAGE_MULT if player.weapon is not None else self.damage
                 bullet = Bullet(self.x, self.y, target.rect.centerx, target.rect.centery, damage, "normal", "machinegun")
                 bullet.speed = 15
-                bullet.no_crit = True   # 포탑은 치명타 없음
                 if player.weapon is not None:   # 평타처럼 관통/사거리
                     bullet.pierce = player.weapon.pierce
                     bullet.max_range = player.weapon.max_range
@@ -6966,7 +7033,7 @@ WEAPON_HELP = {
     "machinegun": (["누르고 있으면 연사. 한 발은 약하지만 매우 빠름."],
                    ["포탑 설치 (충전식): 마우스 쪽(최대 220px)에 10초 동안 가까운 좀비를 자동으로 쏘는 포탑 (한 발 = 지금 공격력 x 1.5).",
                     "충전 최대 3개 - 모아 뒀다가 연달아 여러 개 설치 가능, 12초마다 1개 충전 (업그레이드 \"포탑 최대 충전 +1\", 최대 5개).",
-                    "포탑 총알도 평타처럼 화염 · 얼음 · 전기탄, 폭발 공격, 관통이 적용됨 (치명타만 없음)."]),
+                    "포탑 총알은 평타와 똑같이 치명타 · 화염 · 얼음 · 전기탄 · 폭발 공격 · 관통 적용, 무한탄약 동안은 쉬지 않고 사격."]),
     "shotgun": (["한 번에 3발 산탄. 사거리 380 (근거리 전용)."],
                 ["용의 숨결: 앞쪽 부채꼴로 불을 뿜어 피해 + 불붙임. 쿨타임 10초."]),
     "sniper": (["강한 한 발. 기본 공격이 무한 관통 (사거리 끝까지)."],
@@ -7623,8 +7690,9 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
         for i in range(SPECIAL_ORBIT_COUNT):
             a = 2 * math.pi * (t / SPECIAL_ORBIT_PERIOD + i / SPECIAL_ORBIT_COUNT)
             ox, oy = cx + math.cos(a) * SPECIAL_ORBIT_RADIUS, cy + math.sin(a) * SPECIAL_ORBIT_RADIUS
-            fx.trail(ox, oy, (120, 210, 255), size=9, life=10)   # 빛나는 구슬 + 꼬리
-            fx.trail(ox, oy, (235, 250, 255), size=4, life=4)
+            fx.disc(ox, oy, (120, 210, 255), 22, life=3, alpha=90)   # 빛나는 구슬 + 꼬리
+            fx.trail(ox, oy, (120, 210, 255), size=13, life=12)
+            fx.trail(ox, oy, (235, 250, 255), size=7, life=4)
             for zombie in zombies:
                 if zombie.health <= 0 or getattr(zombie, "orbit_ready", 0) > t:
                     continue
@@ -7643,7 +7711,9 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
             zombie.slow_time = max(zombie.slow_time, 30)
             zombie.slow_multiplier = 0.0   # 0.5초 기절
             fx.lightning(zx + 30, zy - 420, zx, zy, (255, 240, 140))
-            fx.ring(zx, zy, (255, 240, 140), 60, count=16)
+            fx.beam(zx + 30, zy - 420, zx, zy, (255, 235, 110), width=12, life=10)
+            fx.disc(zx, zy, (255, 245, 160), 70, life=12, alpha=150)
+            fx.wave(zx, zy, (255, 240, 140), 20, 90, life=14, width=6)
         if near:
             fx.add_shake(4)
 
@@ -7653,6 +7723,9 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
                 zombie.slow_time = max(zombie.slow_time, SPECIAL_TIMESTOP_FRAMES)
                 zombie.slow_multiplier = 0.0
         fx.ring(cx, cy, (170, 140, 255), SPECIAL_TIMESTOP_RANGE // 2, count=48, size=5)
+        fx.wave(cx, cy, (190, 160, 255), 40, SPECIAL_TIMESTOP_RANGE, life=30, width=10)
+        fx.wave(cx, cy, (240, 230, 255), 20, SPECIAL_TIMESTOP_RANGE * 0.7, life=24, width=4)
+        fx.disc(cx, cy, (150, 120, 255), 260, life=SPECIAL_TIMESTOP_FRAMES, alpha=60)
         fx.add_text(cx, player.rect.top - 40, "시간 정지!", (190, 170, 255), big=True, life=70)
 
     if "special_reaper" in owned:   # 사신의 낫
@@ -7667,6 +7740,8 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
                 all_sprites.add(LineFlash(zombie.rect.centerx - size, zombie.rect.centery - size,
                                           zombie.rect.centerx + size, zombie.rect.centery + size, (255, 60, 80), width=7, duration=16))
                 fx.add_text(zombie.rect.centerx, zombie.rect.top - 20, "처형", (255, 90, 100), life=30)
+                fx.disc(zombie.rect.centerx, zombie.rect.centery, (200, 20, 50), size, life=14, alpha=130)
+                fx.burst(zombie.rect.centerx, zombie.rect.centery, (220, 30, 60), 14, speed=(2, 6), size=(3, 6), life=(12, 22))
 
     if "special_singularity" in owned and t % SPECIAL_SINGULARITY_EVERY == 0:   # 특이점
         best, best_count = None, 0
@@ -7682,11 +7757,36 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
     def near(radius):
         return [z for z in zombies if z.health > 0 and math.hypot(z.rect.centerx - cx, z.rect.centery - cy) < radius]
 
+    # 능력치형 특수 업그레이드도 가진 게 보이도록 몸 주위 오라 (그리기 전용)
+    if "special_power" in owned:   # 파괴신: 발밑 붉은 기운 + 붉은 불티가 솟음
+        fx.disc(cx, cy + 8, (255, 40, 30), 38, life=3, alpha=45)
+    if "special_power" in owned and t % 2 == 0:
+        fx.burst(cx + fx_random.uniform(-20, 20), cy + 16, (255, fx_random.randint(40, 90), 40), 1,
+                 speed=(0.2, 0.8), size=(3, 6), life=(18, 30), gravity=-0.2, angle=-math.pi / 2, spread=0.8)
+    if "special_haste" in owned and t % 2 == 0:   # 신속: 바람 꼬리 (움직이면 더 많이)
+        if getattr(player, "is_moving", False) or t % 8 == 0:
+            fx.trail(cx + fx_random.uniform(-12, 12), cy + fx_random.uniform(-16, 16), (120, 240, 255), size=8, life=16)
+        if t % 40 == 0:
+            fx.wave(cx, cy, (120, 240, 255), 20, 54, life=12, width=3)
+    if "special_titan" in owned and t % 60 in (0, 12):   # 거인의 심장: 1초마다 두근두근
+        fx.wave(cx, cy, (255, 90, 100), 24, 80, life=18, width=6)
+        fx.disc(cx, cy, (255, 80, 90), 40, life=10, alpha=70)
+    if "special_wisdom" in owned:   # 현자: 머리 위 금빛 고리 + 반짝임
+        fx.wave(cx, player.rect.top - 10, (255, 230, 110), 14, 14, life=3, width=3)
+    if "special_wisdom" in owned and t % 6 == 0:
+        fx.burst(cx + fx_random.uniform(-16, 16), player.rect.top - 6, (255, 240, 120), 1,
+                 speed=(0.1, 0.5), size=(2, 4), life=(16, 26), gravity=-0.05)
+    if "special_phoenix" in owned and t >= player.phoenix_ready and t % 4 == 0:   # 불사조: 쓸 수 있으면 머리 위 불꽃
+        fx.burst(cx + fx_random.uniform(-6, 6), player.rect.top - 14, (255, fx_random.randint(120, 200), 40), 1,
+                 speed=(0.2, 0.9), size=(3, 6), life=(12, 20), gravity=-0.15, angle=-math.pi / 2, spread=0.6)
+
     if "special_meteor" in owned and t % SPECIAL_METEOR_EVERY == 0:   # 유성우
         targets = near(700)
         for target in random.sample(targets, min(SPECIAL_METEOR_COUNT, len(targets))):
             mx, my = target.rect.center
-            fx.lightning(mx - 160, my - 520, mx, my, (255, 160, 80))
+            fx.beam(mx - 160, my - 520, mx, my, (255, 150, 60), width=16, life=12)
+            fx.disc(mx, my, (255, 120, 40), SPECIAL_METEOR_RADIUS, life=16, alpha=140)
+            fx.wave(mx, my, (255, 190, 90), 30, SPECIAL_METEOR_RADIUS + 30, life=16, width=7)
             boom = Explosion(mx, my, SPECIAL_METEOR_RADIUS, "airstrike")
             explosions.add(boom)
             all_sprites.add(boom)
@@ -7700,6 +7800,9 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
             zombie.slow_time = max(zombie.slow_time, 120)
             zombie.slow_multiplier = min(zombie.slow_multiplier, 0.3)
         fx.ring(cx, cy, (160, 225, 255), SPECIAL_FROST_RANGE, count=48, size=5)
+        fx.wave(cx, cy, (170, 230, 255), 30, SPECIAL_FROST_RANGE, life=20, width=12)
+        fx.disc(cx, cy, (150, 220, 255), SPECIAL_FROST_RANGE, life=40, alpha=90)
+        fx.burst(cx, cy, (230, 248, 255), 40, speed=(4, 12), size=(2, 5), life=(14, 26))
 
     if "special_chain" in owned and t % SPECIAL_CHAIN_EVERY == 0:   # 연쇄 번개
         hit, x, y = set(), cx, cy
@@ -7710,44 +7813,61 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
                 break
             zombie = min(options, key=lambda z: (math.hypot(z.rect.centerx - x, z.rect.centery - y), z.rect.x, z.rect.y))
             fx.lightning(x, y, zombie.rect.centerx, zombie.rect.centery, (255, 245, 140))
+            fx.beam(x, y, zombie.rect.centerx, zombie.rect.centery, (255, 240, 90), width=7, life=10)
+            fx.disc(zombie.rect.centerx, zombie.rect.centery, (255, 250, 150), 34, life=10, alpha=150)
             skill_damage(zombie, base * SPECIAL_CHAIN_MULT)
             hit.add(zombie)
             x, y = zombie.rect.center
 
     if "special_inferno" in owned:   # 지옥불
-        if t % 6 == 0:
+        fx.wave(cx, cy, (255, 100, 30), SPECIAL_INFERNO_RANGE, SPECIAL_INFERNO_RANGE, life=3, width=3)
+        if t % 2 == 0:
             a = fx_random.uniform(0, 2 * math.pi)
             r = fx_random.uniform(30, SPECIAL_INFERNO_RANGE)
-            fx.trail(cx + math.cos(a) * r, cy + math.sin(a) * r, (255, 110, 30), size=6, life=14)
+            fx.burst(cx + math.cos(a) * r, cy + math.sin(a) * r, (255, fx_random.randint(70, 170), 20), 2,
+                     speed=(0.2, 1.0), size=(4, 8), life=(16, 28), gravity=-0.15)
         if t % 30 == 0:
+            fx.disc(cx, cy, (255, 90, 20), SPECIAL_INFERNO_RANGE, life=14, alpha=55)
             for zombie in near(SPECIAL_INFERNO_RANGE):
                 skill_damage(zombie, base * SPECIAL_INFERNO_MULT)
                 ignite(zombie)
 
-    if "special_drain" in owned and t % 60 == 0:   # 흡혈 오라
+    if "special_drain" in owned:   # 흡혈 오라: 늘 보이는 붉은 고리
+        fx.wave(cx, cy, (170, 30, 70), SPECIAL_DRAIN_RANGE, SPECIAL_DRAIN_RANGE, life=3, width=2)
+    if "special_drain" in owned and t % 60 == 0:
         drained = near(SPECIAL_DRAIN_RANGE)
+        fx.wave(cx, cy, (220, 50, 100), SPECIAL_DRAIN_RANGE, 30, life=20, width=6)
         for zombie in drained:
             skill_damage(zombie, base * SPECIAL_DRAIN_MULT)
-            fx.trail(zombie.rect.centerx, zombie.rect.centery, (230, 60, 110), size=5, life=12)
+            fx.beam(zombie.rect.centerx, zombie.rect.centery, cx, cy, (220, 40, 90), width=4, life=12)
+            fx.burst(zombie.rect.centerx, zombie.rect.centery, (240, 60, 110), 4, speed=(1, 3), size=(3, 5), life=(10, 18))
         if drained:
             heal = min(len(drained), player.max_health * SPECIAL_DRAIN_HEAL_MAX)
             player.health = min(player.max_health, player.health + heal)
 
     if "special_drone" in owned:   # 공격 드론 (머리 위를 맴돎)
         drone_x, drone_y = cx + math.cos(t * 0.05) * 50, cy - 60 + math.sin(t * 0.1) * 10
-        fx.trail(drone_x, drone_y, (120, 255, 200), size=7, life=4)
+        fx.disc(drone_x, drone_y, (120, 255, 200), 24, life=3, alpha=90)
+        fx.trail(drone_x, drone_y, (50, 80, 70), size=18, life=3)
+        fx.trail(drone_x, drone_y, (150, 255, 220), size=10, life=3)
+        fx.trail(drone_x - 12, drone_y, (220, 255, 240), size=5, life=3)
+        fx.trail(drone_x + 12, drone_y, (220, 255, 240), size=5, life=3)
         if t % SPECIAL_DRONE_EVERY == 0:
             targets = near(SPECIAL_DRONE_RANGE)
             if targets:
                 zombie = min(targets, key=lambda z: (math.hypot(z.rect.centerx - cx, z.rect.centery - cy), z.rect.x, z.rect.y))
-                all_sprites.add(LineFlash(drone_x, drone_y, zombie.rect.centerx, zombie.rect.centery, (120, 255, 200), width=3, duration=8))
+                fx.beam(drone_x, drone_y, zombie.rect.centerx, zombie.rect.centery, (120, 255, 200), width=9, life=9)
+                fx.disc(zombie.rect.centerx, zombie.rect.centery, (150, 255, 220), 26, life=8, alpha=130)
+                fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (150, 255, 220))
                 skill_damage(zombie, base * SPECIAL_DRONE_MULT)
 
     if "special_blades" in owned:   # 칼날 폭풍 (수호 위성과 반대 방향)
+        fx.wave(cx, cy, (110, 110, 130), SPECIAL_BLADE_RADIUS, SPECIAL_BLADE_RADIUS, life=3, width=2)
         for i in range(SPECIAL_BLADE_COUNT):
             a = -2 * math.pi * (t / SPECIAL_BLADE_PERIOD + i / SPECIAL_BLADE_COUNT)
             bx, by = cx + math.cos(a) * SPECIAL_BLADE_RADIUS, cy + math.sin(a) * SPECIAL_BLADE_RADIUS
-            fx.trail(bx, by, (220, 220, 240), size=7, life=8)
+            fx.trail(bx, by, (200, 205, 230), size=14, life=10)
+            fx.trail(bx, by, (255, 255, 255), size=8, life=3)
             for zombie in zombies:
                 if zombie.health <= 0 or getattr(zombie, "blade_ready", 0) > t:
                     continue
@@ -7762,14 +7882,29 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
             skill_damage(zombie, base * SPECIAL_QUAKE_MULT)
             push_zombie(zombie, cx, cy, 14)
         all_sprites.add(MeleePoundEffect(cx, cy, SPECIAL_QUAKE_RANGE))
-        fx.add_shake(8)
+        fx.wave(cx, cy, (200, 150, 90), 40, SPECIAL_QUAKE_RANGE, life=22, width=14)
+        fx.wave(cx, cy, (240, 210, 160), 20, SPECIAL_QUAKE_RANGE * 0.6, life=16, width=6)
+        fx.disc(cx, cy, (150, 100, 50), SPECIAL_QUAKE_RANGE, life=18, alpha=80)
+        fx.burst(cx, cy, (140, 110, 80), 50, speed=(3, 11), size=(3, 7), life=(18, 34), drag=0.88)
+        fx.add_text(cx, player.rect.top - 40, "대지진!", (220, 170, 110), big=True, life=50)
+        fx.add_shake(10)
 
+    if "special_aegis" in owned and player.invuln_time > 0 and t % SPECIAL_AEGIS_EVERY < SPECIAL_AEGIS_FRAMES:
+        fx.wave(cx, cy, (255, 235, 140), 46, 46, life=3, width=4)
+        fx.disc(cx, cy, (255, 245, 180), 46, life=3, alpha=50)
     if "special_aegis" in owned and t % SPECIAL_AEGIS_EVERY == 0:   # 신의 가호
         player.invuln_time = max(player.invuln_time, SPECIAL_AEGIS_FRAMES)
         fx.ring(cx, cy, (255, 250, 200), 80, count=28, size=4)
+        fx.beam(cx, cy - 500, cx, cy, (255, 240, 170), width=40, life=16)
+        fx.wave(cx, cy, (255, 240, 160), 20, 140, life=18, width=8)
         fx.add_text(cx, player.rect.top - 40, "신의 가호!", (255, 250, 200), big=True, life=60)
 
     if "special_thorns" in owned and t % 30 == 0:   # 가시 갑옷 반격
+        fx.wave(cx, cy, (150, 210, 90), 30, SPECIAL_THORNS_RANGE, life=12, width=5)
+        for i in range(10):   # 가시
+            a = i / 10 * 2 * math.pi + t * 0.05
+            fx.beam(cx + math.cos(a) * 30, cy + math.sin(a) * 30, cx + math.cos(a) * SPECIAL_THORNS_RANGE,
+                    cy + math.sin(a) * SPECIAL_THORNS_RANGE, (130, 190, 70), width=4, life=8)
         for zombie in near(SPECIAL_THORNS_RANGE):
             skill_damage(zombie, base * SPECIAL_THORNS_MULT)
             fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (160, 210, 100))
@@ -8839,7 +8974,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102127          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102128          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
