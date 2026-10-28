@@ -171,7 +171,7 @@
 【주요 게임 메카닉】
 1. 넉백 시스템: 좀비마다 다른 넉백 저항도 (탱크는 완전 저항)
 2. 치명타 시스템: 업그레이드로 중첩, 최대 80% (16회)
-3. 회피 시스템: 업그레이드로 중첩, 최대 100% (20회)
+3. 회피 시스템: 업그레이드로 중첩, 최대 95% (19회, 속도형 바람걸음 포함)
 4. 상태이상: 독 (지속 피해), 얼음 (속도 저하)
 5. 부활 시스템:
    - 갑옷 -> 일반으로 부활
@@ -609,6 +609,7 @@ SNIPER_RICOCHET_CRIT_BONUS = 0.20
 #  탱커형 "강철 몸": 받는 피해 -20%, 폭발 피해 추가 -50% (합쳐서 -60%), 체력 재생 초당 1
 #  공격형 "광전사": 치명타 확률 +10%, 체력 50% 이하일 때 공격력 +25%
 SPEED_TRAIT_DODGE = 0.15
+DODGE_MAX = 0.95          # 회피율은 업그레이드 + 바람걸음을 합쳐도 최대 95%
 SPEED_TRAIT_COOLDOWN = 0.15
 TANK_TRAIT_DAMAGE_TAKEN = 0.8
 TANK_TRAIT_REGEN = 1.0
@@ -3421,13 +3422,18 @@ class Explosion(pygame.sprite.Sprite):
         self._draw_frame()
 
 
+def get_dodge_chance(player):
+    """회피 확률 (업그레이드 1회당 5% + 속도형 15%, 최대 95%)"""
+    dodge = player.levels.get("dodge", 0) * 0.05 + (SPEED_TRAIT_DODGE if player.ability == "speed" else 0)
+    return min(DODGE_MAX, dodge)
+
+
 def apply_player_damage(player, amount, explosion=False):
     # 무적 (카타나 일섬 직후)
     if getattr(player, "invuln_time", 0) > 0:
         return
-    # 회피 (levels["dodge"] * 5%, 속도형은 +15%): 접촉뿐 아니라 투사체/폭발/독 등 모든 피해에 적용
-    dodge = player.levels.get("dodge", 0) * 0.05 + (SPEED_TRAIT_DODGE if player.ability == "speed" else 0)
-    if random.random() < dodge:
+    # 회피 (levels["dodge"] * 5%, 속도형은 +15%, 최대 95%): 접촉뿐 아니라 투사체/폭발/독 등 모든 피해에 적용
+    if random.random() < get_dodge_chance(player):
         return
     if player.ability == "tank":
         amount *= TANK_TRAIT_DAMAGE_TAKEN   # 특성 강철 몸: 받는 피해 -20%
@@ -7411,7 +7417,7 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"특수: {get_upgrade_name(kind)}")
 
     crit_percent = player.levels.get("crit", 0) * 5
-    dodge_percent = player.levels.get("dodge", 0) * 5
+    dodge_percent = min(round(DODGE_MAX * 100), player.levels.get("dodge", 0) * 5)
     if crit_percent > 0:
         lines.append(f"치명타 확률: +{crit_percent}%")
     if dodge_percent > 0:
@@ -7585,7 +7591,7 @@ def is_upgrade_at_limit(player, upgrade_type):
     if upgrade_type == "sniper_skill_critdmg":
         return player.skill_upgrades["sniper"].get("crit_damage", 0) >= SNIPER_CRIT_DAMAGE_MAX
     if upgrade_type == "dodge":
-        return player.levels.get("dodge", 0) >= 20  # 최대 100%
+        return get_dodge_chance(player) >= DODGE_MAX - 1e-9  # 최대 95% (속도형은 더 빨리 참)
 
     # 공통 쿨감 제한 (5%/10% 옵션 공유)
     if upgrade_type in ("skill_cooldown_reduction", "skill_cooldown_reduction_big"):
@@ -8191,7 +8197,7 @@ def apply_upgrade(player, selected_upgrade):
     elif selected_upgrade["type"] == "crit":
         player.levels["crit"] = min(16, player.levels.get("crit", 0) + 1)
     elif selected_upgrade["type"] == "dodge":
-        player.levels["dodge"] = min(20, player.levels.get("dodge", 0) + 1)
+        player.levels["dodge"] = min(19, player.levels.get("dodge", 0) + 1)   # 19회 = 95%
     elif selected_upgrade["type"].startswith("special_"):   # 50레벨 특수 업그레이드
         player.special_upgrades.append(selected_upgrade["type"])   # 효과는 tick_specials가 매 프레임 (신속/거인의 심장은 얻을 때 한 번)
         if selected_upgrade["type"] == "special_haste":
@@ -8974,7 +8980,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102128          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102129          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
