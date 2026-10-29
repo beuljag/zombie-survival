@@ -13,7 +13,10 @@
 - 경험치·점수는 공유, 레벨업 업그레이드는 각자 고름 (게임은 멈추지 않음: 화면 아래 카드 클릭 또는 1/2/3 키)
 - 죽으면 관전하다가, 죽은 뒤 웨이브 3개가 지나면 살아 있는 팀원 옆에서 부활
 - 전원이 죽으면 게임 오버
-- 멀티에서는 일시정지/저장 없음 (ESC: 메뉴 - G 게임 포기 / Q 나가기)
+- 일시정지: ESC 메뉴 → P (누구나 멈추고 누구나 다시 시작, 모든 PC가 같은 프레임에 멈춤) / 저장은 없음
+- 중간에 다시 들어오기: 나갔던 사람은 같은 방에 다시 참가하면 자기 자리로 돌아옴
+  (호스트가 처음부터의 입력 기록을 보내 주면 빠르게 다시 계산해서 지금 상태를 따라잡음)
+- 쓰러지면 관전: 클릭 / 스페이스로 볼 팀원을 바꿈
 ===============================================
 """
 
@@ -22,6 +25,8 @@ import threading
 import queue
 import json
 import time
+import zlib
+import base64
 
 import ZZ1 as g
 from ZZ1 import *  # noqa: F401,F403 - 1인 모드의 클래스/함수/상수를 그대로 사용
@@ -121,7 +126,14 @@ class Lockstep:
         self.pid = pid
         self.host_conn = host_conn
         self.client_conns = client_conns or {}   # pid -> Connection (호스트만)
-        self.ticks = {}                  # frame -> (inputs, dropped)
+        self.ticks = {}                  # frame -> (inputs, dropped, rejoined)
+        # ----- 호스트: 중간에 다시 들어오기 -----
+        self.log = []                    # 지금까지 만든 모든 tick (다시 들어온 사람에게 보내서 따라잡게 함)
+        self.server = None               # 게임 중에도 열어 두는 접속 소켓
+        self.beacon = None               # 게임 중에도 "재접속 가능" 알림
+        self.seed, self.roster = None, []
+        self.newcomers = []              # 접속했지만 아직 hello를 안 보낸 연결
+        self.join_at = {}                # pid -> 다시 들어오는 프레임 (그 tick부터 그 사람 입력을 기다림)
         self.pending = {}                # 호스트: frame -> {pid: input}
         self.active = set(pids)          # 호스트: 아직 연결된 플레이어
         self.dropped_queue = []          # 호스트: 다음 tick에 알릴 나간 플레이어
@@ -163,12 +175,52 @@ class Lockstep:
                 for conn in self.client_conns.values():
                     conn.send({"t": "desync", "f": frame})
 
+    def free_slots(self):
+        """다시 들어올 수 있는 자리 (나간 사람 자리)"""
+        return [r["pid"] for r in self.roster if r["pid"] != self.pid and r["pid"] not in self.active
+                and r["pid"] not in self.client_conns]
+
+    def _accept_rejoin(self):
+        """호스트: 게임 중 새 접속 → hello를 받으면 빈 자리로 들여보내고 지금까지의 입력 기록을 보냄"""
+        if self.server is not None:
+            try:
+                sock, _addr = self.server.accept()
+                sock.setblocking(True)
+                self.newcomers.append(Connection(sock))
+            except (BlockingIOError, OSError):
+                pass
+        for conn in list(self.newcomers):
+            for msg in conn.messages():
+                if msg.get("t") != "hello":
+                    continue
+                self.newcomers.remove(conn)
+                slots = self.free_slots()
+                if msg.get("build", GAME_BUILD) != GAME_BUILD:
+                    conn.send({"t": "refuse", "why": "게임 버전이 달라요 - 둘 다 최신 버전으로 업데이트하세요"})
+                elif not slots:
+                    conn.send({"t": "refuse", "why": "이미 게임 중이고 빈 자리가 없어요"})
+                else:
+                    pid = msg.get("rejoin_pid") if msg.get("rejoin_pid") in slots else slots[0]
+                    packed = base64.b64encode(zlib.compress(json.dumps(
+                        [[{str(k): v for k, v in inputs.items()}, dropped, rejoined] for inputs, dropped, rejoined in self.log],
+                        separators=(",", ":")).encode("utf-8"), 6)).decode("ascii")
+                    conn.send({"t": "resume", "pid": pid, "seed": self.seed, "roster": self.roster, "log": packed})
+                    self.client_conns[pid] = conn   # 이제부터의 tick도 받음 (입력은 "ready" 뒤부터 기다림)
+                    continue
+                conn.close()
+                break
+            if conn in self.newcomers and conn.closed:
+                self.newcomers.remove(conn)
+        if self.beacon is not None and self.roster:
+            self.beacon.tick(len(self.active), WEAPON_STATS[self.roster[0]["weapon"]]["name"],
+                             in_game=True, open=len(self.free_slots()))
+
     def poll(self):
         if self.role == "client":
             for msg in self.host_conn.messages():
                 if msg["t"] == "tick":
                     inputs = {int(k): v for k, v in msg["in"].items()}
-                    self.ticks[msg["f"]] = (inputs, msg.get("drop", []))
+                    self.ticks[msg["f"]] = (inputs, msg.get("drop", []), msg.get("rej", []))
                 elif msg["t"] == "desync":
                     self.desync = True
                 elif msg["t"] == "pong":
@@ -179,27 +231,39 @@ class Lockstep:
                 self.host_lost = True
             return
         # 호스트 (혼자 테스트 모드 포함)
+        self._accept_rejoin()
         for pid, conn in list(self.client_conns.items()):
             for msg in conn.messages():
                 if msg["t"] == "in":
-                    self.pending.setdefault(msg["f"], {})[pid] = msg["i"]
+                    if msg["f"] >= self.next_tick:   # 이미 지난 프레임 입력은 버림 (다시 들어오는 중에 보낸 것)
+                        self.pending.setdefault(msg["f"], {})[pid] = msg["i"]
+                elif msg["t"] == "ready" and pid not in self.active:
+                    self.join_at[pid] = max(self.next_tick, msg["f"])   # 따라잡기 끝 → 이 프레임부터 같이 진행
                 elif msg["t"] == "hash":
                     self.peer_hashes.setdefault(msg["f"], {})[pid] = msg["h"]
                     self._check_hash(msg["f"])
                 elif msg["t"] == "ping":
                     conn.send({"t": "pong", "s": msg["s"]})
-            if conn.closed and pid in self.active:
-                self.active.discard(pid)
-                self.dropped_queue.append(pid)
+            if conn.closed:
+                if pid in self.active:
+                    self.active.discard(pid)
+                    self.dropped_queue.append(pid)
+                self.join_at.pop(pid, None)
                 del self.client_conns[pid]
         while True:
+            rejoined = sorted(pid for pid, at in self.join_at.items() if at <= self.next_tick)
             have = self.pending.get(self.next_tick, {})
-            if not self.active.issubset(have.keys()):
+            if not (self.active | set(rejoined)).issubset(have.keys()):
                 break
+            for pid in rejoined:
+                self.active.add(pid)
+                del self.join_at[pid]
             inputs = {pid: have[pid] for pid in sorted(have) if pid in self.active}
             dropped, self.dropped_queue = self.dropped_queue, []
-            self.ticks[self.next_tick] = (inputs, dropped)
-            message = {"t": "tick", "f": self.next_tick, "in": {str(k): v for k, v in inputs.items()}, "drop": dropped}
+            self.ticks[self.next_tick] = (inputs, dropped, rejoined)
+            self.log.append((inputs, dropped, rejoined))
+            message = {"t": "tick", "f": self.next_tick, "in": {str(k): v for k, v in inputs.items()}, "drop": dropped,
+                       "rej": rejoined}
             for conn in self.client_conns.values():
                 conn.send(message)
             self.pending.pop(self.next_tick, None)
@@ -209,16 +273,22 @@ class Lockstep:
         return self.ticks.pop(frame, None)
 
     def close(self):
-        for conn in list(self.client_conns.values()):
+        for conn in list(self.client_conns.values()) + self.newcomers:
             conn.close()
         if self.host_conn is not None:
             self.host_conn.close()
+        if self.server is not None:
+            self.server.close()
+            self.server = None
+        if self.beacon is not None:
+            self.beacon.close()
+            self.beacon = None
 
 
 # =====================================================================
 # 입력
 # =====================================================================
-EMPTY_INPUT = {"k": 0, "x": 0, "y": 0, "l": 0, "h": 0, "r": 0, "e": 0, "u": -1, "s": 0, "g": 0}
+EMPTY_INPUT = {"k": 0, "x": 0, "y": 0, "l": 0, "h": 0, "r": 0, "e": 0, "u": -1, "s": 0, "g": 0, "p": 0}
 
 
 class KeyState:
@@ -257,7 +327,10 @@ class MatchState:
         random.seed(seed)
         fx.reset()
         self.local_pid = local_pid
-        self.sim_frame = 0
+        self.sim_frame = 0       # 진행한 tick 수 (일시정지 중에도 늘어남 - 락스텝 기준)
+        self.game_frame = 0      # 게임 시간 (일시정지 중에는 멈춤 - 쿨타임/웨이브 타이머 기준)
+        self.paused = False
+        self.paused_by = None
         self.players = []
         for index, info in enumerate(roster):
             p = Player(index * 60, 0, info["ability"])
@@ -331,7 +404,22 @@ class MatchState:
         return round(total, 2)
 
     # ----- 한 프레임 진행 -----
-    def step(self, inputs, dropped):
+    def revive(self, p, health_ratio, text):
+        """쓰러진 팀원을 살아 있는 팀원 옆에서 되살림 (무적 5초)"""
+        alive = self.alive_players()
+        buddy = random.choice(alive) if alive else p
+        p.dead = False
+        p.health = p.max_health * health_ratio
+        p.pos_x, p.pos_y = buddy.pos_x + 40, buddy.pos_y
+        p.rect.center = (round(p.pos_x), round(p.pos_y))
+        p._synced_center = p.rect.center
+        p.invuln_time = REVIVE_INVULN_FRAMES
+        p.poison_time = p.slow_time = p.shock_time = p.corrode_time = 0
+        p.slow_multiplier = 1.0
+        fx.ring(p.rect.centerx, p.rect.centery, (120, 255, 160), 120, count=32, size=4)
+        fx.add_text(p.rect.centerx, p.rect.top - 30, f"{p.name} {text}", (120, 255, 160), big=True, life=90)
+
+    def step(self, inputs, dropped, rejoined=()):
         self.sim_frame += 1
         for pid in dropped:
             p = self.by_pid.get(pid)
@@ -339,8 +427,19 @@ class MatchState:
                 p.left = True
                 p.dead = True
                 fx.add_text(p.rect.centerx, p.rect.top - 30, f"{p.name} 나감", (200, 200, 200), big=True)
-        if self.game_over:
+        for pid in rejoined:   # 나갔던 사람이 다시 들어옴 → 팀원 옆에서 되살아남 (포기했던 사람은 관전만)
+            p = self.by_pid.get(pid)
+            if p is not None and p.left:
+                p.left = False
+                if not getattr(p, "surrendered", False) and not self.game_over:
+                    self.revive(p, 1.0, "다시 들어옴!")
+        for pid in sorted(inputs):   # 일시정지: 누가 누르든 켜고 끔 (모든 PC가 같은 프레임에)
+            if inputs[pid].get("p"):
+                self.paused = not self.paused
+                self.paused_by = pid
+        if self.game_over or self.paused:
             return
+        self.game_frame += 1
         zombies, bullets, items, explosions, all_sprites = self.zombies, self.bullets, self.items, self.explosions, self.all_sprites
 
         # 1) 각 플레이어 입력 처리 (업그레이드 선택 / 공격 / 스킬 / 순간이동 / 이동)
@@ -958,17 +1057,7 @@ class MatchState:
             # 죽은 뒤 웨이브 3개가 지난 팀원 부활
             for p in self.players:
                 if p.dead and not p.left and not getattr(p, "surrendered", False) and self.wave - p.death_wave >= REVIVE_WAVES:
-                    buddy = random.choice(self.alive_players())
-                    p.dead = False
-                    p.health = p.max_health * 0.5
-                    p.pos_x, p.pos_y = buddy.pos_x + 40, buddy.pos_y
-                    p.rect.center = (round(p.pos_x), round(p.pos_y))
-                    p._synced_center = p.rect.center
-                    p.invuln_time = REVIVE_INVULN_FRAMES
-                    p.poison_time = p.slow_time = p.shock_time = p.corrode_time = 0
-                    p.slow_multiplier = 1.0
-                    fx.ring(p.rect.centerx, p.rect.centery, (120, 255, 160), 120, count=32, size=4)
-                    fx.add_text(p.rect.centerx, p.rect.top - 30, f"{p.name} 부활!", (120, 255, 160), big=True, life=90)
+                    self.revive(p, 0.5, "부활!")
 
     # ----- 피격 연출 -----
     def hit_effects(self):
@@ -1209,36 +1298,58 @@ def draw_minimap(state, camera, local):
     ui_text(screen, "지도", font_tiny, UI_SUB, (box.x + 8, box.y + 4), shadow=False)
 
 
-def draw_upgrade_summary(local, top):
-    """TAB(설정한 키): 지금까지 얻은 효과를 종합해서 보여 줌 (게임은 계속 진행)"""
+def draw_upgrade_summary(local, top, ui):
+    """TAB(설정한 키): 지금까지 얻은 효과를 종합해서 보여 줌 (게임은 계속 진행)
+    화면이 작아서 다 안 들어가면 마우스 휠로 스크롤 (멀티는 ESC 능력 확인 화면이 없어서)"""
     lines = build_cumulative_upgrade_lines(local) or ["아직 얻은 업그레이드가 없습니다"]
     recent = [get_upgrade_entry_name(e) for e in local.obtained_upgrades[-5:]]
+    rows = [("line", line, 24) for line in lines]
+    if recent:
+        rows += [("gap", "", 8), ("head", "최근 얻은 것", 22)] + [("recent", name, 22) for name in reversed(recent)]
     w = 360
-    h = min(SCREEN_HEIGHT - top - 300, 60 + len(lines) * 24 + (40 + len(recent) * 22 if recent else 0))
+    content_h = sum(r[2] for r in rows)
+    h = max(160, min(SCREEN_HEIGHT - top - 140, 60 + content_h))
     box = ui_panel(screen, (SCREEN_WIDTH - w - 14, top, w, h), alpha=225)
     ui_text(screen, f"내 능력 종합 (업그레이드 {len(local.obtained_upgrades)}개)", font_hud, UI_ACCENT, (box.x + 14, box.y + 10))
-    y = box.y + 44
-    room = (box.bottom - 12 - y - (40 + len(recent) * 22 if recent else 0)) // 24   # 칸에 들어가는 줄 수
-    if len(lines) > room:   # 다 안 들어가면 마지막 줄에 "외 N개" (잘린 글자가 보이지 않게)
-        lines = lines[:max(0, room - 1)] + [f"… 외 {len(lines) - max(0, room - 1)}개 (ESC → 능력 확인)"]
-    screen.set_clip(box.inflate(-6, -6))
-    for line in lines:
-        pygame.draw.circle(screen, UI_GOOD, (box.x + 20, y + 10), 3)
-        ui_text(screen, line, ui_fit_font(font_tiny, line, box.w - 40), UI_TEXT, (box.x + 30, y), shadow=False)
-        y += 24
-    if recent:
-        y += 8
-        ui_text(screen, "최근 얻은 것", font_tiny, UI_SUB, (box.x + 14, y), shadow=False)
-        y += 22
-        for name in reversed(recent):
-            ui_text(screen, f"· {name}", ui_fit_font(font_tiny, f"· {name}", box.w - 30), (200, 195, 185), (box.x + 20, y), shadow=False)
-            y += 22
+    view = pygame.Rect(box.x + 6, box.y + 42, box.w - 12, box.h - 48)
+    max_scroll = max(0, content_h - view.h)
+    ui["summary_scroll"] = max(0, min(max_scroll, ui.get("summary_scroll", 0)))
+    ui["summary_max"] = max_scroll
+    y = view.y + 2 - ui["summary_scroll"]
+    screen.set_clip(view)
+    for kind, text, row_h in rows:
+        if y + row_h >= view.y and y <= view.bottom:
+            if kind == "line":
+                pygame.draw.circle(screen, UI_GOOD, (box.x + 20, y + 10), 3)
+                ui_text(screen, text, ui_fit_font(font_tiny, text, box.w - 52), UI_TEXT, (box.x + 30, y), shadow=False)
+            elif kind == "head":
+                ui_text(screen, text, font_tiny, UI_SUB, (box.x + 14, y), shadow=False)
+            elif kind == "recent":
+                ui_text(screen, f"· {text}", ui_fit_font(font_tiny, f"· {text}", box.w - 42), (200, 195, 185), (box.x + 20, y), shadow=False)
+        y += row_h
     screen.set_clip(None)
+    if max_scroll > 0:   # 스크롤 막대 + 안내
+        bar_h = max(24, view.h * view.h // content_h)
+        bar_y = view.y + (view.h - bar_h) * ui["summary_scroll"] // max_scroll
+        pygame.draw.rect(screen, (60, 56, 52), (box.right - 10, view.y, 5, view.h), border_radius=3)
+        pygame.draw.rect(screen, UI_ACCENT, (box.right - 10, bar_y, 5, bar_h), border_radius=3)
+        ui_text(screen, "마우스 휠 / PgUp·PgDn: 스크롤", font_tiny, UI_SUB, (box.centerx, box.bottom + 4), "midtop", shadow=False)
+
+
+def spectate_target(state, ui):
+    """화면이 따라갈 사람: 살아 있으면 나, 쓰러지면 고른 팀원 (클릭/스페이스로 바꿈)"""
+    local = state.by_pid[state.local_pid]
+    if not local.dead and not local.left:
+        return local
+    alive = state.alive_players()
+    if not alive:
+        return local
+    return alive[ui.get("spectate", 0) % len(alive)]
 
 
 def draw_match(state, camera, ui):
     local = state.by_pid[state.local_pid]
-    view = local if not local.dead else (state.alive_players() or [local])[0]
+    view = spectate_target(state, ui)
     fx.elements = [el for el, sk in (("fire", "skill_fire_bullets"), ("ice", "skill_ice_bullets"),
                                      ("electric", "skill_electric_bullets")) if local.skills.get(sk, False)]
     fx.update()
@@ -1337,7 +1448,7 @@ def draw_match(state, camera, ui):
         draw_minimap(state, camera, local)
         draw_teammate_markers(state, camera, local)
     if ui.get("stack"):
-        draw_upgrade_summary(local, team.bottom + 10)
+        draw_upgrade_summary(local, team.bottom + 10, ui)
 
     # 업그레이드 선택 카드 (게임은 계속 진행)
     ui["cards"] = []
@@ -1362,21 +1473,38 @@ def draw_match(state, camera, ui):
         box = ui_panel(screen, (SCREEN_WIDTH // 2 - surf_w // 2, y, surf_w, 38), alpha=200, border=color)
         ui_text(screen, text, font_hud, color, box.center, "center")
 
-    if local.dead and not state.game_over:
-        banner(f"쓰러졌습니다 - 관전 중 (부활까지 {max(0, REVIVE_WAVES - (state.wave - local.death_wave))}웨이브)", (255, 150, 150), 170)
+    if ui.get("catching_up"):
+        banner("다시 들어가는 중... (지금 게임을 따라잡는 중)", UI_ACCENT, 170)
+    elif local.left and not state.game_over:
+        banner("나간 상태 - 관전 중", (200, 200, 200), 170)
+    elif local.dead and not state.game_over:
+        if getattr(local, "surrendered", False):
+            banner("포기함 - 관전 중", (255, 150, 150), 170)
+        else:
+            banner(f"쓰러졌습니다 - 관전 중 (부활까지 {max(0, REVIVE_WAVES - (state.wave - local.death_wave))}웨이브)", (255, 150, 150), 170)
+    if (local.dead or local.left) and not state.game_over and state.alive_players():
+        watched = view.name if view is not local else "-"
+        banner(f"관전: {watched}  ·  클릭 / 스페이스: 다른 팀원 보기", view.color if view is not local else UI_SUB, 216)
+    if state.paused and not state.game_over:
+        who = state.by_pid.get(state.paused_by)
+        ui_overlay(screen, 120)
+        ui_text(screen, "일시정지", font_large, UI_TEXT, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 60), "center")
+        ui_text(screen, f"{who.name if who else '누군가'}이(가) 멈춤  ·  ESC → P 로 다시 시작 (누구나)", font_desc, UI_SUB,
+                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), "center")
     if ui.get("waiting", 0) > 30:
-        banner("다른 플레이어를 기다리는 중...", UI_ACCENT, 216)
+        banner("다른 플레이어를 기다리는 중...", UI_ACCENT, 262)
     if ui.get("desync"):
         banner("동기화 오류가 감지되었습니다 (게임은 계속되지만 화면이 서로 다를 수 있음)", UI_DANGER, 262)
     if ui.get("menu"):
         ui_overlay(screen, 170)
-        box = pygame.Rect(0, 0, 460, 290)
+        box = pygame.Rect(0, 0, 520, 345)
         box.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
         ui_panel(screen, box, alpha=235, radius=16)
         ui_text(screen, "멀티 게임 메뉴", font_large, UI_TEXT, (box.centerx, box.y + 22), "midtop")
-        ui_text(screen, "G  게임 포기 (내 캐릭터, 부활 없음)", font_medium, (230, 150, 110), (box.centerx, box.y + 105), "midtop")
-        ui_text(screen, "Q  방 나가기", font_medium, UI_DANGER, (box.centerx, box.y + 160), "midtop")
-        ui_text(screen, "ESC  돌아가기", font_medium, UI_GOOD, (box.centerx, box.y + 215), "midtop")
+        ui_text(screen, "P  일시정지 / 다시 시작 (모두 멈춤)", font_medium, (150, 200, 255), (box.centerx, box.y + 100), "midtop")
+        ui_text(screen, "G  게임 포기 (내 캐릭터, 부활 없음)", font_medium, (230, 150, 110), (box.centerx, box.y + 155), "midtop")
+        ui_text(screen, "Q  방 나가기 (같은 방에 다시 참가하면 돌아옴)", font_medium, UI_DANGER, (box.centerx, box.y + 210), "midtop")
+        ui_text(screen, "ESC  돌아가기", font_medium, UI_GOOD, (box.centerx, box.y + 270), "midtop")
     if state.game_over:
         ranking = sorted(state.players, key=lambda p: -p.damage_dealt)
         rows = [(p.name + (" (나)" if p is local else ""), p.color, p.damage_dealt, p.best_hit) for p in ranking]
@@ -1384,8 +1512,29 @@ def draw_match(state, camera, ui):
                        "SPACE / ESC: 멀티 메뉴로", damage_rows=rows)
 
 
-def run_match(lockstep, seed, roster, local_pid):
-    """락스텝 멀티 게임 진행. 돌아가면 멀티 메뉴로."""
+def replay_log(state, lockstep, log):
+    """다시 들어오기: 처음부터의 입력 기록으로 빠르게 다시 계산해서 지금 상태를 따라잡음 (소리/효과 없이)"""
+    muted = SFX_MUTED[0]
+    SFX_MUTED[0] = True
+    try:
+        total = max(1, len(log))
+        for i, (inputs, dropped, rejoined) in enumerate(log):
+            state.step({int(k): v for k, v in inputs.items()}, dropped, rejoined)
+            if state.sim_frame % HASH_INTERVAL == 0:
+                lockstep.report_hash(state.sim_frame, state.state_hash())   # 호스트가 같은지 확인해 줌
+            if i % 240 == 0:
+                REAL_EVENT_GET()
+                ui_background(screen)
+                ui_title(screen, "다시 들어가는 중...", SCREEN_HEIGHT // 2 - 80, f"지금까지의 게임을 따라잡는 중 {i * 100 // total}%")
+                ui_bar(screen, (SCREEN_WIDTH // 2 - 300, SCREEN_HEIGHT // 2 + 20, 600, 18), i / total, UI_ACCENT)
+                pygame.display.flip()
+    finally:
+        SFX_MUTED[0] = muted
+    fx.reset()
+
+
+def run_match(lockstep, seed, roster, local_pid, resume_log=None):
+    """락스텝 멀티 게임 진행. 돌아가면 멀티 메뉴로. resume_log: 중간에 다시 들어온 경우 처음부터의 입력 기록"""
     state = MatchState(seed, roster, local_pid)
     camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
     local = state.by_pid[local_pid]
@@ -1394,7 +1543,7 @@ def run_match(lockstep, seed, roster, local_pid):
     if any(p.weapon.weapon_type == "hammer" for p in state.players):
         warm_up_sfx()                     # 팀원 기타 소리도 미리 (처음 칠 때 멈칫하지 않게)
     g.RHYTHM_SOUND_ON_JUDGE = False       # 일렉 기타 소리는 클릭한 순간 바로 (판정은 입력 지연 뒤)
-    pygame.time.get_ticks = lambda: int(state.sim_frame * 1000 / 60)   # 게임 시간은 프레임 기준 (모든 PC 동일)
+    pygame.time.get_ticks = lambda: int(state.game_frame * 1000 / 60)   # 게임 시간은 프레임 기준 (모든 PC 동일, 일시정지 중엔 멈춤)
     pygame.key.get_pressed = lambda: _current_keys[0]
     Bullet.__init__ = _bullet_init_with_owner
     ui = {"cards": [], "waiting": 0, "menu": False, "desync": False}
@@ -1402,6 +1551,12 @@ def run_match(lockstep, seed, roster, local_pid):
     clicks = {"l": 0, "r": 0, "e": 0, "u": -1}
     my_moves = {}                     # 보냈지만 아직 게임에 반영되지 않은 내 이동 입력 (예측 표시용)
     loops = 0
+    catching_up = False
+    if resume_log is not None:
+        replay_log(state, lockstep, resume_log)
+        catching_up = True            # 기록을 다 계산한 뒤에도, 그동안 진행된 tick을 마저 따라잡은 다음 같이 진행
+        ui["catching_up"] = True
+        next_send = state.sim_frame
     pace_start = REAL_GET_TICKS()     # 멈칫한 뒤 따라잡기용 기준 시각
     try:
         while True:
@@ -1420,6 +1575,11 @@ def run_match(lockstep, seed, roster, local_pid):
                         ui["menu"] = not ui["menu"]
                     elif ui["menu"] and event.key == pygame.K_q:
                         return
+                    elif ui["menu"] and event.key == pygame.K_p:
+                        clicks["p"] = 1          # 일시정지 켜기/끄기 (모든 PC에 입력으로 전달)
+                        ui["menu"] = False
+                    elif (local.dead or local.left) and event.key == pygame.K_SPACE:
+                        ui["spectate"] = ui.get("spectate", 0) + 1   # 관전: 다음 팀원
                     elif ui["menu"] and event.key == pygame.K_g:
                         clicks["g"] = 1          # 포기 (모든 PC에 입력으로 전달)
                         ui["menu"] = False
@@ -1437,12 +1597,20 @@ def run_match(lockstep, seed, roster, local_pid):
                         clicks["r"] = 1
                     elif binding_event(event, "stack"):
                         ui["stack"] = not ui.get("stack", False)
+                    elif ui.get("stack") and event.key in (pygame.K_PAGEUP, pygame.K_PAGEDOWN):
+                        ui["summary_scroll"] = ui.get("summary_scroll", 0) + (120 if event.key == pygame.K_PAGEDOWN else -120)
                     elif pick_from_event(event) >= 0 and local.pending_choices:
                         clicks["u"] = pick_from_event(event)
+                elif event.type == pygame.MOUSEWHEEL and ui.get("stack") and ui.get("summary_max", 0) > 0:
+                    ui["summary_scroll"] = ui.get("summary_scroll", 0) - event.y * 48   # TAB 능력 종합 스크롤
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button in (4, 5) and ui.get("stack") and ui.get("summary_max", 0) > 0:
+                    pass   # 휠은 위의 MOUSEWHEEL로 처리 (공격/스킬로 잡히지 않게)
                 elif event.type == pygame.MOUSEBUTTONDOWN and not ui["menu"]:
                     card = next((i for i, rect in enumerate(ui["cards"]) if rect.collidepoint(event.pos)), None)
                     if card is not None and event.button == 1:
                         clicks["u"] = card        # 업그레이드 카드는 항상 좌클릭
+                    elif (local.dead or local.left) and event.button == 1:
+                        ui["spectate"] = ui.get("spectate", 0) + 1   # 관전: 다음 팀원
                     elif binding_event(event, "attack"):
                         clicks["l"] = 1
                         clicks["b"] = state.sim_frame
@@ -1464,16 +1632,16 @@ def run_match(lockstep, seed, roster, local_pid):
             loops += 1
             if loops % 20 == 1:
                 lockstep.ping()
-            while next_send <= state.sim_frame + lockstep.input_delay():
+            while not catching_up and next_send <= state.sim_frame + lockstep.input_delay():
                 keys = REAL_GET_PRESSED()
                 mx, my = pygame.mouse.get_pos()
                 held = binding_held("attack", keys) and not ui["menu"]
-                bits = 0 if ui["menu"] else (binding_held("up", keys) * 1 | binding_held("left", keys) * 2 |
+                bits = 0 if ui["menu"] or state.paused else (binding_held("up", keys) * 1 | binding_held("left", keys) * 2 |
                                              binding_held("down", keys) * 4 | binding_held("right", keys) * 8)
                 inp = {"k": bits, "x": int(mx + camera.x), "y": int(my + camera.y), "l": clicks["l"], "h": int(held),
                        "s": int(binding_held("skill", keys) and not ui["menu"]),
                        "b": clicks.get("b", state.sim_frame),
-                       "r": clicks["r"], "e": clicks["e"], "u": clicks["u"], "g": clicks.get("g", 0)}
+                       "r": clicks["r"], "e": clicks["e"], "u": clicks["u"], "g": clicks.get("g", 0), "p": clicks.get("p", 0)}
                 inp.update(INPUT_HOOK(state, local) if INPUT_HOOK else {})
                 lockstep.submit(next_send, inp)
                 my_moves[next_send] = inp["k"]
@@ -1492,6 +1660,22 @@ def run_match(lockstep, seed, roster, local_pid):
                 behind = 0
             max_steps = 2 if behind >= 3 else (0 if behind <= -3 else 1)
             lockstep.poll()
+            if catching_up:   # 다시 들어오는 중: 받아 둔 tick을 한꺼번에 계산, 다 따라잡으면 "준비됨"을 알리고 입력을 보내기 시작
+                muted = SFX_MUTED[0]
+                SFX_MUTED[0] = True
+                while True:
+                    tick = lockstep.take(state.sim_frame)
+                    if tick is None:
+                        break
+                    state.step(*tick)
+                SFX_MUTED[0] = muted
+                if not lockstep.ticks:
+                    catching_up = False
+                    ui["catching_up"] = False
+                    next_send = state.sim_frame + lockstep.input_delay()
+                    lockstep.host_conn.send({"t": "ready", "f": next_send})
+                    pace_start = REAL_GET_TICKS() - state.sim_frame * 1000 / FPS
+                max_steps = 0
             advanced = 0
             stalled = False
             while advanced < max_steps:
@@ -1499,8 +1683,7 @@ def run_match(lockstep, seed, roster, local_pid):
                 if tick is None:
                     stalled = True
                     break
-                inputs, dropped = tick
-                state.step(inputs, dropped)
+                state.step(*tick)
                 advanced += 1
                 if state.sim_frame % HASH_INTERVAL == 0:
                     lockstep.report_hash(state.sim_frame, state.state_hash())
@@ -1509,7 +1692,7 @@ def run_match(lockstep, seed, roster, local_pid):
             # 내 이동 예측: 아직 반영 안 된 이동 입력만큼 앞서 그림
             for f in [f for f in my_moves if f < state.sim_frame]:
                 del my_moves[f]
-            if local.dead or local.left:
+            if local.dead or local.left or state.paused:
                 ui["pred"] = (0, 0)
             else:
                 speed = local.speed * local.slow_multiplier * (ITEM_BUFF_MULTIPLIER if local.speed_buff_time > 0 else 1)
@@ -1731,12 +1914,13 @@ class RoomBeacon:
         except OSError:
             self.name = "방장"
 
-    def tick(self, players, weapon_name):
+    def tick(self, players, weapon_name, **extra):
+        """extra: 게임 중이면 in_game=True, open=다시 들어올 수 있는 자리 수"""
         if self.sock is None or time.time() < self.next_send:
             return
         self.next_send = time.time() + 1.0
         data = json.dumps({"tag": DISCOVERY_TAG, "build": GAME_BUILD, "name": self.name, "players": players,
-                           "max": MAX_PLAYERS, "port": PORT, "weapon": weapon_name}, ensure_ascii=False).encode("utf-8")
+                           "max": MAX_PLAYERS, "port": PORT, "weapon": weapon_name, **extra}, ensure_ascii=False).encode("utf-8")
         for target in self.targets:
             try:
                 self.sock.sendto(data, (target, DISCOVERY_PORT))
@@ -1806,7 +1990,7 @@ class RoomFinder:
 
 
 def browse_rooms():
-    """참가하기: 같은 랜의 방 목록 → 고른 방의 IP / "manual"(직접 입력) / None(뒤로)"""
+    """참가하기: 같은 랜의 방 목록 → (고른 방의 IP, 게임 중인지) / "manual"(직접 입력) / None(뒤로)"""
     finder = RoomFinder()
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
     notice, notice_until = "", 0
@@ -1830,13 +2014,17 @@ def browse_rooms():
             for ip, info in rooms[:6]:
                 rect = pygame.Rect(SCREEN_WIDTH // 2 - 320, y, 640, 78)
                 same = info.get("build") == GAME_BUILD
-                full = info.get("players", 0) >= info.get("max", MAX_PLAYERS)
+                in_game = bool(info.get("in_game"))
+                full = (info.get("open", 0) <= 0) if in_game else info.get("players", 0) >= info.get("max", MAX_PLAYERS)
                 color = (128, 196, 132) if same and not full else (150, 140, 130)
                 card = ui_card(screen, rect, color, same and not full and rect.collidepoint(mouse),
                                f"{info.get('name', '방')}의 방", [f"{ip}  ·  방장 무기: {info.get('weapon', '?')}"], title_font=font_hud)
-                status = "가득 참" if full else ("업데이트 필요" if not same else f"{info.get('players', 1)}/{info.get('max', MAX_PLAYERS)}명")
+                if in_game:
+                    status = "게임 중" if full else ("업데이트 필요" if not same else "게임 중 · 다시 들어가기")
+                else:
+                    status = "가득 참" if full else ("업데이트 필요" if not same else f"{info.get('players', 1)}/{info.get('max', MAX_PLAYERS)}명")
                 ui_text(screen, status, font_hud, UI_DANGER if (full or not same) else UI_GOOD, (card.right - 20, card.centery), "midright")
-                cards.append((rect, ip, same, full))
+                cards.append((rect, ip, same, full, in_game))
                 y += 92
             manual = pygame.Rect(SCREEN_WIDTH // 2 - 320, SCREEN_HEIGHT - 150, 310, 64)
             back = pygame.Rect(SCREEN_WIDTH // 2 + 10, SCREEN_HEIGHT - 150, 310, 64)
@@ -1854,14 +2042,14 @@ def browse_rooms():
                         return "manual"
                     if back.collidepoint(event.pos):
                         return None
-                    for rect, ip, same, full in cards:
+                    for rect, ip, same, full, in_game in cards:
                         if rect.collidepoint(event.pos):
                             if not same:
                                 notice = "게임 버전이 달라서 들어갈 수 없어요 - 둘 다 최신 버전으로 업데이트하세요"
                             elif full:
-                                notice = "방이 가득 찼어요"
+                                notice = "이미 게임 중이고 빈 자리가 없어요" if in_game else "방이 가득 찼어요"
                             else:
-                                return ip
+                                return (ip, in_game)
                             notice_until = pygame.time.get_ticks() + 3000
             clock.tick(30)
     finally:
@@ -1943,18 +2131,22 @@ def host_lobby(loadout):
             server.close()
             return None
         if go == "start" and all(pid in loadouts for pid in clients):
-            beacon.close()   # 게임이 시작되면 더 이상 알리지 않음
-            server.close()
             seed = random.randrange(1 << 30)
             roster = [{"pid": pid, **loadouts[pid]} for pid in sorted(loadouts)]
             for conn in clients.values():
                 conn.send({"t": "start", "seed": seed, "roster": roster})
             lockstep = Lockstep("host", 0, client_conns=clients, pids=[r["pid"] for r in roster])
+            # 게임 중에도 접속 소켓과 방 알림을 열어 둠 → 나갔던 사람이 다시 들어올 수 있음
+            lockstep.server, lockstep.beacon, lockstep.seed, lockstep.roster = server, beacon, seed, roster
             return lockstep, seed, roster, 0
         clock.tick(30)
 
 
+REJOIN_HINT = {}      # 호스트 주소 → 이 PC가 쓰던 자리 (다시 들어갈 때 같은 캐릭터로)
+
+
 def join_lobby(loadout, address):
+    """방 참가 → (lockstep, seed, roster, pid, 다시 들어온 경우 입력 기록 또는 None) / None"""
     try:
         sock = socket.create_connection((address, PORT), timeout=5)
         sock.settimeout(None)
@@ -1962,7 +2154,7 @@ def join_lobby(loadout, address):
         message_screen("접속할 수 없습니다", f"{address}:{PORT} - IP와 같은 공유기인지, 방화벽을 확인하세요. 아무 키나 누르세요")
         return None
     conn = Connection(sock)
-    conn.send({"t": "hello", **loadout})
+    conn.send({"t": "hello", "build": GAME_BUILD, "rejoin_pid": REJOIN_HINT.get(address), **(loadout or {})})
     pid = None
     players = []
     while True:
@@ -1972,7 +2164,16 @@ def join_lobby(loadout, address):
             elif msg["t"] == "lobby":
                 players = msg["players"]
             elif msg["t"] == "start":
-                return Lockstep("client", pid, host_conn=conn), msg["seed"], msg["roster"], pid
+                REJOIN_HINT[address] = pid
+                return Lockstep("client", pid, host_conn=conn), msg["seed"], msg["roster"], pid, None
+            elif msg["t"] == "resume":   # 게임 중인 방에 다시 들어감
+                REJOIN_HINT[address] = msg["pid"]
+                log = json.loads(zlib.decompress(base64.b64decode(msg["log"])).decode("utf-8"))
+                return Lockstep("client", msg["pid"], host_conn=conn), msg["seed"], msg["roster"], msg["pid"], log
+            elif msg["t"] == "refuse":
+                conn.close()
+                message_screen("들어갈 수 없습니다", msg.get("why", "") + " - 아무 키나 누르세요")
+                return None
         if conn.closed:
             message_screen("방이 닫혔습니다", "아무 키나 누르세요")
             return None
@@ -2014,18 +2215,26 @@ def multiplayer_menu():
             continue
         if choice == "host":
             result = host_lobby(choose_loadout())
+            if result is not None:
+                result = result + (None,)
         else:
-            address = browse_rooms()   # 같은 랜의 방 목록에서 고르기
-            if address == "manual":
+            picked = browse_rooms()   # 같은 랜의 방 목록에서 고르기
+            in_game = False
+            if picked == "manual":
                 address = text_input("호스트 IP 주소", last_address)
                 if address:
                     last_address = address
+            elif picked:
+                address, in_game = picked
+            else:
+                address = None
             if not address:
                 continue
-            result = join_lobby(choose_loadout(), address)
+            # 게임 중인 방에 다시 들어갈 때는 원래 캐릭터 그대로라 능력·무기를 고르지 않음
+            result = join_lobby(None if in_game else choose_loadout(), address)
         if result is not None:
-            lockstep, seed, roster, pid = result
-            run_match(lockstep, seed, roster, pid)
+            lockstep, seed, roster, pid, resume_log = result
+            run_match(lockstep, seed, roster, pid, resume_log)
 
 
 if __name__ == "__main__":
