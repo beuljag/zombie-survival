@@ -7663,7 +7663,7 @@ SPECIAL_UPGRADES = [
     {"name": "★ 연쇄 번개", "desc": "1.5초마다 좀비 사이를 8번 튕기는 번개 (공격력 x2.5)", "type": "special_chain", "color": (255, 245, 120)},
     {"name": "★ 지옥불", "desc": "내 주위 좀비를 계속 태움 (0.5초마다 공격력 x0.6 + 불붙임)", "type": "special_inferno", "color": (255, 90, 30)},
     {"name": "★ 흡혈 오라", "desc": "1초마다 주변 좀비 체력을 빼앗아 조금 회복 (공격력 x0.35)", "type": "special_drain", "color": (220, 60, 110)},
-    {"name": "★ 공격 드론", "desc": "드론이 0.4초마다 가장 가까운 좀비를 레이저로 공격 (공격력 x1.2)", "type": "special_drone", "color": (120, 255, 200)},
+    {"name": "★ 공격 드론", "desc": "드론이 0.4초마다 가장 가까운 좀비를 레이저로 공격 (공격력 x1.2, 치명타 적용)", "type": "special_drone", "color": (120, 255, 200)},
     {"name": "★ 칼날 폭풍", "desc": "칼날 6개가 넓게 돌며 닿는 좀비를 벰 (공격력 x1.2)", "type": "special_blades", "color": (210, 210, 230)},
     {"name": "★ 대지진", "desc": "8초마다 땅을 내려쳐 주변 좀비에게 공격력 x5 + 크게 밀어냄", "type": "special_quake", "color": (190, 140, 90)},
     {"name": "★ 파괴신", "desc": "모든 공격력 +50%", "type": "special_power", "color": (255, 70, 70)},
@@ -7880,7 +7880,7 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
                 fx.beam(drone_x, drone_y, zombie.rect.centerx, zombie.rect.centery, (120, 255, 200), width=9, life=9)
                 fx.disc(zombie.rect.centerx, zombie.rect.centery, (150, 255, 220), 26, life=8, alpha=130)
                 fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (150, 255, 220))
-                skill_damage(zombie, base * SPECIAL_DRONE_MULT)
+                skill_damage(zombie, roll_crit_damage(player, base * SPECIAL_DRONE_MULT, zombie))   # 드론 레이저도 치명타
 
     if "special_blades" in owned:   # 칼날 폭풍 (수호 위성과 반대 방향)
         fx.wave(cx, cy, (110, 110, 130), SPECIAL_BLADE_RADIUS, SPECIAL_BLADE_RADIUS, life=3, width=2)
