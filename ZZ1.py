@@ -129,7 +129,7 @@
 - 얼음탄 (Lv2): 좀비 속도 저하
 - 전기탄 (Lv3): 인접한 좀비들에게 전기 전달
 - 자동조준 (Lv4): 가까운 적 자동 조준
-- 방어막 (Lv3): 최대 체력 30%만큼 피해를 먼저 막는 보호막, 4초 동안 안 맞으면 다시 차오름
+- 방어막 (Lv3): 최대 체력 30%만큼 피해를 먼저 막는 보호막, 4초 동안 안 맞으면 다시 차오름, 또 찍으면 +15% (최대 150%)
 - 순간이동 (Lv4): 마우스 위치로 즉시 이동
 - 시간감속 (Lv5): 주변 좀비 속도 감소
 - 폭발 공격 (Lv4): 공격 시 작은 폭발 (주변 30%, 근접 무기는 12%, 0.2초에 한 번)
@@ -490,6 +490,8 @@ OVERHEAL_SHIELD_FRAMES = 300
 OVERHEAL_SHIELD_MAX = 0.5
 # 방어막 업그레이드: 최대 체력 30%만큼 피해를 먼저 막는 충전식 보호막, 4초 동안 안 맞으면 초당 최대치의 25%씩 다시 참
 SHIELD_MAX_RATIO = 0.3
+SHIELD_STACK_RATIO = 0.15    # 또 찍을 때마다 보호막 +15% (최대 체력 기준)
+SHIELD_STACK_MAX = 9         # 최대 9번 = 최대 체력의 150%
 SHIELD_RECHARGE_DELAY = 240
 SHIELD_RECHARGE_PER_FRAME = 0.25 / 60
 # 글록 항공 폭격 (쿨타임 80초): 폭탄 1발 기본 데미지 1000, 공격력이 오른 만큼 같은 비율로 증가
@@ -634,9 +636,20 @@ def add_overshield(player, amount):
     player.overshield_time = OVERHEAL_SHIELD_FRAMES
 
 
+def shield_stacks(player):
+    """방어막을 찍은 횟수 (예전 저장 파일은 횟수 기록 없이 1번)"""
+    return max(1, player.levels.get("shield", 0)) if player.shield_active else 0
+
+
+def shield_ratio(player):
+    """보호막 최대치 (최대 체력 대비 비율): 처음 30% + 또 찍을 때마다 15%"""
+    stacks = shield_stacks(player)
+    return SHIELD_MAX_RATIO + SHIELD_STACK_RATIO * (stacks - 1) if stacks else 0.0
+
+
 def shield_capacity(player):
     """방어막 업그레이드 보호막 최대치 (없으면 0)"""
-    return player.max_health * SHIELD_MAX_RATIO if player.shield_active else 0.0
+    return player.max_health * shield_ratio(player)
 
 
 def tick_shield(player):
@@ -7434,6 +7447,8 @@ def build_cumulative_upgrade_lines(player):
     for kind in getattr(player, "special_upgrades", []):
         lines.append(f"특수: {get_upgrade_name(kind)}")
 
+    if player.shield_active:
+        lines.append(f"방어막: 최대 체력의 {round(shield_ratio(player) * 100)}% ({shield_stacks(player)}번)")
     crit_percent = player.levels.get("crit", 0) * 5
     dodge_percent = min(round(DODGE_MAX * 100), player.levels.get("dodge", 0) * 5)
     if crit_percent > 0:
@@ -7608,6 +7623,8 @@ def is_upgrade_at_limit(player, upgrade_type):
         return player.skill_upgrades["hammer"].get("beat", 0) >= BEAT_BUFF_UPGRADE_MAX
     if upgrade_type == "sniper_skill_critdmg":
         return player.skill_upgrades["sniper"].get("crit_damage", 0) >= SNIPER_CRIT_DAMAGE_MAX
+    if upgrade_type == "skill_shield":   # 여러 번 찍을 수 있음
+        return shield_stacks(player) >= SHIELD_STACK_MAX
     if upgrade_type == "dodge":
         return get_dodge_chance(player) >= DODGE_MAX - 1e-9  # 최대 95% (속도형은 더 빨리 참)
 
@@ -8009,7 +8026,9 @@ def build_upgrade_choices(player, level=None):
         {"name": "얼음탄", "desc": "좀비를 느리게 하는 총알", "type": "skill_ice_bullets", "color": (100, 200, 255), "min_level": 2},
         {"name": "전기탄", "desc": "인접한 좀비들에게 전기 전달", "type": "skill_electric_bullets", "color": (255, 255, 0), "min_level": 3},
         {"name": "자동조준", "desc": "가까운 적을 자동으로 조준", "type": "skill_auto_aim", "color": (150, 255, 100), "min_level": 4},
-        {"name": "방어막", "desc": "최대 체력 30% 보호막 (4초 안 맞으면 다시 참)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3},
+        {"name": "방어막 강화", "desc": f"보호막 +{int(SHIELD_STACK_RATIO * 100)}% (지금 최대 체력의 {round(shield_ratio(player) * 100)}%)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3}
+        if player.shield_active else
+        {"name": "방어막", "desc": "최대 체력 30% 보호막 (4초 안 맞으면 다시 참, 또 찍으면 늘어남)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3},
         {"name": "순간이동", "desc": "마우스 위치로 즉시 이동", "type": "skill_teleport", "color": (200, 100, 255), "min_level": 4},
         {"name": "시간감속", "desc": "주변 좀비를 느리게 함", "type": "skill_slowdown", "color": (100, 255, 255), "min_level": 5},
         {"name": "폭발 공격", "desc": f"공격 시 작은 폭발 (주변 {int((EXPLOSION_SKILL_RATIO_MELEE if player.weapon.weapon_type in MELEE_WEAPONS else EXPLOSION_SKILL_RATIO) * 100)}%)",
@@ -8275,6 +8294,7 @@ def apply_upgrade(player, selected_upgrade):
     elif selected_upgrade["type"] == "skill_auto_aim":
         player.skills["skill_auto_aim"] = True
     elif selected_upgrade["type"] == "skill_shield":
+        player.levels["shield"] = shield_stacks(player) + 1
         player.skills["skill_shield"] = True
         player.shield_active = True
         player.shield_hp = shield_capacity(player)   # 얻자마자 가득 참
@@ -9274,7 +9294,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102132          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102133          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
