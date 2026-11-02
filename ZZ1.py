@@ -7418,7 +7418,9 @@ def build_cumulative_upgrade_lines(player):
     base_damage_mult = (1.08 ** counts.get("base_damage", 0)) * (1.15 ** counts.get("base_damage_big", 0))
     regen_bonus = counts.get("regen", 0) * 0.3 + counts.get("regen_big", 0) * 0.5
 
-    if max_health_bonus > 0:
+    if "special_titan" in player.special_upgrades:   # 거인의 심장: 찍은 횟수로 계산이 안 되므로 실제 값으로
+        lines.append(f"최대 체력: {int(player.max_health)} (거인의 심장 2배)")
+    elif max_health_bonus > 0:
         lines.append(f"최대 체력: +{max_health_bonus}")
     if speed_bonus > 0:
         lines.append(f"이동 속도: +{fmt_num(speed_bonus)}")
@@ -7671,10 +7673,10 @@ SPECIAL_UPGRADES = [
     {"name": "★ 대지진", "desc": "8초마다 땅을 내려쳐 주변 좀비에게 공격력 x5 + 크게 밀어냄", "type": "special_quake", "color": (190, 140, 90)},
     {"name": "★ 파괴신", "desc": "모든 공격력 +50%", "type": "special_power", "color": (255, 70, 70)},
     {"name": "★ 신속", "desc": "공격 속도 +40%, 이동 속도 +1", "type": "special_haste", "color": (100, 255, 255)},
-    {"name": "★ 거인의 심장", "desc": "최대 체력 2배 + 완전 회복", "type": "special_titan", "color": (255, 120, 120)},
+    {"name": "★ 거인의 심장", "desc": "최대 체력 2배 + 완전 회복, 이후 체력 업그레이드도 2배", "type": "special_titan", "color": (255, 120, 120)},
     {"name": "★ 불사조", "desc": "쓰러질 피해를 받으면 체력 가득 부활 + 3초 무적 (90초에 한 번)", "type": "special_phoenix", "color": (255, 170, 50)},
     {"name": "★ 신의 가호", "desc": "20초마다 3초 동안 무적", "type": "special_aegis", "color": (255, 250, 200)},
-    {"name": "★ 가시 갑옷", "desc": "받는 피해 -30%, 붙어 있는 좀비에게 0.5초마다 반격 (공격력 x1.5)", "type": "special_thorns", "color": (150, 200, 90)},
+    {"name": "★ 가시 갑옷", "desc": "받는 피해 -30%, 붙어 있는 좀비에게 0.5초마다 반격 (최대 체력의 20%)", "type": "special_thorns", "color": (150, 200, 90)},
     {"name": "★ 현자", "desc": "경험치 2배", "type": "special_wisdom", "color": (255, 255, 140)},
 ]
 SPECIAL_ORBIT_COUNT, SPECIAL_ORBIT_RADIUS, SPECIAL_ORBIT_PERIOD = 3, 125, 90   # 구슬 3개, 반경 125, 1.5초에 한 바퀴
@@ -7695,7 +7697,7 @@ SPECIAL_QUAKE_EVERY, SPECIAL_QUAKE_RANGE, SPECIAL_QUAKE_MULT = 480, 420, 5.0
 SPECIAL_POWER_MULT = 1.5
 SPECIAL_PHOENIX_COOLDOWN, SPECIAL_PHOENIX_INVULN = 5400, 180
 SPECIAL_AEGIS_EVERY, SPECIAL_AEGIS_FRAMES = 1200, 180
-SPECIAL_THORNS_TAKEN, SPECIAL_THORNS_RANGE, SPECIAL_THORNS_MULT = 0.7, 100, 1.5
+SPECIAL_THORNS_TAKEN, SPECIAL_THORNS_RANGE, SPECIAL_THORNS_HP_RATIO = 0.7, 100, 0.2   # 반격 피해 = 최대 체력의 20%
 SPECIAL_WISDOM_MULT = 2.0
 
 
@@ -7930,7 +7932,7 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
             fx.beam(cx + math.cos(a) * 30, cy + math.sin(a) * 30, cx + math.cos(a) * SPECIAL_THORNS_RANGE,
                     cy + math.sin(a) * SPECIAL_THORNS_RANGE, (130, 190, 70), width=4, life=8)
         for zombie in near(SPECIAL_THORNS_RANGE):
-            skill_damage(zombie, base * SPECIAL_THORNS_MULT)
+            skill_damage(zombie, player.max_health * SPECIAL_THORNS_HP_RATIO)
             fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, (160, 210, 100))
 
 
@@ -7948,6 +7950,11 @@ def special_upgrade_choices(player):
     return random.sample(pool, min(3, len(pool)))
 
 
+def health_upgrade_amount(player, base):
+    """체력 업그레이드로 오르는 최대 체력 (★ 거인의 심장을 가지면 그 뒤에 찍는 것도 2배)"""
+    return base * 2 if "special_titan" in player.special_upgrades else base
+
+
 def build_upgrade_choices(player, level=None):
     """레벨업 업그레이드 후보 3개를 고름 (화면 없이 - 멀티에서도 사용)
     level: 이 선택이 몇 레벨 보상인지 (한 번에 여러 레벨이 올라도 50레벨 보상을 놓치지 않게)"""
@@ -7958,8 +7965,8 @@ def build_upgrade_choices(player, level=None):
     # 기본 보상 옵션들
     all_upgrades = [
         # 체력 관련
-        {"name": "체력 +8", "desc": "최대 체력 증가", "type": "health", "color": RED},
-        {"name": "체력 +12", "desc": "최대 체력 증가", "type": "health_big", "color": (255, 100, 100)},
+        {"name": f"체력 +{health_upgrade_amount(player, 8)}", "desc": "최대 체력 증가", "type": "health", "color": RED},
+        {"name": f"체력 +{health_upgrade_amount(player, 12)}", "desc": "최대 체력 증가", "type": "health_big", "color": (255, 100, 100)},
         {"name": "체력 회복", "desc": "현재 체력 20% 회복", "type": "heal", "color": GREEN},
         {"name": "완전 회복", "desc": "체력을 완전히 회복", "type": "heal_full", "color": (0, 255, 100)},
 
@@ -8174,13 +8181,10 @@ def apply_upgrade(player, selected_upgrade):
         upgrade_record["value"] = selected_upgrade["value"]
     player.obtained_upgrades.append(upgrade_record)
 
-    if selected_upgrade["type"] == "health":
-        player.max_health += 8
-        player.health = min(player.health + 8, player.max_health)
-        player.levels["health"] += 1
-    elif selected_upgrade["type"] == "health_big":
-        player.max_health += 12
-        player.health = min(player.health + 12, player.max_health)
+    if selected_upgrade["type"] in ("health", "health_big"):
+        amount = health_upgrade_amount(player, 8 if selected_upgrade["type"] == "health" else 12)
+        player.max_health += amount
+        player.health = min(player.health + amount, player.max_health)
         player.levels["health"] += 1
     elif selected_upgrade["type"] == "speed":
         player.speed += 0.3
@@ -9270,7 +9274,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102131          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102132          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed

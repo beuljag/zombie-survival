@@ -16,6 +16,7 @@
 - 일시정지: ESC 메뉴 → P (누구나 멈추고 누구나 다시 시작, 모든 PC가 같은 프레임에 멈춤) / 저장은 없음
 - 중간에 다시 들어오기: 나갔던 사람은 같은 방에 다시 참가하면 자기 자리로 돌아옴
   (호스트가 처음부터의 입력 기록을 보내 주면 빠르게 다시 계산해서 지금 상태를 따라잡음)
+- 튕기면: 연결이 끊긴 쪽은 자동으로 다시 접속을 시도함 (30초). 와이파이가 끊겨 신호가 안 와도 8초 동안 소식이 없으면 끊긴 것으로 봄
 - 쓰러지면 관전: 클릭 / 스페이스로 볼 팀원을 바꿈
 ===============================================
 """
@@ -40,6 +41,8 @@ MOB_FACTOR = 1.1         # 멀티 좀비 수 배율 (× 인원수 × 1.1)
 REVIVE_WAVES = 3         # 죽은 뒤 이 웨이브 수가 지나면 부활
 REVIVE_INVULN_FRAMES = 300   # 부활 직후 무적 시간 (5초)
 HASH_INTERVAL = 300      # 동기화 확인 간격 (프레임)
+CONN_TIMEOUT = 8.0       # 이 시간(초) 동안 아무 소식이 없으면 끊긴 것으로 봄 (와이파이가 끊기면 끊김 신호가 오지 않음)
+RECONNECT_SECONDS = 30   # 튕긴 뒤 자동으로 다시 접속을 시도하는 시간
 PLAYER_COLORS = [(0, 255, 0), (80, 170, 255), (255, 170, 60), (230, 90, 255)]
 REAL_GET_TICKS = pygame.time.get_ticks
 
@@ -55,6 +58,7 @@ class Connection:
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.inbox = queue.Queue()
         self.closed = False
+        self.last_recv = time.time()     # 마지막으로 뭔가 받은 시각 (끊김 감지)
         self.lock = threading.Lock()
         threading.Thread(target=self._reader, daemon=True).start()
 
@@ -65,6 +69,7 @@ class Connection:
                 data = self.sock.recv(65536)
                 if not data:
                     break
+                self.last_recv = time.time()
                 buffer += data
                 while b"\n" in buffer:
                     line, buffer = buffer.split(b"\n", 1)
@@ -133,12 +138,14 @@ class Lockstep:
         self.beacon = None               # 게임 중에도 "재접속 가능" 알림
         self.seed, self.roster = None, []
         self.newcomers = []              # 접속했지만 아직 hello를 안 보낸 연결
+        self.slot_owner = {}             # pid -> 그 자리를 쓰던 PC 이름 (게임을 다시 켜고 들어와도 같은 캐릭터로)
         self.join_at = {}                # pid -> 다시 들어오는 프레임 (그 tick부터 그 사람 입력을 기다림)
         self.pending = {}                # 호스트: frame -> {pid: input}
         self.active = set(pids)          # 호스트: 아직 연결된 플레이어
         self.dropped_queue = []          # 호스트: 다음 tick에 알릴 나간 플레이어
         self.next_tick = 0
         self.host_lost = False
+        self.ticks_seen = False          # 참가자: 호스트의 tick을 받은 적 있음 (게임 시작 전 로딩은 끊김으로 안 봄)
         self.desync = False
         self.my_hashes = {}
         self.peer_hashes = {}
@@ -194,13 +201,22 @@ class Lockstep:
                 if msg.get("t") != "hello":
                     continue
                 self.newcomers.remove(conn)
+                hint = msg.get("rejoin_pid")
+                old = self.client_conns.get(hint)
+                if old is not None:   # 튕겼는데 호스트는 아직 모름 → 옛 연결을 끊어서 자리를 비움 (참가자는 곧 다시 시도함)
+                    old.close()
+                    conn.send({"t": "refuse", "why": "이전 연결을 정리하는 중이에요", "retry": True})
+                    conn.close()
+                    break
                 slots = self.free_slots()
                 if msg.get("build", GAME_BUILD) != GAME_BUILD:
                     conn.send({"t": "refuse", "why": "게임 버전이 달라요 - 둘 다 최신 버전으로 업데이트하세요"})
                 elif not slots:
                     conn.send({"t": "refuse", "why": "이미 게임 중이고 빈 자리가 없어요"})
                 else:
-                    pid = msg.get("rejoin_pid") if msg.get("rejoin_pid") in slots else slots[0]
+                    mine = [pid for pid in slots if self.slot_owner.get(pid) == msg.get("who")]   # 게임을 다시 켠 경우
+                    pid = hint if hint in slots else (mine[0] if mine else slots[0])
+                    self.slot_owner[pid] = msg.get("who")
                     packed = base64.b64encode(zlib.compress(json.dumps(
                         [[{str(k): v for k, v in inputs.items()}, dropped, rejoined] for inputs, dropped, rejoined in self.log],
                         separators=(",", ":")).encode("utf-8"), 6)).decode("ascii")
@@ -219,6 +235,7 @@ class Lockstep:
         if self.role == "client":
             for msg in self.host_conn.messages():
                 if msg["t"] == "tick":
+                    self.ticks_seen = True
                     inputs = {int(k): v for k, v in msg["in"].items()}
                     self.ticks[msg["f"]] = (inputs, msg.get("drop", []), msg.get("rej", []))
                 elif msg["t"] == "desync":
@@ -227,12 +244,14 @@ class Lockstep:
                     rtt = (time.time() - msg["s"]) * 1000
                     # 커질 때는 바로, 작아질 때는 천천히 따라감 (흔들리는 와이파이 대비)
                     self.rtt_ms = rtt if self.rtt_ms is None or rtt > self.rtt_ms else self.rtt_ms * 0.95 + rtt * 0.05
-            if self.host_conn.closed:
+            if self.host_conn.closed or (self.ticks_seen and time.time() - self.host_conn.last_recv > CONN_TIMEOUT):
                 self.host_lost = True
             return
         # 호스트 (혼자 테스트 모드 포함)
         self._accept_rejoin()
         for pid, conn in list(self.client_conns.items()):
+            if self.next_tick > 0 and time.time() - conn.last_recv > CONN_TIMEOUT:
+                conn.close()   # 와이파이 끊김 등: 끊김 신호 없이 조용해진 참가자 (안 그러면 모두 영원히 기다림)
             for msg in conn.messages():
                 if msg["t"] == "in":
                     if msg["f"] >= self.next_tick:   # 이미 지난 프레임 입력은 버림 (다시 들어오는 중에 보낸 것)
@@ -1523,6 +1542,7 @@ def replay_log(state, lockstep, log):
             if state.sim_frame % HASH_INTERVAL == 0:
                 lockstep.report_hash(state.sim_frame, state.state_hash())   # 호스트가 같은지 확인해 줌
             if i % 240 == 0:
+                fx.reset()   # 다시 계산 중에는 효과를 그리지 않으므로 쌓이지 않게 비움
                 REAL_EVENT_GET()
                 ui_background(screen)
                 ui_title(screen, "다시 들어가는 중...", SCREEN_HEIGHT // 2 - 80, f"지금까지의 게임을 따라잡는 중 {i * 100 // total}%")
@@ -1534,7 +1554,8 @@ def replay_log(state, lockstep, log):
 
 
 def run_match(lockstep, seed, roster, local_pid, resume_log=None):
-    """락스텝 멀티 게임 진행. 돌아가면 멀티 메뉴로. resume_log: 중간에 다시 들어온 경우 처음부터의 입력 기록"""
+    """락스텝 멀티 게임 진행. 돌아가면 멀티 메뉴로. resume_log: 중간에 다시 들어온 경우 처음부터의 입력 기록
+    게임 중에 호스트와 연결이 끊기면 "lost"를 돌려줌 (멀티 메뉴에서 자동으로 다시 접속을 시도)"""
     state = MatchState(seed, roster, local_pid)
     camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
     local = state.by_pid[local_pid]
@@ -1669,6 +1690,7 @@ def run_match(lockstep, seed, roster, local_pid, resume_log=None):
                         break
                     state.step(*tick)
                 SFX_MUTED[0] = muted
+                fx.reset()
                 if not lockstep.ticks:
                     catching_up = False
                     ui["catching_up"] = False
@@ -1708,8 +1730,10 @@ def run_match(lockstep, seed, roster, local_pid, resume_log=None):
             ui["desync"] = lockstep.desync
             ui["ping"] = lockstep.rtt_ms
             if lockstep.host_lost:
-                message_screen("호스트와 연결이 끊겼습니다", "아무 키나 누르면 멀티 메뉴로")
-                return
+                if state.game_over:
+                    message_screen("호스트와 연결이 끊겼습니다", "아무 키나 누르면 멀티 메뉴로")
+                    return None
+                return "lost"
             if FRAME_HOOK:
                 if FRAME_HOOK(state) == "stop":
                     return
@@ -2069,6 +2093,7 @@ def host_lobby(loadout):
     server.settimeout(0.0)
     clients = {}          # pid -> Connection
     loadouts = {0: loadout}
+    owners = {}           # pid -> PC 이름 (다시 들어올 때 같은 자리로)
     ips = local_ip_addresses()
     beacon = RoomBeacon()   # 같은 랜에 "방 있어요" 알림
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
@@ -2087,8 +2112,12 @@ def host_lobby(loadout):
             pass
         for pid, conn in list(clients.items()):
             for msg in conn.messages():
-                if msg["t"] == "hello":
+                if msg["t"] == "hello" and "ability" not in msg:   # 게임 중인 줄 알고 다시 들어오려던 사람 (게임이 이미 끝남)
+                    conn.send({"t": "refuse", "why": "그 게임은 이미 끝났어요"})
+                    conn.close()
+                elif msg["t"] == "hello":
                     loadouts[pid] = {"ability": msg["ability"], "weapon": msg["weapon"]}
+                    owners[pid] = msg.get("who")
             if conn.closed:
                 del clients[pid]
                 loadouts.pop(pid, None)
@@ -2138,11 +2167,85 @@ def host_lobby(loadout):
             lockstep = Lockstep("host", 0, client_conns=clients, pids=[r["pid"] for r in roster])
             # 게임 중에도 접속 소켓과 방 알림을 열어 둠 → 나갔던 사람이 다시 들어올 수 있음
             lockstep.server, lockstep.beacon, lockstep.seed, lockstep.roster = server, beacon, seed, roster
+            lockstep.slot_owner = owners
             return lockstep, seed, roster, 0
         clock.tick(30)
 
 
 REJOIN_HINT = {}      # 호스트 주소 → 이 PC가 쓰던 자리 (다시 들어갈 때 같은 캐릭터로)
+
+
+def pc_name():
+    try:
+        return socket.gethostname()
+    except OSError:
+        return ""
+
+
+def _try_rejoin(address):
+    """게임 중인 방에 한 번 다시 들어가 봄 → (lockstep, seed, roster, pid, 입력 기록) / "retry"(잠시 뒤 다시) / 그만둘 이유(글자)"""
+    try:
+        sock = socket.create_connection((address, PORT), timeout=2)
+        sock.settimeout(None)
+    except OSError:
+        return "retry"
+    conn = Connection(sock)
+    conn.send({"t": "hello", "build": GAME_BUILD, "rejoin_pid": REJOIN_HINT.get(address), "who": pc_name()})
+    deadline = time.time() + 5
+    while time.time() < deadline and not conn.closed:
+        for msg in conn.messages():
+            if msg["t"] == "resume":
+                REJOIN_HINT[address] = msg["pid"]
+                log = json.loads(zlib.decompress(base64.b64decode(msg["log"])).decode("utf-8"))
+                return Lockstep("client", msg["pid"], host_conn=conn), msg["seed"], msg["roster"], msg["pid"], log
+            if msg["t"] == "refuse":
+                conn.close()
+                return "retry" if msg.get("retry") else msg.get("why", "들어갈 수 없어요")
+            if msg["t"] in ("welcome", "lobby"):   # 호스트가 이미 대기실로 돌아감
+                conn.close()
+                return "그 게임은 이미 끝났어요"
+        time.sleep(0.03)
+    conn.close()
+    return "retry"
+
+
+def reconnect_screen(address):
+    """튕겼을 때: 메뉴로 쫓아내지 않고 자동으로 다시 접속을 시도 → join_lobby와 같은 결과 / None"""
+    deadline = time.time() + RECONNECT_SECONDS
+    next_try = 0.0
+    pending = queue.Queue()
+    busy = False
+    while True:
+        now = time.time()
+        if not busy and now >= next_try:   # 접속 시도는 뒤에서 (화면이 멈추지 않게)
+            busy = True
+            threading.Thread(target=lambda: pending.put(_try_rejoin(address)), daemon=True).start()
+        try:
+            result = pending.get_nowait()
+            busy = False
+            next_try = time.time() + 1.0
+            if isinstance(result, tuple):
+                return result
+            if result != "retry":
+                message_screen("다시 접속할 수 없습니다", f"{result} - 아무 키나 누르면 멀티 메뉴로")
+                return None
+        except queue.Empty:
+            pass
+        if now >= deadline and not busy:
+            message_screen("다시 접속하지 못했습니다", "호스트가 게임을 끝냈거나 네트워크가 끊겼어요 - 아무 키나 누르면 멀티 메뉴로")
+            return None
+        ui_background(screen)
+        ui_title(screen, "연결이 끊겼습니다 - 다시 접속하는 중" + "." * (int(now * 2) % 4), SCREEN_HEIGHT // 2 - 90,
+                 f"접속: {address}  ·  남은 시간 {max(0, int(deadline - now))}초")
+        ui_text(screen, "ESC: 그만두고 멀티 메뉴로", font_desc, UI_SUB, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 40), "midtop", shadow=False)
+        pygame.display.flip()
+        for event in REAL_EVENT_GET():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return None
+        clock.tick(30)
 
 
 def join_lobby(loadout, address):
@@ -2154,7 +2257,7 @@ def join_lobby(loadout, address):
         message_screen("접속할 수 없습니다", f"{address}:{PORT} - IP와 같은 공유기인지, 방화벽을 확인하세요. 아무 키나 누르세요")
         return None
     conn = Connection(sock)
-    conn.send({"t": "hello", "build": GAME_BUILD, "rejoin_pid": REJOIN_HINT.get(address), **(loadout or {})})
+    conn.send({"t": "hello", "build": GAME_BUILD, "rejoin_pid": REJOIN_HINT.get(address), "who": pc_name(), **(loadout or {})})
     pid = None
     players = []
     while True:
@@ -2213,6 +2316,7 @@ def multiplayer_menu():
         if choice == "settings":
             show_settings()
             continue
+        address = None
         if choice == "host":
             result = host_lobby(choose_loadout())
             if result is not None:
@@ -2232,9 +2336,11 @@ def multiplayer_menu():
                 continue
             # 게임 중인 방에 다시 들어갈 때는 원래 캐릭터 그대로라 능력·무기를 고르지 않음
             result = join_lobby(None if in_game else choose_loadout(), address)
-        if result is not None:
+        while result is not None:
             lockstep, seed, roster, pid, resume_log = result
-            run_match(lockstep, seed, roster, pid, resume_log)
+            outcome = run_match(lockstep, seed, roster, pid, resume_log)
+            # 튕겼으면 메뉴로 돌아가지 않고 자동으로 다시 접속 (성공하면 게임으로 바로 돌아감)
+            result = reconnect_screen(address) if outcome == "lost" and address else None
 
 
 if __name__ == "__main__":
