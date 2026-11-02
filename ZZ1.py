@@ -165,7 +165,7 @@
 - 샷건: 용의 숨결 - 앞쪽 부채꼴 화염 방사 + 불붙임 (10초)
 - 저격총: 도탄 사격 - 한 발이 맞은 좀비에서 주변 좀비로 10번 튕김 (맞을 때마다 3배 데미지, "도탄 +3회" 업그레이드) (12초)
   튕길 때마다 기본 공격 업그레이드(치명타 / 화염·얼음·전기탄 / 폭발 공격) 적용, 도탄은 치명타 확률 +20%
-- 플라즈마: 블랙홀 - 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발 (18초)
+- 플라즈마: 블랙홀 - 3초 동안 모든 좀비를 빨아들이고 범위 안의 좀비에게 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발 (18초)
 - 로켓: 유도 로켓 (조준점 근처 좀비를 잠그고 따라감, 점점 빨라짐) / 락온 미사일 - 주변 좀비 전부에게 미사일 1발씩 (최소 8발) (12초)
 
 【주요 게임 메카닉】
@@ -5132,13 +5132,14 @@ class TurretSkill(ActiveSkill):
 
 
 class BlackHoleSkill(ActiveSkill):
-    """플라즈마 블랙홀: 좀비를 중심으로 끌어당기며 계속 피해.
+    """플라즈마 블랙홀: 좀비를 중심으로 끌어당기며 범위 안에서 계속 피해. pull_all이면 범위 밖 좀비까지 전부 끌어당김.
     유지되는 동안 블랙홀 안에서 죽은 좀비 수를 세었다가, 사라질 때 그 수만큼 강해지는 붕괴 폭발을 일으킴"""
     KILL_BONUS = 1.5  # 처치 1마리당 붕괴 폭발 피해 (지속 피해 1회의 1.5배)
 
-    def __init__(self, x, y, radius, damage, all_sprites):
+    def __init__(self, x, y, radius, damage, all_sprites, pull_all=False):
         super().__init__(180)
         self.x, self.y, self.radius, self.damage = x, y, radius, damage
+        self.pull_all = pull_all
         self.kills = 0
         self.inside = set()   # 지난 프레임에 블랙홀 안에 있던 좀비
         size = int(radius * 2 + 10)
@@ -5185,8 +5186,10 @@ class BlackHoleSkill(ActiveSkill):
                 continue
             dx, dy = self.x - zombie.rect.centerx, self.y - zombie.rect.centery
             dist = math.hypot(dx, dy)
-            if 8 < dist < self.radius:
-                pull = 3.2 * max(0.35, zombie.knockback_resistance)  # 보스/거대 좀비는 덜 끌려옴
+            if dist > 8 and (self.pull_all or dist < self.radius):
+                pull = 3.2 * max(0.35, zombie.knockback_resistance)  # 범위 안에서는 보스/거대 좀비가 덜 끌려옴
+                if self.pull_all and dist > self.radius:   # 범위 밖은 보스도 똑같이, 멀수록 빠르게 (3초 안에 범위까지 옴)
+                    pull = max(pull, (dist - self.radius) / 30)
                 zombie._move(dx / dist * pull, dy / dist * pull)
             if dist < self.radius and self.frames % 15 == 0:
                 skill_damage(zombie, self.damage)
@@ -5568,10 +5571,10 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         fire_muzzle_flash(player, mouse_world_x, mouse_world_y, kick=3.0)
 
     elif weapon_type == "plasma":
-        # 블랙홀: 마우스 위치에 3초 동안 좀비를 끌어당기며 피해
+        # 블랙홀: 마우스 위치에 3초 동안 모든 좀비를 끌어당기고, 범위 안의 좀비에게 피해
         radius = 220 + up["range"]
         player.active_skills.append(BlackHoleSkill(mouse_world_x, mouse_world_y, radius,
-                                                   base * 0.8 * (1 + 0.08 * up["damage"]), all_sprites))
+                                                   base * 0.8 * (1 + 0.08 * up["damage"]), all_sprites, pull_all=True))
 
     elif weapon_type == "rocket":
         # 락온 미사일: 조준점 주변 좀비 전부에게 1발씩 (최소 8발, 목표가 적으면 다시 나눠 맞힘)
@@ -7060,7 +7063,7 @@ WEAPON_HELP = {
                 "튕길 때마다 치명타 · 속성탄 · 폭발 공격 적용, 도탄은 치명타 확률 +20%.",
                 "업그레이드 \"도탄 +3회\", 전용 \"치명타 피해 +25%\" (최대 380%). 쿨타임 12초."]),
     "plasma": (["맞으면 작은 폭발 (주변 40%)."],
-               ["블랙홀: 3초 동안 좀비를 빨아들이며 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
+               ["블랙홀: 3초 동안 모든 좀비를 빨아들이고 범위 안의 좀비에게 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
     "rocket": (["유도 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 따라감 (잠근 좀비에 붉은 조준선).",
                 "느리게 출발해서 점점 빨라짐. 맞으면 큰 폭발 (주변 65%)."],
                ["락온 미사일: 조준점 주변(500px) 좀비를 전부 잠가 한 마리당 미사일 1발 (최소 8발), 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 2배).",
@@ -9267,7 +9270,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102130          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102131          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
