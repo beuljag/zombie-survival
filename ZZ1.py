@@ -7693,7 +7693,7 @@ SPECIAL_UPGRADES = [
     {"name": "★ 거인의 심장", "desc": "최대 체력 2배 + 완전 회복, 이후 체력 업그레이드도 2배", "type": "special_titan", "color": (255, 120, 120)},
     {"name": "★ 불사조", "desc": "쓰러질 피해를 받으면 체력 가득 부활 + 3초 무적 (90초에 한 번)", "type": "special_phoenix", "color": (255, 170, 50)},
     {"name": "★ 신의 가호", "desc": "20초마다 3초 동안 무적", "type": "special_aegis", "color": (255, 250, 200)},
-    {"name": "★ 가시 갑옷", "desc": "받는 피해 -30%, 붙어 있는 좀비에게 0.5초마다 반격 (최대 체력의 20%)", "type": "special_thorns", "color": (150, 200, 90)},
+    {"name": "★ 가시 갑옷", "desc": "받는 피해 -30%, 붙어 있는 좀비에게 0.5초마다 반격 (최대 체력의 200%)", "type": "special_thorns", "color": (150, 200, 90)},
     {"name": "★ 현자", "desc": "경험치 2배", "type": "special_wisdom", "color": (255, 255, 140)},
 ]
 SPECIAL_ORBIT_COUNT, SPECIAL_ORBIT_RADIUS, SPECIAL_ORBIT_PERIOD = 3, 125, 90   # 구슬 3개, 반경 125, 1.5초에 한 바퀴
@@ -7714,7 +7714,7 @@ SPECIAL_QUAKE_EVERY, SPECIAL_QUAKE_RANGE, SPECIAL_QUAKE_MULT = 480, 420, 5.0
 SPECIAL_POWER_MULT = 1.5
 SPECIAL_PHOENIX_COOLDOWN, SPECIAL_PHOENIX_INVULN = 5400, 180
 SPECIAL_AEGIS_EVERY, SPECIAL_AEGIS_FRAMES = 1200, 180
-SPECIAL_THORNS_TAKEN, SPECIAL_THORNS_RANGE, SPECIAL_THORNS_HP_RATIO = 0.7, 100, 0.2   # 반격 피해 = 최대 체력의 20%
+SPECIAL_THORNS_TAKEN, SPECIAL_THORNS_RANGE, SPECIAL_THORNS_HP_RATIO = 0.7, 100, 2.0   # 반격 피해 = 최대 체력의 200%
 SPECIAL_WISDOM_MULT = 2.0
 
 
@@ -9294,7 +9294,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102133          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102134          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
