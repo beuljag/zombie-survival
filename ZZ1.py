@@ -31,7 +31,7 @@
 - 경험치가 다 차면 레벨업되고 업그레이드 3가지 중 선택 가능
 - 웨이브 시스템: 60초마다 난이도 상승 및 보스 등장
 - 웨이브 3부터 보스 좀비 출현 시작
-- 10의 배수 웨이브는 보스 웨이브: 잡몹 없이 체력 50배 보스 1마리 (탄막 / 낙하 공격 / 회전 탄막 패턴, 체력 50% 아래면 분노)
+- 10의 배수 웨이브는 보스 웨이브: 잡몹 없이 체력 50배 보스 1마리 (보스 종류마다 다른 패턴 3개씩, 체력 50% 아래면 분노)
 - 플레이어 체력이 0 이하면 게임 오버
 
 【근접 무기 (6가지)】 - 조준 방향 부채꼴 범위의 좀비를 모두 타격 (몸에 붙은 좀비는 방향 상관없이)
@@ -8518,31 +8518,46 @@ def make_wave_boss(x, y, wave, health_mult=1.0):
     zombie.wave_boss = True
     zombie.boss_pattern_cd = 150     # 나오고 2.5초 뒤 첫 패턴
     zombie.boss_pattern_index = 0
-    zombie.boss_spiral = 0           # 회전 탄막 남은 프레임
-    zombie.boss_ring2 = 0            # 탄막 두 번째 고리까지 남은 프레임
-    zombie.boss_strikes = []         # 낙하 공격 [x, y, 남은 프레임, 반경]
     zombie.boss_enraged = False
-    zombie.boss_sig = 0              # 고유 패턴 진행 중 남은 프레임
+    zombie.boss_clock = 0            # 보스 자신의 프레임 시계
+    zombie.boss_run = {}             # 진행 중인 패턴 이름 -> 남은 프레임
+    zombie.boss_aim = 0.0            # 패턴이 고정해 둔 방향
+    zombie.boss_strikes = []         # 경고 원 [x, y, 남은 프레임, 반경]
     zombie.boss_lines = []           # 기사단장 십자 베기 [각도, 남은 프레임]
+    zombie.boss_waves = []           # 퍼지는 충격파 [x, y, 반경, 이미 맞은 플레이어들]
+    zombie.boss_hit_ready = {}       # 플레이어 -> 빛의 기둥에 다시 맞을 수 있는 시각
     return zombie
 
 
 # ----- 웨이브 보스 특수 패턴 (1인/멀티 공용, 프레임 기준이라 멀티에서도 모든 PC가 같음) -----
-#  탄막: 사방으로 불덩이 고리 2번 / 낙하 공격: 플레이어 자리에 붉은 경고 원 → 1초 뒤 폭발 / 회전 탄막: 1.5초 동안 소용돌이 / 고유 패턴
-#  체력 50% 아래로 떨어지면 분노: 패턴이 더 자주, 불덩이 수와 속도 증가
-BOSS_PATTERNS = ("ring", "strike", "spiral", "signature")   # 4번째는 보스마다 다른 고유 패턴
-# 고유 패턴: 마피아 보스 = 총알 세례 / 기사단장 = 성검 십자 베기 / 악마 = 지옥문 / 천사 = 심판의 빛 (보스 가까이가 안전)
-#            용 = 화염 숨결 / 왕 = 왕의 칙령 (근위 기사 소환 + 충격파) / 신 = 천지개벽 (낙하 + 탄막)
-BOSS_SIGNATURE_NAMES = {"boss": "총알 세례", "paladin": "성검 십자 베기", "demon": "지옥문", "angel": "심판의 빛",
-                        "dragon": "화염 숨결", "king": "왕의 칙령", "god": "천지개벽"}
+#  보스 종류마다 완전히 다른 패턴 3개를 번갈아 씀 (겹치는 패턴 없음)
+#  체력 50% 아래로 떨어지면 분노: 패턴이 더 자주, 패턴도 더 세짐
+BOSS_PATTERN_SETS = {
+    "boss": ("barrage", "sweep", "grenades"),         # 마피아 보스: 총기와 폭탄
+    "paladin": ("cross", "dash", "shockwaves"),       # 기사단장: 검기와 돌진
+    "demon": ("hellgate", "firetrail", "grasp"),      # 악마: 불기둥과 끌어당기기
+    "angel": ("judgment", "pillars", "feathers"),     # 천사: 빛
+    "dragon": ("breath", "gust", "meteors"),          # 용: 불과 날개
+    "king": ("decree", "spearwall", "majesty"),       # 왕: 부하와 위엄
+    "god": ("genesis", "eye", "helix"),               # 신: 하늘의 힘
+}
+BOSS_PATTERN_NAMES = {
+    "barrage": "총알 세례", "sweep": "기관총 소사", "grenades": "폭탄 투척",
+    "cross": "성검 십자 베기", "dash": "돌진 베기", "shockwaves": "방패 충격파",
+    "hellgate": "지옥문", "firetrail": "불길 추적", "grasp": "악마의 손아귀",
+    "judgment": "심판의 빛", "pillars": "빛의 기둥", "feathers": "깃털 포위",
+    "breath": "화염 숨결", "gust": "날개 돌풍", "meteors": "유성 낙하",
+    "decree": "왕의 칙령", "spearwall": "창의 벽", "majesty": "왕의 위엄",
+    "genesis": "천지개벽", "eye": "신의 눈", "helix": "이중 나선",
+}
+BOSS_PATTERN_INTERVAL, BOSS_PATTERN_INTERVAL_ENRAGED = 240, 160
+BOSS_STRIKE_DELAY = 60
 BOSS_LINE_DELAY, BOSS_LINE_WIDTH, BOSS_LINE_LENGTH = 70, 46, 1100
 BOSS_NOVA_DELAY, BOSS_NOVA_SAFE, BOSS_NOVA_RADIUS = 80, 110, 420
-BOSS_PATTERN_INTERVAL, BOSS_PATTERN_INTERVAL_ENRAGED = 240, 160
-BOSS_STRIKE_DELAY, BOSS_STRIKE_RADIUS = 60, 110
 
 
 class BossStrikeMarker(pygame.sprite.Sprite):
-    """낙하 공격 경고 원 (그리기 전용 - 판정은 update_wave_bosses에서). 터질 때가 가까울수록 안쪽이 차오름"""
+    """경고 원 (그리기 전용 - 판정은 update_wave_bosses에서). 터질 때가 가까울수록 안쪽이 차오름"""
     def __init__(self, x, y, radius, frames):
         super().__init__()
         self.radius, self.frames, self.left = radius, frames, frames
@@ -8561,146 +8576,36 @@ class BossStrikeMarker(pygame.sprite.Sprite):
         pygame.draw.circle(self.image, (255, 90, 60, 230), (c, c), r, 3)
 
 
-def _boss_fireball(boss, angle, speed, damage, bullets, all_sprites):
-    cx, cy = boss.rect.center
-    ball = Bullet(cx, cy, cx + math.cos(angle) * 500, cy + math.sin(angle) * 500,
-                  damage=damage, bullet_type="normal", weapon_type="dragon_fireball")
-    ball.speed = speed
-    bullets.add(ball)
-    all_sprites.add(ball)
+class BossContext:
+    """패턴 함수들에 넘기는 이번 프레임 정보"""
+    def __init__(self, zombies, players, bullets, all_sprites, explosions, power, enraged):
+        self.zombies, self.players, self.bullets = zombies, players, bullets
+        self.all_sprites, self.explosions = all_sprites, explosions
+        self.power, self.enraged = power, enraged
 
 
-def update_wave_bosses(zombies, players, bullets, all_sprites, explosions):
-    """웨이브 보스 패턴 (매 프레임). players: 살아 있는 플레이어들"""
-    if not players:
-        return
-    for boss in zombies:
-        if not getattr(boss, "wave_boss", False) or boss.health <= 0:
-            continue
-        cx, cy = boss.rect.center
-        power = 1 + boss.wave / 20   # 웨이브가 높을수록 패턴 피해도 셈
-        if not boss.boss_enraged and boss.health < boss.max_health * 0.5:
-            boss.boss_enraged = True
-            fx.add_text(cx, boss.rect.top - 40, "분노!", (255, 70, 50), big=True, life=90)
-            fx.ring(cx, cy, (255, 70, 50), 160, count=40, size=5)
-            fx.add_shake(8)
-        enraged = boss.boss_enraged
-        speed = 7.5 if enraged else 6
+def _boss_shot(x, y, angle, speed, damage, kind, ctx):
+    """보스 투사체 한 발 (kind: gangster_bullet 총알 / dragon_fireball 불덩이 / giant_rock 돌 / zombie_snipe 빛)"""
+    shot = Bullet(x, y, x + math.cos(angle) * 500, y + math.sin(angle) * 500, damage=damage, bullet_type="normal", weapon_type=kind)
+    shot.speed = speed
+    ctx.bullets.add(shot)
+    ctx.all_sprites.add(shot)
 
-        # 진행 중인 패턴
-        if boss.boss_ring2 > 0:
-            boss.boss_ring2 -= 1
-            if boss.boss_ring2 == 0:
-                count = 24 if enraged else 16
-                for i in range(count):
-                    _boss_fireball(boss, (i + 0.5) / count * 2 * math.pi, speed, 8 * power, bullets, all_sprites)
-        if boss.boss_spiral > 0:
-            boss.boss_spiral -= 1
-            if boss.boss_spiral % 5 == 0:
-                arms = 4 if enraged else 3
-                base = boss.boss_spiral * 0.22
-                for i in range(arms):
-                    _boss_fireball(boss, base + i * 2 * math.pi / arms, speed, 7 * power, bullets, all_sprites)
-        for strike in boss.boss_strikes[:]:
-            strike[2] -= 1
-            if strike[2] > 0:
-                continue
-            boss.boss_strikes.remove(strike)
-            sx, sy = strike[0], strike[1]
-            radius = strike[3] if len(strike) > 3 else BOSS_STRIKE_RADIUS
-            boom = Explosion(sx, sy, radius, "nuclear")
-            explosions.add(boom)
-            all_sprites.add(boom)
-            for p in players:
-                if math.hypot(p.rect.centerx - sx, p.rect.centery - sy) < radius:
-                    apply_player_damage(p, 18 * power, explosion=True)
-        if boss.boss_sig > 0 or boss.boss_lines:
-            _boss_signature_tick(boss, players, bullets, all_sprites, explosions, power, enraged)
 
-        # 다음 패턴
-        boss.boss_pattern_cd -= 1
-        if boss.boss_pattern_cd > 0:
-            continue
-        boss.boss_pattern_cd = BOSS_PATTERN_INTERVAL_ENRAGED if enraged else BOSS_PATTERN_INTERVAL
-        pattern = BOSS_PATTERNS[boss.boss_pattern_index % len(BOSS_PATTERNS)]
-        boss.boss_pattern_index += 1
-        if pattern == "ring":
-            count = 24 if enraged else 16
-            for i in range(count):
-                _boss_fireball(boss, i / count * 2 * math.pi, speed, 8 * power, bullets, all_sprites)
-            boss.boss_ring2 = 25
-            fx.ring(cx, cy, (255, 130, 30), 90, count=24)
-        elif pattern == "strike":
-            targets = [p for p in players if math.hypot(p.rect.centerx - cx, p.rect.centery - cy) < 1100]
-            for p in targets:
-                spots = [(p.rect.centerx, p.rect.centery)]
-                for _ in range(3 if enraged else 2):
-                    a, d = random.uniform(0, 2 * math.pi), random.uniform(120, 220)
-                    spots.append((p.rect.centerx + math.cos(a) * d, p.rect.centery + math.sin(a) * d))
-                for x, y in spots:
-                    boss.boss_strikes.append([x, y, BOSS_STRIKE_DELAY])
-                    all_sprites.add(BossStrikeMarker(x, y, BOSS_STRIKE_RADIUS, BOSS_STRIKE_DELAY))
-        elif pattern == "spiral":
-            boss.boss_spiral = 90
-        else:
-            _boss_signature_start(boss, zombies, players, bullets, all_sprites, explosions, power, enraged)
+def _boss_strike(boss, x, y, delay, radius, ctx):
+    """경고 원 → delay 프레임 뒤 폭발"""
+    boss.boss_strikes.append([x, y, delay, radius])
+    ctx.all_sprites.add(BossStrikeMarker(x, y, radius, delay))
 
 
 def _nearest_player(players, x, y):
     return min(players, key=lambda p: (math.hypot(p.rect.centerx - x, p.rect.centery - y), p.rect.x, p.rect.y))
 
 
-def _boss_signature_start(boss, zombies, players, bullets, all_sprites, explosions, power, enraged):
-    """웨이브 보스 고유 패턴 시작 (보스 종류마다 다름)"""
-    kind = boss.zombie_type
+def _aim_at_nearest(boss, players):
     cx, cy = boss.rect.center
-    fx.add_text(cx, boss.rect.top - 50, BOSS_SIGNATURE_NAMES.get(kind, "필살기") + "!", (255, 120, 80), big=True, life=80)
-    fx.wave(cx, cy, (255, 110, 70), 30, 160, life=20, width=8)
-    if kind == "boss":        # 총알 세례: 1.5초 동안 가장 가까운 플레이어에게 부채꼴 총알
-        boss.boss_sig = 90
-    elif kind == "paladin":   # 성검 십자 베기: 경고선 → 십자(+) 베기, 분노하면 X자도
-        base = math.atan2(_nearest_player(players, cx, cy).rect.centery - cy, _nearest_player(players, cx, cy).rect.centerx - cx)
-        angles = [base + i * math.pi / 2 for i in range(4)]
-        if enraged:
-            angles += [base + math.pi / 4 + i * math.pi / 2 for i in range(4)]
-        boss.boss_lines = [[a, BOSS_LINE_DELAY] for a in angles]
-    elif kind == "demon":     # 지옥문: 플레이어 주위에 불기둥 고리 → 잠시 뒤 가운데에 큰 불기둥 (고리 사이로 빠져나가기)
-        for p in players:
-            px, py = p.rect.center
-            count = 10 if enraged else 8
-            for i in range(count):
-                a = i / count * 2 * math.pi
-                x, y = px + math.cos(a) * 170, py + math.sin(a) * 170
-                boss.boss_strikes.append([x, y, BOSS_STRIKE_DELAY, 70])
-                all_sprites.add(BossStrikeMarker(x, y, 70, BOSS_STRIKE_DELAY))
-            boss.boss_strikes.append([px, py, BOSS_STRIKE_DELAY + 45, 130])
-            all_sprites.add(BossStrikeMarker(px, py, 130, BOSS_STRIKE_DELAY + 45))
-    elif kind == "angel":     # 심판의 빛: 보스 주위 넓은 범위가 빛으로 터짐 - 보스 바로 옆만 안전
-        boss.boss_sig = BOSS_NOVA_DELAY
-    elif kind == "dragon":    # 화염 숨결: 가장 가까운 플레이어 쪽으로 좌우로 휘두르며 불을 뿜음
-        boss.boss_sig = 100
-    elif kind == "king":      # 왕의 칙령: 근위 기사 소환 + 주변 충격파
-        for i in range(6 if enraged else 4):
-            a = i / (6 if enraged else 4) * 2 * math.pi
-            guard = Zombie(cx + math.cos(a) * 90, cy + math.sin(a) * 90, zombie_type="knight", wave=boss.wave, parent_zombie=boss)
-            zombies.add(guard)
-            all_sprites.add(guard)
-        all_sprites.add(MeleePoundEffect(cx, cy, 260))
-        fx.wave(cx, cy, (255, 210, 120), 40, 260, life=20, width=10)
-        for p in players:
-            if math.hypot(p.rect.centerx - cx, p.rect.centery - cy) < 260:
-                apply_player_damage(p, 14 * power, explosion=True)
-        fx.add_shake(6)
-    elif kind == "god":       # 천지개벽: 플레이어 주변 곳곳에 낙하 + 사방 탄막 2겹
-        for p in players:
-            for _ in range(8 if enraged else 6):
-                a, d = random.uniform(0, 2 * math.pi), random.uniform(0, 300)
-                x, y = p.rect.centerx + math.cos(a) * d, p.rect.centery + math.sin(a) * d
-                boss.boss_strikes.append([x, y, BOSS_STRIKE_DELAY + random.randint(0, 40), 90])
-                all_sprites.add(BossStrikeMarker(x, y, 90, BOSS_STRIKE_DELAY))
-        for i in range(32):
-            _boss_fireball(boss, i / 32 * 2 * math.pi, 5.5, 8 * power, bullets, all_sprites)
-        boss.boss_ring2 = 30
+    target = _nearest_player(players, cx, cy)
+    return math.atan2(target.rect.centery - cy, target.rect.centerx - cx)
 
 
 def _point_line_distance(px, py, x, y, angle, length):
@@ -8710,12 +8615,261 @@ def _point_line_distance(px, py, x, y, angle, length):
     return math.hypot(px - (x + dx * t), py - (y + dy * t))
 
 
-def _boss_signature_tick(boss, players, bullets, all_sprites, explosions, power, enraged):
-    """웨이브 보스 고유 패턴 진행 (매 프레임)"""
-    kind = boss.zombie_type
+def _shift_player(p, dx, dy):
+    """패턴이 플레이어를 밀거나 끌어당김"""
+    p.pos_x += dx
+    p.pos_y += dy
+    p.rect.center = (round(p.pos_x), round(p.pos_y))
+    p._synced_center = p.rect.center
+
+
+def _boss_start_pattern(boss, name, ctx):
+    """패턴 시작: 한 번에 끝나는 건 여기서, 이어지는 건 boss_run에 넣고 _boss_run_pattern에서"""
     cx, cy = boss.rect.center
-    if boss.boss_lines:   # 기사단장: 경고선이 깜빡이다가 베기
-        for line in boss.boss_lines[:]:
+    players, enraged, power = ctx.players, ctx.enraged, ctx.power
+    fx.add_text(cx, boss.rect.top - 50, BOSS_PATTERN_NAMES[name] + "!", (255, 120, 80), big=True, life=80)
+    fx.wave(cx, cy, (255, 110, 70), 30, 160, life=20, width=8)
+    boss.boss_aim = _aim_at_nearest(boss, players)
+    frames = {"barrage": 90, "sweep": 100, "dash": 50, "shockwaves": 90, "firetrail": 90, "grasp": 100, "judgment": BOSS_NOVA_DELAY,
+              "pillars": 150, "feathers": 120, "breath": 100, "gust": 15, "spearwall": 110, "majesty": 60, "genesis": 30,
+              "eye": 150, "helix": 110}.get(name)
+    if frames:
+        boss.boss_run[name] = frames
+    if name == "grenades":      # 폭탄 투척: 나에게 다가오는 줄로 폭탄이 떨어짐
+        for p in players:
+            angle = math.atan2(p.rect.centery - cy, p.rect.centerx - cx)
+            dist = math.hypot(p.rect.centerx - cx, p.rect.centery - cy)
+            count = 6 if enraged else 4
+            for i in range(count):
+                d = dist * (i + 1) / (count - 1)
+                _boss_strike(boss, cx + math.cos(angle) * d, cy + math.sin(angle) * d, 40 + i * 12, 85, ctx)
+    elif name == "cross":       # 성검 십자 베기: 경고선 → 십자(+) 베기, 분노하면 X자도
+        angles = [boss.boss_aim + i * math.pi / 2 for i in range(4)]
+        if enraged:
+            angles += [boss.boss_aim + math.pi / 4 + i * math.pi / 2 for i in range(4)]
+        boss.boss_lines = [[a, BOSS_LINE_DELAY] for a in angles]
+    elif name == "hellgate":    # 지옥문: 불기둥 고리 → 잠시 뒤 가운데에 큰 불기둥
+        for p in players:
+            px, py = p.rect.center
+            count = 10 if enraged else 8
+            for i in range(count):
+                a = i / count * 2 * math.pi
+                _boss_strike(boss, px + math.cos(a) * 170, py + math.sin(a) * 170, BOSS_STRIKE_DELAY, 70, ctx)
+            _boss_strike(boss, px, py, BOSS_STRIKE_DELAY + 45, 130, ctx)
+    elif name == "gust":        # 날개 돌풍: 멀리 밀어내고 불덩이 부채꼴
+        fx.wave(cx, cy, (230, 230, 255), 40, 500, life=18, width=12)
+        count = 11 if enraged else 7
+        for i in range(count):
+            _boss_shot(cx, cy, boss.boss_aim + (i - (count - 1) / 2) * 0.16, 7, 8 * power, "dragon_fireball", ctx)
+    elif name == "meteors":     # 유성 낙하: 큰 유성이 차례로
+        for p in players:
+            for i in range(4 if enraged else 3):
+                a, d = random.uniform(0, 2 * math.pi), random.uniform(0, 110)
+                _boss_strike(boss, p.rect.centerx + math.cos(a) * d, p.rect.centery + math.sin(a) * d, 70 + i * 35, 150, ctx)
+    elif name == "decree":      # 왕의 칙령: 근위 기사 소환 + 주변 충격파
+        count = 6 if enraged else 4
+        for i in range(count):
+            a = i / count * 2 * math.pi
+            guard = Zombie(cx + math.cos(a) * 90, cy + math.sin(a) * 90, zombie_type="knight", wave=boss.wave, parent_zombie=boss)
+            ctx.zombies.add(guard)
+            ctx.all_sprites.add(guard)
+        ctx.all_sprites.add(MeleePoundEffect(cx, cy, 260))
+        fx.wave(cx, cy, (255, 210, 120), 40, 260, life=20, width=10)
+        for p in players:
+            if math.hypot(p.rect.centerx - cx, p.rect.centery - cy) < 260:
+                apply_player_damage(p, 14 * power, explosion=True)
+        fx.add_shake(6)
+    elif name == "majesty":     # 왕의 위엄: 모두 2.5초 느려짐 + 큰 돌 3개
+        fx.wave(cx, cy, (255, 215, 90), 40, 900, life=26, width=10)
+        for p in players:
+            p.slow_time = max(p.slow_time, 150)
+            p.slow_multiplier = min(p.slow_multiplier, 0.5)
+            fx.ring(p.rect.centerx, p.rect.centery, (255, 215, 90), 60, count=18)
+    elif name == "genesis":     # 천지개벽: 곳곳에 낙하 + 사방 탄막 2겹
+        for p in players:
+            for _ in range(8 if enraged else 6):
+                a, d = random.uniform(0, 2 * math.pi), random.uniform(0, 300)
+                _boss_strike(boss, p.rect.centerx + math.cos(a) * d, p.rect.centery + math.sin(a) * d,
+                             BOSS_STRIKE_DELAY + random.randint(0, 40), 90, ctx)
+        for i in range(32):
+            _boss_shot(cx, cy, i / 32 * 2 * math.pi, 5.5, 8 * power, "dragon_fireball", ctx)
+
+
+def _boss_run_pattern(boss, name, t, ctx):
+    """이어지는 패턴 한 프레임 (t: 남은 프레임, 마지막은 0)"""
+    cx, cy = boss.rect.center
+    players, enraged, power = ctx.players, ctx.enraged, ctx.power
+    if name == "barrage":       # 총알 세례: 가장 가까운 사람에게 부채꼴 연사
+        if t % (6 if enraged else 8) == 0:
+            aim = _aim_at_nearest(boss, players)
+            for i in range(-2, 3):
+                _boss_shot(cx, cy, aim + i * 0.18, 9, 6 * power, "gangster_bullet", ctx)
+    elif name == "sweep":       # 기관총 소사: 넓은 각도를 쓸어 가며 빠른 총알
+        if t % 2 == 0:
+            _boss_shot(cx, cy, boss.boss_aim + math.sin(t * 0.08) * 1.1, 13 if enraged else 11, 4 * power, "gangster_bullet", ctx)
+    elif name == "dash":        # 돌진 베기: 경고선 → 그 줄을 따라 순간 돌진하며 벰
+        length = 700
+        ex, ey = cx + math.cos(boss.boss_aim) * length, cy + math.sin(boss.boss_aim) * length
+        if t > 0:
+            if t % 6 < 4:
+                fx.beam(cx, cy, ex, ey, (255, 70, 60), width=8, life=2)
+            return
+        fx.beam(cx, cy, ex, ey, (255, 240, 170), width=56, life=14)
+        for p in players:
+            if _point_line_distance(p.rect.centerx, p.rect.centery, cx, cy, boss.boss_aim, length) < 44:
+                apply_player_damage(p, 26 * power)
+        boss.pos_x, boss.pos_y = ex, ey
+        boss.rect.center = (round(ex), round(ey))
+        boss._synced_center = boss.rect.center
+        fx.add_shake(7)
+    elif name == "shockwaves":  # 방패 충격파: 고리가 차례로 퍼짐 - 고리 사이에 서 있어야 함
+        if t % (24 if enraged else 30) == 0:
+            boss.boss_waves.append([cx, cy, 40.0, []])
+            all_pound = MeleePoundEffect(cx, cy, 120)
+            ctx.all_sprites.add(all_pound)
+    elif name == "firetrail":   # 불길 추적: 지금 서 있는 자리마다 불기둥 (계속 움직여야 함)
+        if t % (9 if enraged else 12) == 0:
+            for p in players:
+                _boss_strike(boss, p.rect.centerx, p.rect.centery, 35, 70, ctx)
+    elif name == "grasp":       # 악마의 손아귀: 끌어당겨지다가 보스 주위 폭발 - 뛰어서 벗어나야 함
+        fx.wave(cx, cy, (200, 40, 80), 200, 200, life=2, width=4)
+        for p in players:
+            d = math.hypot(cx - p.rect.centerx, cy - p.rect.centery)
+            if 1 < d < 800:
+                pull = 4.2 if enraged else 3.2
+                _shift_player(p, (cx - p.rect.centerx) / d * pull, (cy - p.rect.centery) / d * pull)
+                if t % 6 == 0:
+                    fx.beam(cx, cy, p.rect.centerx, p.rect.centery, (150, 20, 60), width=4, life=5)
+        if t == 0:
+            fx.disc(cx, cy, (220, 40, 80), 200, life=20, alpha=170)
+            fx.wave(cx, cy, (255, 90, 120), 60, 240, life=18, width=12)
+            fx.add_shake(8)
+            for p in players:
+                if math.hypot(p.rect.centerx - cx, p.rect.centery - cy) < 200:
+                    apply_player_damage(p, 24 * power, explosion=True)
+    elif name == "judgment":    # 심판의 빛: 경고 (바깥 원 + 안전한 안쪽 원) → 폭발, 보스 바로 옆만 안전
+        if t > 0:
+            fx.wave(cx, cy, (255, 240, 170), BOSS_NOVA_RADIUS, BOSS_NOVA_RADIUS, life=2, width=4)
+            fx.wave(cx, cy, (140, 255, 170), BOSS_NOVA_SAFE, BOSS_NOVA_SAFE, life=2, width=4)
+            if t % 10 == 0:
+                fx.disc(cx, cy, (255, 240, 170), BOSS_NOVA_RADIUS * (1 - t / BOSS_NOVA_DELAY), life=10, alpha=60)
+            return
+        fx.disc(cx, cy, (255, 250, 210), 260, life=22, alpha=170)
+        fx.wave(cx, cy, (255, 240, 170), BOSS_NOVA_SAFE, BOSS_NOVA_RADIUS + 40, life=20, width=16)
+        fx.add_shake(8)
+        for p in players:
+            if BOSS_NOVA_SAFE < math.hypot(p.rect.centerx - cx, p.rect.centery - cy) < BOSS_NOVA_RADIUS:
+                apply_player_damage(p, 30 * power, explosion=True)
+    elif name == "pillars":     # 빛의 기둥: 보스 주위를 천천히 도는 빛줄기 (처음 0.5초는 경고)
+        count = 4 if enraged else 3
+        warned = t > 120
+        for i in range(count):
+            angle = boss.boss_aim + t * 0.02 + i * 2 * math.pi / count
+            ex, ey = cx + math.cos(angle) * 750, cy + math.sin(angle) * 750
+            fx.beam(cx, cy, ex, ey, (255, 150, 90) if warned else (255, 240, 170), width=3 if warned else 22, life=2)
+            if warned:
+                continue
+            for p in players:
+                if boss.boss_hit_ready.get(p, 0) <= boss.boss_clock and \
+                        _point_line_distance(p.rect.centerx, p.rect.centery, cx, cy, angle, 750) < 26:
+                    boss.boss_hit_ready[p] = boss.boss_clock + 30
+                    apply_player_damage(p, 12 * power)
+    elif name == "feathers":    # 깃털 포위: 내 주위 원에서 안쪽으로 빛이 모여듦 (틈으로 빠져나가기)
+        if t % 40 == 20:
+            for p in players:
+                px, py = p.rect.center
+                count = 14 if enraged else 10
+                offset = random.uniform(0, 2 * math.pi)
+                fx.wave(px, py, (255, 250, 210), 380, 380, life=12, width=3)
+                for i in range(count):
+                    a = offset + i / count * 2 * math.pi
+                    _boss_shot(px + math.cos(a) * 380, py + math.sin(a) * 380, a + math.pi, 5.5, 4 * power, "zombie_snipe", ctx)
+    elif name == "breath":      # 화염 숨결: 좌우로 휘두르며 불을 뿜음
+        if t % 3 == 0:
+            angle = _aim_at_nearest(boss, players) + math.sin(t * 0.09) * 0.6
+            _boss_shot(cx, cy, angle, 9 if enraged else 7.5, 7 * power, "dragon_fireball", ctx)
+            fx.burst(cx + math.cos(angle) * 50, cy + math.sin(angle) * 50, (255, 130, 40), 3,
+                     speed=(2, 5), size=(3, 6), life=(10, 18), angle=angle, spread=0.5)
+    elif name == "gust":        # 날개 돌풍: 밀려남
+        for p in players:
+            d = math.hypot(p.rect.centerx - cx, p.rect.centery - cy)
+            if 1 < d < 500:
+                _shift_player(p, (p.rect.centerx - cx) / d * 9, (p.rect.centery - cy) / d * 9)
+                fx.trail(p.rect.centerx, p.rect.centery, (230, 230, 255), size=6, life=10)
+    elif name == "spearwall":   # 창의 벽: 틈이 하나 있는 창 줄이 밀려옴 - 틈으로 지나가기
+        if t % (36 if enraged else 55) == 54 % (36 if enraged else 55):
+            aim = _aim_at_nearest(boss, players)
+            gap = random.randint(3, 13)
+            for i in range(17):
+                if i in (gap - 1, gap, gap + 1):
+                    continue
+                side = (i - 8) * 46
+                _boss_shot(cx - math.sin(aim) * side, cy + math.cos(aim) * side, aim, 6, 10 * power, "zombie_snipe", ctx)
+    elif name == "majesty":     # 왕의 위엄: 느려진 사이 큰 돌
+        if t % 20 == 0:
+            _boss_shot(cx, cy, _aim_at_nearest(boss, players), 7, 14 * power, "giant_rock", ctx)
+    elif name == "genesis":     # 천지개벽: 두 번째 탄막
+        if t == 0:
+            for i in range(32):
+                _boss_shot(cx, cy, (i + 0.5) / 32 * 2 * math.pi, 5.5, 8 * power, "dragon_fireball", ctx)
+    elif name == "eye":         # 신의 눈: 조준선이 따라오다 멈춘 뒤 큰 빛줄기 3번 (멈춘 순간 옆으로)
+        phase = (150 - t) % 50
+        if phase < 35:
+            boss.boss_aim = _aim_at_nearest(boss, players)
+        ex, ey = cx + math.cos(boss.boss_aim) * 1400, cy + math.sin(boss.boss_aim) * 1400
+        if phase < 49:
+            fx.beam(cx, cy, ex, ey, (255, 60, 60) if phase < 35 or phase % 4 < 2 else (255, 255, 255), width=3, life=2)
+        else:
+            fx.beam(cx, cy, ex, ey, (255, 245, 190), width=34, life=12)
+            fx.add_shake(5)
+            for p in players:
+                if _point_line_distance(p.rect.centerx, p.rect.centery, cx, cy, boss.boss_aim, 1400) < 32:
+                    apply_player_damage(p, 20 * power)
+    elif name == "helix":       # 이중 나선: 서로 반대로 도는 나선 탄막
+        if t % 4 == 0:
+            for sign in (1, -1):
+                for i in range(3 if enraged else 2):
+                    _boss_shot(cx, cy, sign * t * 0.1 + i * 2 * math.pi / (3 if enraged else 2), 6, 6 * power, "zombie_snipe", ctx)
+
+
+def update_wave_bosses(zombies, players, bullets, all_sprites, explosions):
+    """웨이브 보스 패턴 (매 프레임). players: 살아 있는 플레이어들"""
+    if not players:
+        return
+    for boss in zombies:
+        if not getattr(boss, "wave_boss", False) or boss.health <= 0:
+            continue
+        boss.boss_clock += 1
+        cx, cy = boss.rect.center
+        power = 1 + boss.wave / 20   # 웨이브가 높을수록 패턴 피해도 셈
+        if not boss.boss_enraged and boss.health < boss.max_health * 0.5:
+            boss.boss_enraged = True
+            fx.add_text(cx, boss.rect.top - 40, "분노!", (255, 70, 50), big=True, life=90)
+            fx.ring(cx, cy, (255, 70, 50), 160, count=40, size=5)
+            fx.add_shake(8)
+        ctx = BossContext(zombies, players, bullets, all_sprites, explosions, power, boss.boss_enraged)
+
+        # 진행 중인 패턴
+        for name, left in list(boss.boss_run.items()):
+            left -= 1
+            if left <= 0:
+                del boss.boss_run[name]
+            else:
+                boss.boss_run[name] = left
+            _boss_run_pattern(boss, name, left, ctx)
+        for strike in boss.boss_strikes[:]:   # 경고 원 폭발
+            strike[2] -= 1
+            if strike[2] > 0:
+                continue
+            boss.boss_strikes.remove(strike)
+            sx, sy, radius = strike[0], strike[1], strike[3]
+            boom = Explosion(sx, sy, radius, "nuclear")
+            explosions.add(boom)
+            all_sprites.add(boom)
+            for p in players:
+                if math.hypot(p.rect.centerx - sx, p.rect.centery - sy) < radius:
+                    apply_player_damage(p, 18 * power, explosion=True)
+        for line in boss.boss_lines[:]:       # 십자 베기: 경고선이 깜빡이다가 베기
             angle = line[0]
             line[1] -= 1
             ex, ey = cx + math.cos(angle) * BOSS_LINE_LENGTH, cy + math.sin(angle) * BOSS_LINE_LENGTH
@@ -8729,38 +8883,26 @@ def _boss_signature_tick(boss, players, bullets, all_sprites, explosions, power,
                 if _point_line_distance(p.rect.centerx, p.rect.centery, cx, cy, angle, BOSS_LINE_LENGTH) < BOSS_LINE_WIDTH / 2 + 14:
                     apply_player_damage(p, 22 * power)
             fx.add_shake(5)
-    if boss.boss_sig <= 0:
-        return
-    boss.boss_sig -= 1
-    t = boss.boss_sig
-    target = _nearest_player(players, cx, cy)
-    aim = math.atan2(target.rect.centery - cy, target.rect.centerx - cx)
-    if kind == "boss" and t % (6 if enraged else 8) == 0:   # 총알 세례
-        for i in range(-2, 3):
-            ball = Bullet(cx, cy, cx + math.cos(aim + i * 0.18) * 500, cy + math.sin(aim + i * 0.18) * 500,
-                          damage=6 * power, bullet_type="normal", weapon_type="gangster_bullet")
-            ball.speed = 9
-            bullets.add(ball)
-            all_sprites.add(ball)
-    elif kind == "dragon" and t % 3 == 0:   # 화염 숨결: 좌우로 휘두름
-        sweep = math.sin(t * 0.09) * 0.6
-        _boss_fireball(boss, aim + sweep, 9 if enraged else 7.5, 7 * power, bullets, all_sprites)
-        fx.burst(cx + math.cos(aim + sweep) * 50, cy + math.sin(aim + sweep) * 50, (255, 130, 40), 3,
-                 speed=(2, 5), size=(3, 6), life=(10, 18), angle=aim + sweep, spread=0.5)
-    elif kind == "angel":   # 심판의 빛: 경고 (바깥 원 + 안전한 안쪽 원) → 폭발
-        if t > 0:
-            fx.wave(cx, cy, (255, 240, 170), BOSS_NOVA_RADIUS, BOSS_NOVA_RADIUS, life=2, width=4)
-            fx.wave(cx, cy, (140, 255, 170), BOSS_NOVA_SAFE, BOSS_NOVA_SAFE, life=2, width=4)
-            if t % 10 == 0:
-                fx.disc(cx, cy, (255, 240, 170), BOSS_NOVA_RADIUS * (1 - t / BOSS_NOVA_DELAY), life=10, alpha=60)
-            return
-        fx.disc(cx, cy, (255, 250, 210), 260, life=22, alpha=170)
-        fx.wave(cx, cy, (255, 240, 170), BOSS_NOVA_SAFE, BOSS_NOVA_RADIUS + 40, life=20, width=16)
-        fx.add_shake(8)
-        for p in players:
-            d = math.hypot(p.rect.centerx - cx, p.rect.centery - cy)
-            if BOSS_NOVA_SAFE < d < BOSS_NOVA_RADIUS:
-                apply_player_damage(p, 30 * power, explosion=True)
+        for wave in boss.boss_waves[:]:       # 퍼지는 충격파
+            wave[2] += 8
+            if wave[2] > 900:
+                boss.boss_waves.remove(wave)
+                continue
+            fx.wave(wave[0], wave[1], (200, 215, 255), wave[2], wave[2], life=2, width=12)
+            for p in players:
+                if p not in wave[3] and abs(math.hypot(p.rect.centerx - wave[0], p.rect.centery - wave[1]) - wave[2]) < 26:
+                    wave[3].append(p)
+                    apply_player_damage(p, 16 * power)
+
+        # 다음 패턴
+        boss.boss_pattern_cd -= 1
+        if boss.boss_pattern_cd > 0:
+            continue
+        boss.boss_pattern_cd = BOSS_PATTERN_INTERVAL_ENRAGED if boss.boss_enraged else BOSS_PATTERN_INTERVAL
+        patterns = BOSS_PATTERN_SETS[boss.zombie_type]
+        name = patterns[boss.boss_pattern_index % len(patterns)]
+        boss.boss_pattern_index += 1
+        _boss_start_pattern(boss, name, ctx)
 
 
 # ===== 저장 / 이어하기 =====
@@ -9125,7 +9267,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102129          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102130          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
