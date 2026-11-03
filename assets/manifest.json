@@ -1346,5 +1346,125 @@
     "loop": false,
     "anchor": "center",
     "animationMethod": "native_pixel_procedural_sequence"
+  },
+  "weapons/grimoire.png": {
+    "frameWidth": 40,
+    "frameHeight": 32,
+    "frames": 1,
+    "layout": "horizontal",
+    "sheetWidth": 40,
+    "sheetHeight": 32
+  },
+  "projectiles/magic_orb.png": {
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 1,
+    "layout": "horizontal",
+    "sheetWidth": 32,
+    "sheetHeight": 32
+  },
+  "projectiles/magic_lance.png": {
+    "frameWidth": 64,
+    "frameHeight": 16,
+    "frames": 1,
+    "layout": "horizontal",
+    "sheetWidth": 64,
+    "sheetHeight": 16
+  },
+  "projectiles/magic_dragon.png": {
+    "frameWidth": 80,
+    "frameHeight": 56,
+    "frames": 1,
+    "layout": "horizontal",
+    "sheetWidth": 80,
+    "sheetHeight": 56
+  },
+  "effects/explosion_magic_fire.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "layout": "horizontal",
+    "sheetWidth": 576,
+    "sheetHeight": 96
+  },
+  "effects/explosion_magic_ice.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "layout": "horizontal",
+    "sheetWidth": 576,
+    "sheetHeight": 96
+  },
+  "effects/explosion_magic_lightning.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "layout": "horizontal",
+    "sheetWidth": 576,
+    "sheetHeight": 96
+  },
+  "effects/explosion_magic_poison.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "layout": "horizontal",
+    "sheetWidth": 576,
+    "sheetHeight": 96
+  },
+  "effects/explosion_magic_wind.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "layout": "horizontal",
+    "sheetWidth": 576,
+    "sheetHeight": 96
+  },
+  "effects/explosion_magic_earth.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "layout": "horizontal",
+    "sheetWidth": 576,
+    "sheetHeight": 96
+  },
+  "effects/explosion_magic_dark.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "layout": "horizontal",
+    "sheetWidth": 576,
+    "sheetHeight": 96
+  },
+  "effects/explosion_magic_light.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "layout": "horizontal",
+    "sheetWidth": 576,
+    "sheetHeight": 96
+  },
+  "effects/magic_circle.png": {
+    "frameWidth": 128,
+    "frameHeight": 128,
+    "frames": 8,
+    "layout": "horizontal",
+    "sheetWidth": 1024,
+    "sheetHeight": 128
+  },
+  "effects/magic_meteor.png": {
+    "frameWidth": 48,
+    "frameHeight": 96,
+    "frames": 4,
+    "layout": "horizontal",
+    "sheetWidth": 192,
+    "sheetHeight": 96
+  },
+  "effects/magic_dragon_body.png": {
+    "frameWidth": 48,
+    "frameHeight": 48,
+    "frames": 4,
+    "layout": "horizontal",
+    "sheetWidth": 192,
+    "sheetHeight": 48
   }
 }
