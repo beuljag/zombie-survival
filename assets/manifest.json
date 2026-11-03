@@ -1570,5 +1570,133 @@
     "sheetWidth": 576,
     "sheetHeight": 96,
     "layout": "horizontal"
+  },
+  "effects/reaction_plasma.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_blackflame.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_solar.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_frostbite.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_darkfrost.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_diamond.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_earthshock.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_blackbolt.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_heavenbolt.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_poisonstorm.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_acidbog.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_purify.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_voidwind.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_lightgale.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_cursed.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_crystal.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
   }
 }
