@@ -4104,7 +4104,7 @@ def warm_up_game_sfx():
 #  assets/music/menu, battle, boss (.ogg / .mp3 / .wav) 가 있으면 그 음악, 없으면 코드로 만든 기본 음악 (메뉴 / 전투)
 #  보스가 나오면 boss 음악 (없으면 전투 음악 그대로), 일렉 기타를 들면 박자 소리와 섞이지 않게 음악을 작게
 MUSIC_CHANNEL = 15
-_music = {"kind": None, "source": None, "duck": 1.0}
+_music = {"kind": None, "source": None, "duck": 1.0, "pending": None}   # pending: 페이드 아웃이 끝나면 틀 음악 파일
 _music_synth = {}
 _music_lock = __import__("threading").Lock()
 
@@ -4225,13 +4225,36 @@ def _prepare_music_thread():
     __import__("threading").Thread(target=work, daemon=True).start()
 
 
-def set_music(kind):
-    """배경 음악 바꾸기 ("menu" / "battle" / "boss" / None=끔) - 같은 음악이면 그대로"""
+def _play_music_file(path):
+    pygame.mixer.music.load(path)
+    pygame.mixer.music.set_volume(music_volume())
+    pygame.mixer.music.play(-1, fade_ms=800)
+    _music["source"] = "file"
+
+
+def _music_pump():
+    """게임 중 매 프레임: 앞 곡의 페이드 아웃이 끝났으면 기다리던 곡을 틂"""
+    path = _music["pending"]
+    if path is None or pygame.mixer.music.get_busy():
+        return
+    _music["pending"] = None
+    try:
+        _play_music_file(path)
+    except Exception:
+        _music["source"] = None
+
+
+def set_music(kind, smooth=False):
+    """배경 음악 바꾸기 ("menu" / "battle" / "boss" / None=끔) - 같은 음악이면 그대로
+    smooth: 게임 중에는 앞 곡의 페이드 아웃을 기다리지 않음 (music.load가 페이드가 끝날 때까지 게임을 멈춰서 웨이브 시작 때 끊겼음)"""
     if kind == _music["kind"] or not _ensure_mixer():
         return
+    fading = _music["pending"] is not None
+    _music["pending"] = None
     try:
         if _music["source"] == "file":
             pygame.mixer.music.fadeout(500)
+            fading = True
         elif _music["source"] == "synth":
             pygame.mixer.Channel(MUSIC_CHANNEL).fadeout(500)
     except Exception:
@@ -4242,10 +4265,10 @@ def set_music(kind):
     path = music_file(kind) or (music_file("battle") if kind == "boss" else None)
     try:
         if path:
-            pygame.mixer.music.load(path)
-            pygame.mixer.music.set_volume(music_volume())
-            pygame.mixer.music.play(-1, fade_ms=800)
-            _music["source"] = "file"
+            if smooth and fading:
+                _music["pending"] = path
+            else:
+                _play_music_file(path)
             return
         with _music_lock:
             sound = _music_synth.get("menu" if kind == "menu" else "battle")
@@ -4261,7 +4284,8 @@ def set_music(kind):
 def music_tick(player, zombies=None):
     """매 프레임: 보스가 있으면 보스 음악, 일렉 기타를 들면 음악을 작게 (박자 소리가 잘 들리게)"""
     boss = zombies is not None and any(z.zombie_type in BOSS_MUSIC_TYPES and z.health > 0 for z in zombies)
-    set_music("boss" if boss else "battle")   # 게임 중에만 불림 → 전투/보스 음악
+    _music_pump()
+    set_music("boss" if boss else "battle", smooth=True)   # 게임 중에만 불림 → 전투/보스 음악
     duck = 0.35 if player is not None and player.weapon is not None and player.weapon.weapon_type == "hammer" else 1.0
     if duck != _music["duck"]:
         _music["duck"] = duck
@@ -9889,7 +9913,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102143          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102144          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
