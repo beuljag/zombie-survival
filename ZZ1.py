@@ -222,6 +222,59 @@ import time
 # pygame 초기화
 os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "1")   # 화면 확대/축소를 부드럽게 (계단 현상 방지)
 pygame.mixer.pre_init(44100, -16, 2, 1024)   # 소리 지연을 짧게 (리듬 무기) - 너무 작으면 소리가 끊김
+# 튕김 기록 (게임 폴더의 오류기록.txt): 창 모드 exe는 오류 메시지가 어디에도 안 보여서 파일로 남김
+CRASH_LOG_PATH = os.path.join(os.path.dirname(sys.executable) if getattr(sys, "frozen", False)
+                              else os.path.dirname(os.path.abspath(__file__)), "오류기록.txt")
+
+
+def _write_crash_log(text):
+    import time as _time
+    try:
+        with open(CRASH_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"\n===== {_time.strftime('%Y-%m-%d %H:%M:%S')} 빌드 {globals().get('GAME_BUILD')} =====\n{text}\n")
+    except OSError:
+        pass
+
+
+def report_crash():
+    """except 안에서 부름: 오류를 파일에 남기고 (exe면) 어디에 남았는지 알려 줌"""
+    import traceback
+    _write_crash_log(traceback.format_exc())
+    traceback.print_exc()
+    if getattr(sys, "frozen", False):
+        try:
+            pygame.quit()
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, f"오류로 게임이 꺼졌어요. 이 파일을 보내 주세요:\n{CRASH_LOG_PATH}", "좀비 게임 오류", 0x10)
+        except Exception:
+            pass
+
+
+def _install_crash_log():
+    """프로그램 자체가 죽는 오류 (파이썬 예외로 안 잡힘)와 뒤쪽 스레드 오류도 같은 파일에 남김"""
+    import atexit, faulthandler, threading, traceback
+    threading.excepthook = lambda args: _write_crash_log(
+        f"스레드 {args.thread.name if args.thread else '?'} 오류\n" + "".join(
+            traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback)))
+    try:
+        crash_file = open(CRASH_LOG_PATH, "a", encoding="utf-8")
+    except OSError:
+        return
+    faulthandler.enable(crash_file, all_threads=True)
+
+    def tidy():
+        try:
+            faulthandler.disable()
+            crash_file.close()
+            if os.path.getsize(CRASH_LOG_PATH) == 0:   # 아무 일 없었으면 빈 파일을 남기지 않음
+                os.remove(CRASH_LOG_PATH)
+        except OSError:
+            pass
+    atexit.register(tidy)
+
+
+_install_crash_log()
+
 pygame.init()
 
 # 문제 찾기용 기록 (환경 변수 ZOMBIE_DEBUG_LOG=파일경로 일 때만): 종료 요청 이벤트와 종료 위치를 남김
@@ -2231,6 +2284,8 @@ class Player(pygame.sprite.Sprite):
         self.skill_cooldown_reduction = 0
         self.special_upgrades = []   # 50레벨마다 고르는 특수 업그레이드 (한 번씩만)
         self.phoenix_ready = 0       # ★ 불사조를 다시 쓸 수 있는 special_tick
+        # 마법서: 얻는 속성 순서 (화염 다음은 무작위) - 멀티는 같은 씨앗이라 모든 PC가 같음
+        self.grimoire_order = random.sample(["ice", "lightning", "poison", "wind", "earth", "dark", "light"], 7)
         self.special_tick = 0        # 특수 업그레이드 타이머 (게임 프레임)
         self.damage_dealt = 0.0      # 게임 오버 화면: 총 피해
         self.best_hit = 0.0          # 게임 오버 화면: 가장 강한 한 방
@@ -5391,7 +5446,8 @@ class BombardmentSkill(ActiveSkill):
 # 우클릭 스킬 실행 함수
 # ===== 마법서 =====
 #  패시브 현자의 지식: 최종 경험치 2배 / 속성탄 업그레이드 없음
-#  기본 공격: 쏠 때마다 가진 속성 중 하나가 무작위로 나감. 처음엔 불, 50레벨마다 속성 하나 (300레벨에 빛과 어둠, 최대 진화)
+#  기본 공격: 쏠 때마다 가진 속성 중 하나가 무작위로 나감. 처음엔 불, 50레벨마다 무작위 속성 하나 (300레벨에 남은 2개, 최대 진화)
+#  원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 반응이 터짐 (GRIMOIRE_REACTIONS)
 #  기본 공격과 스킬은 레벨에 따라 진화 (최대 300레벨)
 GRIMOIRE_EXP_MULT = 2.0
 # 전용 업그레이드: 카드 종류 -> (저장 이름, 최대 횟수, 0이면 제한 없음)
@@ -5400,7 +5456,7 @@ GRIMOIRE_UPGRADE_KEYS = {"grimoire_power": ("power", 0), "grimoire_blast": ("bla
                          "grimoire_skill_range": ("range", 0), "grimoire_skill_damage": ("damage", 0)}
 GRIMOIRE_POWER, GRIMOIRE_BLAST, GRIMOIRE_RESONANCE = 0.10, 12, 0.05   # 1회당 기본 공격 피해 +10% / 폭발 범위 +12 / 주변 피해 +5%
 GRIMOIRE_ECHO, GRIMOIRE_MASTERY, GRIMOIRE_SPEED = 0.15, 0.20, 1.5     # 1회당 연속 시전 15% / 속성 효과 +20% / 탄속 +1.5
-# 속성: (이름, 색, 얻는 레벨, 폭발 그림)
+# 속성: (이름, 색, 예전 고정 순서의 레벨 - 지금은 안 씀, 폭발 그림)
 GRIMOIRE_ELEMENTS = {
     "fire": ("화염", (255, 110, 40), 1, "flame"),
     "ice": ("얼음", (130, 215, 255), 50, "plasma"),
@@ -5443,8 +5499,9 @@ _grimoire_images = {}
 
 
 def grimoire_elements(player):
-    """지금 쓸 수 있는 속성들"""
-    return [key for key, info in GRIMOIRE_ELEMENTS.items() if player.level >= info[2]]
+    """지금 쓸 수 있는 속성들: 화염 + 50레벨마다 무작위 하나, 300레벨에 전부"""
+    count = 7 if player.level >= 300 else player.level // 50
+    return ["fire"] + player.grimoire_order[:count]
 
 
 def grimoire_explosion_kind(element):
@@ -5571,9 +5628,86 @@ def fire_grimoire(player, aim_x, aim_y, bullets, all_sprites):
     fire_muzzle_flash(player, aim_x, aim_y)
 
 
+# 원소 반응: (이름, 그림 파일 이름, 색, 범위, 피해 배율)
+GRIMOIRE_REACTIONS = {
+    frozenset(("fire", "ice")): ("증기 폭발", "steam", (235, 240, 245), 160, 2.0),
+    frozenset(("fire", "wind")): ("화염 회오리", "firestorm", (255, 150, 60), 150, 1.0),
+    frozenset(("fire", "poison")): ("독가스 폭발", "toxic", (180, 210, 60), 140, 1.2),
+    frozenset(("fire", "earth")): ("용암 분출", "lava", (255, 90, 30), 120, 1.5),
+    frozenset(("ice", "lightning")): ("초전도", "superconduct", (170, 170, 255), 140, 1.0),
+    frozenset(("ice", "wind")): ("눈보라", "blizzard", (200, 235, 255), 190, 0.8),
+    frozenset(("ice", "earth")): ("완전 동결", "frozen", (120, 190, 255), 100, 1.2),
+    frozenset(("lightning", "poison")): ("신경독", "neurotoxin", (200, 240, 80), 140, 1.0),
+    frozenset(("lightning", "wind")): ("뇌우", "thunderstorm", (255, 250, 150), 240, 1.2),
+    frozenset(("poison", "dark")): ("역병", "plague", (120, 170, 80), 170, 0.8),
+    frozenset(("earth", "wind")): ("모래 폭풍", "sandstorm", (215, 180, 120), 170, 1.0),
+    frozenset(("dark", "light")): ("심판", "judgment", (240, 220, 255), 120, 1.5),
+}
+GRIMOIRE_RESONANCE_REACTION = ("원소 공명", "resonance", (210, 170, 255), 110, 1.0)   # 표에 없는 조합
+GRIMOIRE_REACT_WINDOW = 3000     # 앞 속성이 남아 있는 시간 (ms)
+GRIMOIRE_REACT_COOLDOWN = 1000   # 같은 좀비는 1초에 한 번만 반응
+GRIMOIRE_JUDGMENT_RATIO, GRIMOIRE_JUDGMENT_BOSS_RATIO = 0.08, 0.01   # 심판: 대상 최대 체력 비례 (방어 무시)
+
+
+def grimoire_react(player, zombie, first, second, damage, zombies):
+    """원소 반응 발동 (1인·멀티 공용, 판정은 게임 난수와 프레임만 씀)"""
+    pair = frozenset((first, second))
+    name, art, color, radius, ratio = GRIMOIRE_REACTIONS.get(pair, GRIMOIRE_RESONANCE_REACTION)
+    mastery = 1 + GRIMOIRE_MASTERY * player.skill_upgrades["grimoire"]["mastery"]
+    x, y = zombie.rect.center
+    fx.add_text(x, zombie.rect.top - 34, name + "!", color, big=True, life=55)
+    fx.disc(x, y, color, radius, life=18, alpha=150)
+    fx.wave(x, y, color, radius * 0.3, radius + 20, life=16, width=8)
+    fx.burst(x, y, color, 22, speed=(2, 9), size=(3, 7), life=(12, 24))
+    fx.anim(f"effects/reaction_{art}.png", x, y, radius * 2 / 96, 4)
+    fx.add_shake(3)
+    targets = [z for z in zombies if z.health > 0 and math.hypot(z.rect.centerx - x, z.rect.centery - y) < radius]
+    if art == "thunderstorm":   # 뇌우: 가까운 6마리에게 번개
+        targets.sort(key=lambda z: (math.hypot(z.rect.centerx - x, z.rect.centery - y), z.rect.x, z.rect.y))
+        targets = targets[:6]
+    for target in targets:
+        target.health -= damage * ratio * mastery * get_damage_multiplier(target)
+        tx, ty = target.rect.center
+        if art in ("firestorm", "lava"):
+            ignite(target)
+        if art in ("toxic", "neurotoxin", "plague"):
+            target.grimoire_poison_time = 240
+            target.grimoire_poison_damage = max(getattr(target, "grimoire_poison_damage", 0),
+                                                damage * 0.15 * mastery * (2 if art == "plague" else 1))
+            target.grimoire_poison_owner = player
+        if art in ("lava", "neurotoxin", "sandstorm", "frozen"):   # 기절
+            frames = {"lava": 30, "neurotoxin": 20, "sandstorm": 40, "frozen": 90}[art]
+            target.slow_time = max(target.slow_time, int(frames * mastery))
+            target.slow_multiplier = 0.0
+        if art == "superconduct":   # 받는 피해 +25%
+            target.discord_time = max(target.discord_time, 300)
+        if art == "blizzard":
+            target.slow_time = max(target.slow_time, int(180 * mastery))
+            target.slow_multiplier = min(target.slow_multiplier, 0.4)
+        if art == "sandstorm":
+            push_zombie(target, x, y, 12)
+        if art == "thunderstorm":
+            fx.beam(x, y, tx, ty, color, width=6, life=8)
+            target.electric_fx = 30
+    if art == "judgment":   # 맞은 좀비에게 최대 체력 비례 추가 피해 (방어 무시)
+        boss = zombie.zombie_type in GUARANTEED_DROP_TYPES
+        zombie.health -= zombie.max_health * (GRIMOIRE_JUDGMENT_BOSS_RATIO if boss else GRIMOIRE_JUDGMENT_RATIO) * mastery
+        fx.beam(x, y - 420, x, y, color, width=26, life=14)
+
+
 def grimoire_status(player, zombie, element, damage, zombies, spread=False):
     """속성 효과 한 번. spread: 폭발에 같이 맞은 좀비 (상태 이상만)"""
     x, y = zombie.rect.center
+    if not spread:   # 원소 반응: 3초 안에 다른 속성이 맞으면 발동
+        now = pygame.time.get_ticks()
+        mark = getattr(zombie, "grimoire_mark", None)
+        if mark is not None and mark[0] != element and now - mark[1] < GRIMOIRE_REACT_WINDOW \
+                and now >= getattr(zombie, "grimoire_react_ready", 0):
+            zombie.grimoire_react_ready = now + GRIMOIRE_REACT_COOLDOWN
+            zombie.grimoire_mark = None
+            grimoire_react(player, zombie, mark[0], element, damage, zombies)
+        else:
+            zombie.grimoire_mark = (element, now)
     mastery = 1 + GRIMOIRE_MASTERY * player.skill_upgrades["grimoire"]["mastery"]   # 원소 숙련
     if element == "fire":
         ignite(zombie)
@@ -7463,7 +7597,8 @@ WEAPON_HELP = {
     "plasma": (["맞으면 작은 폭발 (주변 40%)."],
                ["블랙홀: 3초 동안 모든 좀비를 빨아들이고 범위 안의 좀비에게 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
     "grimoire": (["패시브 현자의 지식: 최종 경험치 2배. 속성탄 업그레이드는 나오지 않음.",
-                  "쏠 때마다 가진 속성 중 하나가 무작위로 나감: 처음엔 화염, 50레벨마다 얼음 · 번개 · 맹독 · 바람 · 대지, 300레벨에 어둠과 빛.",
+                  "쏠 때마다 가진 속성 중 하나가 무작위로 나감: 처음엔 화염, 50레벨마다 무작위 속성 하나, 300레벨에 전부 (8속성).",
+                  "원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 터짐 (증기 폭발, 초전도, 뇌우, 심판 등 12종 + 원소 공명).",
                   "25레벨마다 진화 (13단계): 구체 → 대형 → 거대 → 쌍둥이 → 삼중 → 창 → 쌍창 → 삼중 창 → 새끼 드래곤 → 드래곤 → 쌍두 → 300 삼두 드래곤 (최대).",
                   "단계 사이에도 레벨마다 크기와 폭발 범위가 조금씩 커짐. 레벨마다 기본 공격과 스킬 피해 +0.4% (300레벨 +120%까지)."],
                  ["원소 마법: 50레벨마다 진화 (7단계). 원소 폭발 → 50 연쇄 폭발 → 100 원소 폭풍 → 150 대폭풍.",
@@ -9666,7 +9801,7 @@ PLAYER_SAVE_FIELDS = [
     "ability", "health", "max_health", "speed", "damage", "exp", "exp_to_level", "level", "regen",
     "levels", "skills", "pierce_level", "skill_upgrades", "weapon_upgrades", "obtained_upgrades",
     "shield_active", "skill_cooldown_reduction", "infinity_ammo_time", "teleport_cooldown_max",
-    "special_upgrades", "damage_dealt", "best_hit",
+    "special_upgrades", "damage_dealt", "best_hit", "grimoire_order",
 ]
 WEAPON_SAVE_FIELDS = ["weapon_type", "damage", "fire_rate", "attack_speed"]
 
@@ -9745,7 +9880,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102139          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102140          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -11129,8 +11264,7 @@ if __name__ == "__main__":
             pass
     except Exception as e:
         print(f"Error occurred: {e}")
-        import traceback
-        traceback.print_exc()
+        report_crash()
         pygame.quit()
         sys.exit(1)
     pygame.quit()

@@ -2358,7 +2358,6 @@ if __name__ == "__main__":
         multiplayer_menu()
     except Exception as e:
         print(f"Error occurred: {e}")
-        import traceback
-        traceback.print_exc()
+        g.report_crash()
     pygame.quit()
     sys.exit()

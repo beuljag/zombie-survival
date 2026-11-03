@@ -1466,5 +1466,109 @@
     "layout": "horizontal",
     "sheetWidth": 192,
     "sheetHeight": 48
+  },
+  "effects/reaction_steam.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_firestorm.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_toxic.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_lava.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_superconduct.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_blizzard.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_frozen.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_neurotoxin.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_thunderstorm.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_plague.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_sandstorm.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_judgment.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_resonance.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
   }
 }
