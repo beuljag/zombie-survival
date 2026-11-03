@@ -113,7 +113,7 @@
 
 【업그레이드 시스템】
 기본 업그레이드:
-- 체력: +8 또는 +12 최대 체력 증가
+- 체력: +15 / +25 / +40 최대 체력 증가
 - 속도: +0.3 또는 +0.5 이동속도 증가
 - 데미지: +2 또는 +5 모든 무기 데미지 증가
 - 재생: +0.3 또는 +0.5 초당 체력 회복
@@ -7426,7 +7426,7 @@ def build_cumulative_upgrade_lines(player):
 
     lines = []
 
-    max_health_bonus = counts.get("health", 0) * 8 + counts.get("health_big", 0) * 12
+    max_health_bonus = sum(counts.get(kind, 0) * amount for kind, amount in HEALTH_UPGRADE_AMOUNTS.items())
     speed_bonus = counts.get("speed", 0) * 0.3 + counts.get("speed_big", 0) * 0.5
     base_damage_mult = (1.08 ** counts.get("base_damage", 0)) * (1.15 ** counts.get("base_damage_big", 0))
     regen_bonus = counts.get("regen", 0) * 0.3 + counts.get("regen_big", 0) * 0.5
@@ -7967,6 +7967,10 @@ def special_upgrade_choices(player):
     return random.sample(pool, min(3, len(pool)))
 
 
+HEALTH_UPGRADE_SMALL, HEALTH_UPGRADE_BIG, HEALTH_UPGRADE_HUGE = 15, 25, 40   # 체력 업그레이드로 오르는 최대 체력 (예전 8, 12)
+HEALTH_UPGRADE_AMOUNTS = {"health": HEALTH_UPGRADE_SMALL, "health_big": HEALTH_UPGRADE_BIG, "health_huge": HEALTH_UPGRADE_HUGE}
+
+
 def health_upgrade_amount(player, base):
     """체력 업그레이드로 오르는 최대 체력 (★ 거인의 심장을 가지면 그 뒤에 찍는 것도 2배)"""
     return base * 2 if "special_titan" in player.special_upgrades else base
@@ -7982,8 +7986,9 @@ def build_upgrade_choices(player, level=None):
     # 기본 보상 옵션들
     all_upgrades = [
         # 체력 관련
-        {"name": f"체력 +{health_upgrade_amount(player, 8)}", "desc": "최대 체력 증가", "type": "health", "color": RED},
-        {"name": f"체력 +{health_upgrade_amount(player, 12)}", "desc": "최대 체력 증가", "type": "health_big", "color": (255, 100, 100)},
+        {"name": f"체력 +{health_upgrade_amount(player, HEALTH_UPGRADE_SMALL)}", "desc": "최대 체력 증가", "type": "health", "color": RED},
+        {"name": f"체력 +{health_upgrade_amount(player, HEALTH_UPGRADE_BIG)}", "desc": "최대 체력 증가", "type": "health_big", "color": (255, 100, 100)},
+        {"name": f"체력 +{health_upgrade_amount(player, HEALTH_UPGRADE_HUGE)}", "desc": "최대 체력 크게 증가", "type": "health_huge", "color": (255, 150, 150)},
         {"name": "체력 회복", "desc": "현재 체력 20% 회복", "type": "heal", "color": GREEN},
         {"name": "완전 회복", "desc": "체력을 완전히 회복", "type": "heal_full", "color": (0, 255, 100)},
 
@@ -8200,8 +8205,8 @@ def apply_upgrade(player, selected_upgrade):
         upgrade_record["value"] = selected_upgrade["value"]
     player.obtained_upgrades.append(upgrade_record)
 
-    if selected_upgrade["type"] in ("health", "health_big"):
-        amount = health_upgrade_amount(player, 8 if selected_upgrade["type"] == "health" else 12)
+    if selected_upgrade["type"] in HEALTH_UPGRADE_AMOUNTS:
+        amount = health_upgrade_amount(player, HEALTH_UPGRADE_AMOUNTS[selected_upgrade["type"]])
         player.max_health += amount
         player.health = min(player.health + amount, player.max_health)
         player.levels["health"] += 1
@@ -8371,8 +8376,9 @@ def get_upgrade_name(upgrade_type):
     """업그레이드 타입을 한국 이름으로 변환"""
     upgrade_names = {
         # 기본 업그레이드
-        "health": "체력 +8",
-        "health_big": "체력 +12",
+        "health": f"체력 +{HEALTH_UPGRADE_SMALL}",
+        "health_big": f"체력 +{HEALTH_UPGRADE_BIG}",
+        "health_huge": f"체력 +{HEALTH_UPGRADE_HUGE}",
         "heal": "체력 회복",
         "heal_full": "완전 회복",
         "speed": "이동속도 +0.3",
@@ -9294,7 +9300,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102134          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102135          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
