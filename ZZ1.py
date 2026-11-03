@@ -5515,16 +5515,17 @@ GRIMOIRE_FORMS = [
 GRIMOIRE_SKILL_POWER = 3.0   # 스킬 피해 x3 (기본 공격력이 낮아서 스킬로 한 방을 냄)
 GRIMOIRE_DRAGON_MULT, GRIMOIRE_DRAGON_REACH = 5.0, 100   # 스킬 드래곤: 닿는 좀비에게 공격력 배율, 닿는 거리
 GRIMOIRE_GROWTH = 0.004   # 레벨마다 공격력 +0.4% (300레벨 +120%에서 멈춤)
-# 스킬 7단계: 레벨, 이름, 지속(프레임, 0이면 속성 수로 계산), 폭발 반복 수, 폭풍 간격(0이면 없음), 드래곤 수, 마지막 폭발 (크기, 피해 배율)
+# 스킬 7단계 (연타): 레벨, 이름, 지속(프레임), 때리는 간격(프레임), 한 번에 때리는 수, 1타 피해 배율, 1타 범위, 드래곤 수, 마지막 폭발 (크기, 피해 배율)
 GRIMOIRE_SKILLS = [
-    (1, "원소 폭발", 0, 1, 0, 0, None),
-    (50, "연쇄 폭발", 0, 2, 0, 0, None),
-    (100, "원소 폭풍", 190, 0, 8, 0, (1.3, 5)),
-    (150, "대폭풍", 220, 0, 5, 0, (1.6, 6)),
-    (200, "원소 드래곤", 250, 0, 0, 1, (1.3, 5)),
-    (250, "쌍룡", 280, 0, 10, 2, (1.8, 7)),
-    (300, "천지창조", 310, 0, 6, 3, (2.5, 10)),
+    (1, "원소 연타", 90, 4, 1, 0.35, 60, 0, (1.1, 2)),
+    (50, "원소 난타", 110, 3, 1, 0.35, 65, 0, (1.2, 3)),
+    (100, "원소 폭풍", 130, 3, 2, 0.3, 70, 0, (1.3, 5)),
+    (150, "대폭풍", 150, 2, 2, 0.25, 75, 0, (1.6, 6)),
+    (200, "원소 드래곤", 170, 2, 2, 0.25, 80, 1, (1.3, 5)),
+    (250, "쌍룡", 190, 2, 3, 0.22, 85, 2, (1.8, 7)),
+    (300, "천지창조", 220, 2, 4, 0.2, 90, 3, (2.5, 10)),
 ]
+GRIMOIRE_RUSH_RANGE = 2.2   # 스킬 범위의 이 배수 안에 있는 좀비를 돌아가며 때림
 _grimoire_images = {}
 
 
@@ -5833,16 +5834,17 @@ def grimoire_on_hit(player, bullet, zombie, zombies):
 
 
 class GrimoireSkill(ActiveSkill):
-    """마법서 스킬: 레벨에 따라 7단계로 진화 (GRIMOIRE_SKILLS, 최대 300레벨)
-    폭발 → 연쇄 폭발 → 폭풍 → 대폭풍 → 드래곤 → 쌍룡 → 천지창조"""
+    """마법서 스킬: 가진 속성을 번갈아 가며 조준점 주변 좀비를 오다다다 연타. 레벨에 따라 7단계로 진화 (GRIMOIRE_SKILLS, 최대 300레벨)
+    연타 → 난타 → 폭풍 → 대폭풍 → 드래곤 → 쌍룡 → 천지창조"""
 
     def __init__(self, player, x, y, damage, radius, elements, stage):
-        _level, name, duration, self.blast_rounds, self.storm_every, self.dragons, self.finale = GRIMOIRE_SKILLS[stage]
-        self.blast_count = len(elements) * self.blast_rounds
-        super().__init__(duration or 12 * self.blast_count + 12)
+        _level, name, duration, self.every, self.per_tick, self.strike_mult, self.strike_radius, self.dragons, self.finale = GRIMOIRE_SKILLS[stage]
+        super().__init__(duration)
         self.x, self.y, self.damage, self.radius, self.elements, self.stage = x, y, damage, radius, elements, stage
         self.hit_ready = {}
+        self.last_struck = {}
         self.heads = []
+        self.strikes = 0
         fx.add_text(player.rect.centerx, player.rect.top - 30, name + "!", (200, 150, 255), big=True, life=70)
         fx.wave(x, y, (200, 150, 255), 20, radius * 1.5, life=20, width=10)
         fx.beam(player.rect.centerx, player.rect.centery, x, y, (200, 150, 255), width=8, life=12)
@@ -5857,7 +5859,7 @@ class GrimoireSkill(ActiveSkill):
 
     def _circle(self):
         """바닥 마법진: 두 겹 고리 + 도는 빛 (그리기 전용)"""
-        r = self.radius * (1 + 0.5 * (self.blast_count == 0))
+        r = self.radius * 1.5
         fx.wave(self.x, self.y, (200, 150, 255), r, r, life=3, width=4)
         fx.wave(self.x, self.y, (130, 90, 200), r * 0.7, r * 0.7, life=3, width=2)
         for i in range(6):
@@ -5878,27 +5880,47 @@ class GrimoireSkill(ActiveSkill):
                 skill_damage(zombie, damage)
                 grimoire_status(player, zombie, element, damage, zombies, spread=True)
 
+    def _rush(self, player, zombies, t):
+        """연타 한 번: 오래 안 맞은 좀비부터 돌아가며 때림 (주변도 같이 맞음), 좀비가 없으면 빈 곳에 떨어짐"""
+        reach = self.radius * GRIMOIRE_RUSH_RANGE
+        near = [z for z in zombies if z.health > 0 and math.hypot(z.rect.centerx - self.x, z.rect.centery - self.y) < reach]
+        near.sort(key=lambda z: (self.last_struck.get(z, -1), math.hypot(z.rect.centerx - self.x, z.rect.centery - self.y), z.rect.x, z.rect.y))
+        for i in range(self.per_tick):
+            element = self.elements[self.strikes % len(self.elements)]
+            self.strikes += 1
+            if not near:   # 빈 곳: 그림만 (위치가 그림 전용 난수라 판정에 쓰면 멀티가 어긋남)
+                a, d = fx_random.uniform(0, 2 * math.pi), fx_random.uniform(0, reach)
+                self._strike(self.x + math.cos(a) * d, self.y + math.sin(a) * d, element)
+                continue
+            target = near[i % len(near)]
+            self.last_struck[target] = t
+            x, y = target.rect.center
+            self._strike(x, y, element)
+            damage = self.damage * self.strike_mult
+            for zombie in list(zombies):
+                if zombie.health > 0 and math.hypot(zombie.rect.centerx - x, zombie.rect.centery - y) < self.strike_radius:
+                    skill_damage(zombie, damage)
+                    grimoire_status(player, zombie, element, damage, zombies, spread=zombie is not target)
+
+    def _strike(self, x, y, element):
+        """1타 그림: 하늘에서 내리꽂히는 속성 빛 + 작은 폭발 + 튀는 불꽃 (그리기 전용)"""
+        color = GRIMOIRE_ELEMENTS[element][1]
+        r = self.strike_radius
+        side = fx_random.uniform(-160, 160)
+        fx.beam(x + side, y - 460, x, y, color, width=14, life=7)
+        fx.beam(x + side, y - 460, x, y, (255, 255, 255), width=4, life=4)
+        fx.disc(x, y, color, r, life=8, alpha=165)
+        fx.wave(x, y, color, r * 0.3, r + 16, life=9, width=6)
+        fx.burst(x, y, color, 7, speed=(3, 9), size=(3, 6), life=(8, 16))
+        fx.anim(f"effects/explosion_{grimoire_explosion_kind(element)}.png", x, y, r * 2.4 / 96, 2)
+        fx.add_shake(1.2)
+
     def tick(self, player, zombies, bullets, all_sprites, explosions):
         t = self.frames
         kw = (player, zombies, all_sprites, explosions)
         self._circle()
-        if self.blast_count:     # 속성마다 큰 폭발 (0.2초 간격), 연쇄 폭발은 두 바퀴째에 주변으로 퍼짐
-            if t % 12 == 1 and t // 12 < self.blast_count:
-                n = t // 12
-                x, y = self.x, self.y
-                if n >= len(self.elements):
-                    a = n * 2.4
-                    x, y = x + math.cos(a) * self.radius, y + math.sin(a) * self.radius
-                self._blast(*kw, x, y, self.radius, self.damage * 4, self.elements[n % len(self.elements)])
-                fx.add_shake(5)
-            return True
-        if self.storm_every and t % self.storm_every == 0 and t < self.duration - 40:   # 원소 폭풍
-            a, d = random.uniform(0, 2 * math.pi), random.uniform(0, self.radius * 2.2)
-            x, y = self.x + math.cos(a) * d, self.y + math.sin(a) * d
-            element = random.choice(self.elements)
-            fx.beam(x - 90, y - 420, x, y, GRIMOIRE_ELEMENTS[element][1], width=16, life=10)
-            fx.anim("effects/magic_meteor.png", x - 30, y - 140, 2.0, 3)
-            self._blast(*kw, x, y, 90, self.damage * 2, element)
+        if t % self.every == 0 and t < self.duration - 12:   # 오다다다: 속성을 번갈아 가며 연타
+            self._rush(player, zombies, t)
         if self.dragons:   # 원소 드래곤
             count = self.dragons
             for i in range(count):
@@ -5930,6 +5952,7 @@ class GrimoireSkill(ActiveSkill):
                         grimoire_status(player, zombie, element, self.damage, zombies, spread=True)
                         fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, color)
         if t == self.duration - 2:   # 마지막 큰 폭발
+            fx.add_text(self.x, self.y - 60, f"{self.strikes} HIT!", (255, 220, 120), big=True, life=70)
             scale, power = self.finale
             self._blast(*kw, self.x, self.y, self.radius * scale, self.damage * power, self.elements[-1])
             fx.add_shake(min(14, 3 + power))
@@ -7670,8 +7693,8 @@ WEAPON_HELP = {
                   "원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 터짐 (속성 조합마다 다른 28종). 3초 안에 또 반응하면 원소 공명도 터짐.",
                   "25레벨마다 진화 (13단계): 구체 → 대형 → 거대 → 쌍둥이 → 삼중 → 창 → 쌍창 → 삼중 창 → 새끼 드래곤 → 드래곤 → 쌍두 → 300 삼두 드래곤 (최대).",
                   "단계 사이에도 레벨마다 크기와 폭발 범위가 조금씩 커짐. 레벨마다 공격력 +0.4% (300레벨 +120%까지)."],
-                 ["원소 마법: 50레벨마다 진화 (7단계). 원소 폭발 → 50 연쇄 폭발 → 100 원소 폭풍 → 150 대폭풍.",
-                  "200 원소 드래곤 → 250 쌍룡 → 300 천지창조 (폭풍 + 드래곤 3마리 + 거대 폭발). 쿨타임 14초."]),
+                 ["원소 마법: 가진 속성을 번갈아 가며 조준점 주변 좀비를 오다다다 연타. 50레벨마다 진화 (7단계): 원소 연타 → 50 원소 난타 → 100 원소 폭풍 → 150 대폭풍.",
+                  "200 원소 드래곤 → 250 쌍룡 → 300 천지창조 (연타 + 드래곤 3마리 + 거대 폭발). 쿨타임 14초."]),
     "rocket": (["유도 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 따라감 (잠근 좀비에 붉은 조준선).",
                 "느리게 출발해서 점점 빨라짐. 맞으면 큰 폭발 (주변 65%)."],
                ["락온 미사일: 조준점 주변(500px) 좀비를 전부 잠가 한 마리당 미사일 1발 (최소 8발), 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 x2).",
@@ -9949,7 +9972,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102145          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102146          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
