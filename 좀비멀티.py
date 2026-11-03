@@ -703,6 +703,8 @@ class MatchState:
                 if zombie_dist > 0:
                     zombie.knockback_vel_x = (zombie_dx / zombie_dist) * melee.knockback_power / 100 * knockback_mult
                     zombie.knockback_vel_y = (zombie_dy / zombie_dist) * melee.knockback_power / 100 * knockback_mult
+                    if melee.weapon_type == "melee":   # 나무 방망이: 넉백 저항 무시 (1인용과 같게)
+                        zombie.knock_ignore = BAT_KNOCK_IGNORE_FRAMES
             if melee_hit and p.weapon.weapon_type == "gloves":
                 glove_combo_punch(p, zombies, all_sprites, explosions, first_hit_zombie, direction_x, direction_y)
             if melee_hit and p.skills.get("skill_explosion", False) and p.explosion_cooldown <= 0:
@@ -729,6 +731,8 @@ class MatchState:
                 bullets.add(bullet)
                 all_sprites.add(bullet)
             fire_muzzle_flash(p, mouse_world_x, mouse_world_y, kick=2.5 if p.pid == self.local_pid else 0)
+        elif p.weapon.weapon_type == "grimoire":
+            fire_grimoire(p, mouse_world_x, mouse_world_y, self.bullets, self.all_sprites)
         elif p.weapon.weapon_type == "rocket":
             rocket = Bullet(p.rect.centerx, p.rect.centery, mouse_world_x, mouse_world_y, get_weapon_damage(p), "rocket", "rocket")
             rocket.lock_on(zombies, mouse_world_x, mouse_world_y)   # 유도 로켓
@@ -821,7 +825,7 @@ class MatchState:
 
     # ----- 보스 소환 -----
     def boss_summons(self):
-        zombies, all_sprites, wave, max_zombies = self.zombies, self.all_sprites, self.wave, self.max_zombies
+        zombies, all_sprites, wave = self.zombies, self.all_sprites, self.wave
 
         def summon(kind, x, y, parent, color, life=300):
             minion = Zombie(x, y, zombie_type=kind, wave=wave, parent_zombie=parent)
@@ -832,33 +836,33 @@ class MatchState:
 
         for zombie in list(zombies):
             ztype = zombie.zombie_type
-            if ztype == "demon" and len(zombies) < max_zombies + 3:
+            if ztype == "demon":
                 zombie.imp_spawn_cooldown += 1
-                if zombie.imp_spawn_cooldown >= zombie.imp_spawn_interval:
+                if zombie.imp_spawn_cooldown >= zombie.imp_spawn_interval and can_summon(zombie, zombies):
                     for _ in range(get_summon_count(1, wave, 4)):
                         a = random.uniform(0, 2 * math.pi)
                         summon("imp", zombie.rect.centerx + math.cos(a) * zombie.imp_spawn_radius,
                                zombie.rect.centery + math.sin(a) * zombie.imp_spawn_radius, zombie, (200, 50, 100))
                     zombie.imp_spawn_cooldown = 0
-            elif ztype == "boss" and len(zombies) < max_zombies + 5:
+            elif ztype == "boss":
                 zombie.gangster_spawn_cooldown += 1
-                if zombie.gangster_spawn_cooldown >= zombie.gangster_spawn_interval:
+                if zombie.gangster_spawn_cooldown >= zombie.gangster_spawn_interval and can_summon(zombie, zombies):
                     for _ in range(get_summon_count(zombie.gangster_spawn_count, wave, 4)):
                         a = random.uniform(0, 2 * math.pi)
                         summon("gangster", zombie.rect.centerx + math.cos(a) * zombie.gangster_spawn_radius,
                                zombie.rect.centery + math.sin(a) * zombie.gangster_spawn_radius, zombie, (100, 100, 100))
                     zombie.gangster_spawn_cooldown = 0
-            elif ztype == "paladin" and len(zombies) < max_zombies + 5:
+            elif ztype == "paladin":
                 zombie.knight_spawn_cooldown += 1
-                if zombie.knight_spawn_cooldown >= zombie.knight_spawn_interval:
+                if zombie.knight_spawn_cooldown >= zombie.knight_spawn_interval and can_summon(zombie, zombies):
                     for _ in range(get_summon_count(1, wave, 6)):
                         a = random.uniform(0, 2 * math.pi)
                         summon("knight", zombie.rect.centerx + math.cos(a) * zombie.knight_spawn_radius,
                                zombie.rect.centery + math.sin(a) * zombie.knight_spawn_radius, zombie, (150, 150, 200))
                     zombie.knight_spawn_cooldown = 0
-            elif ztype == "god" and len(zombies) < max_zombies + 10:
+            elif ztype == "god":
                 zombie.apostle_spawn_cooldown += 1
-                if zombie.apostle_spawn_cooldown >= zombie.apostle_spawn_interval:
+                if zombie.apostle_spawn_cooldown >= zombie.apostle_spawn_interval and can_summon(zombie, zombies):
                     names = ["베드로", "안드레아", "야고보", "요한", "빌립", "바르톨로메오", "도마", "마태오", "야고보", "다대오", "시몬", "맛디아"]
                     for i, name in enumerate(names):
                         a = (i / 12) * 2 * math.pi
@@ -873,9 +877,9 @@ class MatchState:
                         all_sprites.add(angel)
                         all_sprites.add(SpawnEffect(ax, ay, ANGEL_ROLES[i][2], 300))
                     zombie.apostle_spawn_cooldown = 0
-            elif ztype == "king" and len(zombies) < max_zombies + 10:
+            elif ztype == "king":
                 zombie.minion_spawn_cooldown += 1
-                if zombie.minion_spawn_cooldown >= zombie.minion_spawn_interval:
+                if zombie.minion_spawn_cooldown >= zombie.minion_spawn_interval and can_summon(zombie, zombies):
                     for _ in range(get_summon_count(zombie.minion_spawn_count, wave, 3)):
                         a = random.uniform(0, 2 * math.pi)
                         summon("normal", zombie.rect.centerx + math.cos(a) * zombie.minion_spawn_radius,
@@ -929,7 +933,7 @@ class MatchState:
                 zombie.health -= bullet_hit_damage(owner, bullet, zombie) * damage_multiplier
                 fx.hit_spark(bullet.rect.centerx, bullet.rect.centery, FX_WEAPON_COLORS.get(bullet.weapon_type, YELLOW))
                 if bullet.splash_radius > 0:
-                    splash = Explosion(bullet.rect.centerx, bullet.rect.centery, bullet.splash_radius, "plasma")
+                    splash = Explosion(bullet.rect.centerx, bullet.rect.centery, bullet.splash_radius, getattr(bullet, "splash_kind", "plasma"))
                     explosions.add(splash)
                     all_sprites.add(splash)
                     for other in list(zombies):
@@ -937,6 +941,8 @@ class MatchState:
                             continue
                         if math.hypot(other.rect.centerx - bullet.rect.centerx, other.rect.centery - bullet.rect.centery) < bullet.splash_radius:
                             other.health -= bullet.damage * bullet.splash_ratio * get_damage_multiplier(other)
+                if getattr(bullet, "grimoire_element", None):
+                    grimoire_on_hit(owner, bullet, zombie, zombies)
                 self.apply_elements(owner, zombie, bullet.damage, 160)
                 if owner.skills.get("skill_explosion", False) and owner.explosion_cooldown <= 0:
                     owner.explosion_cooldown = EXPLOSION_SKILL_COOLDOWN

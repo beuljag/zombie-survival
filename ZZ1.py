@@ -450,6 +450,7 @@ WEAPON_STATS = {
                    "splash_radius": 70, "splash_ratio": 0.4},  # DPS 56  + 착탄 폭발(주변 40%)
     "rocket":     {"name": "로켓",   "dmg": 85, "rate": 1.0,  "speed": 9,  "color": RED,
                    "splash_radius": 130, "splash_ratio": 0.65},  # DPS 85  + 큰 폭발(주변 65%)
+    "grimoire":   {"name": "마법서", "dmg": 24, "rate": 2.0, "speed": 11, "color": (190, 120, 255)},  # DPS 48  + 레벨 따라 진화 (패시브: 경험치 2배)
     # ----- 근접 (플레이어 주변 원형 범위 전체 타격, 사거리는 Melee 클래스의 attack_range) -----
     "melee":  {"name": "나무 방망이", "dmg": 36, "rate": 2.8,  "color": (139, 69, 19)},  # DPS 101  범위 110
     "katana": {"name": "카타나",      "dmg": 26, "rate": 4.0,  "color": (255, 215, 0)},  # DPS 104  범위 120
@@ -462,7 +463,7 @@ WEAPON_STATS = {
 # 우클릭 스킬 기본 쿨타임(ms) - "스킬 쿨타임 감소" 업그레이드가 모든 무기에 똑같이 적용됨
 SKILL_COOLDOWNS = {
     "melee": 8000, "katana": 6000, "axe": 12000, "spear": 8000, "hammer": 20000, "gloves": 15000,
-    "glock": 80000, "machinegun": 12000, "shotgun": 10000, "sniper": 12000, "plasma": 18000, "rocket": 12000,
+    "glock": 80000, "machinegun": 12000, "shotgun": 10000, "sniper": 12000, "plasma": 18000, "rocket": 12000, "grimoire": 14000,
 }
 
 # 카타나 일섬: 끝난 뒤 무적 시간(프레임), 연속 처치(쿨 초기화) 1회당 데미지 증가
@@ -995,7 +996,7 @@ font_damage_big = pygame.font.SysFont('malgun gothic', 28, bold=True)
 # 무기별 타격/총구 화염 색
 FX_WEAPON_COLORS = {
     "glock": (255, 230, 90), "shotgun": (255, 170, 50), "sniper": (230, 235, 255), "machinegun": (255, 130, 70),
-    "plasma": (90, 255, 255), "rocket": (255, 150, 40), "spear": (130, 210, 255), "gloves": (255, 170, 200),
+    "grimoire": (200, 150, 255), "plasma": (90, 255, 255), "rocket": (255, 150, 40), "spear": (130, 210, 255), "gloves": (255, 170, 200),
     "melee": (230, 170, 90), "katana": (210, 230, 255), "axe": (255, 120, 120), "hammer": (255, 110, 210),
 }
 # 속성탄 색 (화염 / 얼음 / 전기)
@@ -2138,6 +2139,7 @@ class Player(pygame.sprite.Sprite):
             "machinegun": {"fire_rate": 0, "damage": 0, "ammo": 0},
             "plasma": {"fire_rate": 0, "damage": 0, "ammo": 0},
             "rocket": {"fire_rate": 0, "damage": 0, "ammo": 0},
+            "grimoire": {"fire_rate": 0, "damage": 0, "ammo": 0},
             "melee": {"damage": 0},
             "katana": {"damage": 0},
             "axe": {"damage": 0},
@@ -2221,6 +2223,7 @@ class Player(pygame.sprite.Sprite):
             "sniper": 0,
             "machinegun": 0,
             "plasma": 0,
+            "grimoire": 0,
             "rocket": 0
         }
 
@@ -2247,6 +2250,7 @@ class Player(pygame.sprite.Sprite):
             "sniper": {"pierces": 0, "damage": 0, "range": 0, "penetration": 0, "crit_damage": 0},  # 관통 수, 데미지, 사거리, 관통력
             "machinegun": {"burst": 0, "fire_rate": 0, "damage": 0},  # 연사 탄수, 연사 속도, 데미지
             "plasma": {"range": 0, "damage": 0, "energy": 0, "explosion": 0},  # 범위, 데미지, 에너지 효율, 폭발 범위
+            "grimoire": {"range": 0, "damage": 0, "power": 0, "blast": 0, "resonance": 0, "echo": 0, "mastery": 0, "speed": 0},  # 스킬 범위/피해, 기본 공격 피해/폭발/주변 피해/연속 시전/속성 효과/탄속
             "rocket": {"count": 0, "damage": 0, "explosion": 0, "tracking": 0}  # 로켓 수, 데미지, 폭발 범위, 유도 기능
         }
 
@@ -2778,6 +2782,13 @@ class Zombie(pygame.sprite.Sprite):
             if self.burn_time <= 0:
                 self.burn_stacks = 0
                 self.burn_hits = 0
+        if getattr(self, "grimoire_poison_time", 0) > 0:   # 마법서 독: 0.5초마다 피해
+            self.grimoire_poison_time -= 1
+            if self.grimoire_poison_time % 30 == 0:
+                owner_before = DAMAGE_OWNER[0]
+                DAMAGE_OWNER[0] = getattr(self, "grimoire_poison_owner", None) or owner_before
+                self.health -= self.grimoire_poison_damage
+                DAMAGE_OWNER[0] = owner_before
 
         # 돌좀비: 화상·둔화 면역
         if self.zombie_type == "stone":
@@ -3322,6 +3333,14 @@ class Bullet(pygame.sprite.Sprite):
             if self.weapon_type == "sniper":  # 빠른 탄은 중간에 하나 더 찍어서 끊기지 않게
                 fx.trail(self.pos_x - self.vel_x, self.pos_y - self.vel_y, color, size, life)
 
+        if getattr(self, "grimoire_glow", 0):   # 마법서: 몸에 빛 (그리기 전용)
+            fx.disc(self.pos_x, self.pos_y, self.grimoire_color, self.grimoire_glow * 0.8, life=2, alpha=80)
+        if getattr(self, "grimoire_dragon", False):   # 마법서 드래곤: 구불거리는 몸통 (그리기 전용)
+            sway = math.sin(self.lifetime * 0.4) * 24
+            for back, size in ((3.5, 30), (4.5, 26), (5.5, 22), (6.5, 18)):   # 머리가 가려지지 않게 머리 뒤쪽부터
+                wave = sway * (back - 3) / 2
+                bx, by = self.pos_x - self.vel_x * back - self.dir_y * wave, self.pos_y - self.vel_y * back + self.dir_x * wave
+                fx.trail(bx, by, self.grimoire_color, size, 22)
         # 속성탄 꼬리 (플레이어 총알만, 가진 속성 색을 번갈아)
         if fx.elements and not self.is_enemy:
             element = fx.elements[(self.lifetime // 2) % len(fx.elements)]
@@ -3595,6 +3614,8 @@ def tick_glove_combo(player):
         player.beat_hist.append(player.beat_pos)
         if len(player.beat_hist) > 40:
             del player.beat_hist[0]
+    if player.weapon is not None and player.weapon.weapon_type == "grimoire":
+        grimoire_aura(player)
     if player.weapon is not None:
         player.weapon.rush_mult = 1 + min(GLOVE_COMBO_SPEED_MAX, GLOVE_COMBO_SPEED * player.glove_combo)
 
@@ -4488,6 +4509,8 @@ def get_exp_reward(player, wave):
     exp_multiplier *= 1 + EXP_WAVE_BONUS * (wave - 1)
     if "special_wisdom" in player.special_upgrades:
         exp_multiplier *= SPECIAL_WISDOM_MULT   # ★ 현자
+    if player.weapon is not None and player.weapon.weapon_type == "grimoire":
+        exp_multiplier *= GRIMOIRE_EXP_MULT     # 마법서 패시브 "현자의 지식": 최종 경험치 2배
     return int(base_exp * exp_multiplier)
 
 
@@ -5362,6 +5385,307 @@ class BombardmentSkill(ActiveSkill):
 
 
 # 우클릭 스킬 실행 함수
+# ===== 마법서 =====
+#  패시브 현자의 지식: 최종 경험치 2배 / 속성탄 업그레이드 없음
+#  기본 공격: 쏠 때마다 가진 속성 중 하나가 무작위로 나감. 처음엔 불, 50레벨마다 속성 하나 (300레벨에 빛과 어둠, 최대 진화)
+#  기본 공격과 스킬은 레벨에 따라 진화 (최대 300레벨)
+GRIMOIRE_EXP_MULT = 2.0
+# 전용 업그레이드: 카드 종류 -> (저장 이름, 최대 횟수, 0이면 제한 없음)
+GRIMOIRE_UPGRADE_KEYS = {"grimoire_power": ("power", 0), "grimoire_blast": ("blast", 10), "grimoire_resonance": ("resonance", 8),
+                         "grimoire_echo": ("echo", 5), "grimoire_mastery": ("mastery", 5), "grimoire_speed": ("speed", 6),
+                         "grimoire_skill_range": ("range", 0), "grimoire_skill_damage": ("damage", 0)}
+GRIMOIRE_POWER, GRIMOIRE_BLAST, GRIMOIRE_RESONANCE = 0.10, 12, 0.05   # 1회당 기본 공격 피해 +10% / 폭발 범위 +12 / 주변 피해 +5%
+GRIMOIRE_ECHO, GRIMOIRE_MASTERY, GRIMOIRE_SPEED = 0.15, 0.20, 1.5     # 1회당 연속 시전 15% / 속성 효과 +20% / 탄속 +1.5
+# 속성: (이름, 색, 얻는 레벨, 폭발 그림)
+GRIMOIRE_ELEMENTS = {
+    "fire": ("화염", (255, 110, 40), 1, "flame"),
+    "ice": ("얼음", (130, 215, 255), 50, "plasma"),
+    "lightning": ("번개", (255, 240, 90), 100, "upgrade"),
+    "poison": ("맹독", (130, 220, 70), 150, "toxic"),
+    "wind": ("바람", (170, 245, 210), 200, "missile"),
+    "earth": ("대지", (190, 140, 80), 250, "mine"),
+    "dark": ("어둠", (160, 80, 220), 300, "blackhole"),
+    "light": ("빛", (255, 250, 200), 300, "holy"),
+}
+# 기본 공격 형태: 레벨, 이름, 그림(orb/lance/dragon), 크기, 발 수, 1발 피해 배율, 폭발 반경, 주변 피해, 관통, 탄속
+GRIMOIRE_FORMS = [
+    (1, "구체", "orb", 26, 1, 1.0, 45, 0.3, 0, 11),
+    (50, "대형 구체", "orb", 40, 1, 1.15, 70, 0.4, 0, 11),
+    (100, "쌍둥이 구체", "orb", 36, 2, 0.8, 80, 0.4, 0, 12),
+    (150, "창", "lance", 70, 1, 1.5, 90, 0.5, 3, 15),
+    (200, "드래곤", "dragon", 84, 1, 2.0, 110, 0.5, 9999, 13),
+    (300, "삼두 드래곤", "dragon", 100, 3, 1.4, 130, 0.6, 9999, 14),
+]
+# 스킬 진화: 레벨, 이름
+GRIMOIRE_SKILLS = [(1, "원소 폭발"), (100, "원소 폭풍"), (200, "원소 드래곤"), (300, "천지창조")]
+_grimoire_images = {}
+
+
+def grimoire_elements(player):
+    """지금 쓸 수 있는 속성들"""
+    return [key for key, info in GRIMOIRE_ELEMENTS.items() if player.level >= info[2]]
+
+
+def grimoire_explosion_kind(element):
+    """폭발 그림: assets/effects/explosion_magic_<속성>.png 가 있으면 그것, 없으면 비슷한 기존 폭발"""
+    kind = f"magic_{element}"
+    return kind if load_asset(f"effects/explosion_{kind}.png") is not None else GRIMOIRE_ELEMENTS[element][3]
+
+
+def grimoire_aura(player):
+    """마법서를 들면 가진 속성의 빛이 몸 주위를 돎 (그리기 전용)"""
+    cx, cy = player.rect.center
+    keys = grimoire_elements(player)
+    for i, key in enumerate(keys):
+        a = fx.frame * 0.06 + i * 2 * math.pi / len(keys)
+        fx.trail(cx + math.cos(a) * 42, cy + math.sin(a) * 26, GRIMOIRE_ELEMENTS[key][1], 7, 7)
+
+
+def grimoire_form(player):
+    return [form for form in GRIMOIRE_FORMS if player.level >= form[0]][-1]
+
+
+def grimoire_skill_stage(player):
+    """스킬 진화 단계 (0~3)"""
+    return [i for i, stage in enumerate(GRIMOIRE_SKILLS) if player.level >= stage[0]][-1]
+
+
+def _grimoire_image(shape, size, element, angle):
+    """기본 공격 그림: assets/projectiles/magic_<모양>.png (하얀 그림에 속성 색을 입힘), 없으면 코드로 그림"""
+    key = (shape, size, element, int(angle) // 6 * 6)
+    image = _grimoire_images.get(key)
+    if image is not None:
+        return image
+    color = GRIMOIRE_ELEMENTS[element][1]
+    rel = f"projectiles/magic_{shape}.png"
+    raw = load_asset(rel)
+    if raw is not None:
+        art = sprite_frame(rel, 0, raw.get_size(), frames=1)
+        ratio = size / max(art.get_size())
+        base = pygame.transform.scale(art, (max(1, round(art.get_width() * ratio)), max(1, round(art.get_height() * ratio))))
+        base.fill((*color, 255), special_flags=pygame.BLEND_RGBA_MULT)
+    elif shape == "orb":
+        base = pygame.Surface((size, size), pygame.SRCALPHA)
+        c = size // 2
+        pygame.draw.circle(base, (*color, 110), (c, c), c)
+        pygame.draw.circle(base, color, (c, c), int(c * 0.72))
+        pygame.draw.circle(base, (255, 255, 255), (c, c), max(2, int(c * 0.36)))
+    elif shape == "lance":
+        h = max(8, size // 4)
+        base = pygame.Surface((size, h), pygame.SRCALPHA)
+        pygame.draw.polygon(base, color, [(0, h // 2), (size * 2 // 3, 0), (size, h // 2), (size * 2 // 3, h)])
+        pygame.draw.line(base, (255, 255, 255), (size // 5, h // 2), (size - 3, h // 2), max(1, h // 4))
+    else:   # dragon: 머리 (오른쪽을 봄)
+        h = size * 2 // 3
+        base = pygame.Surface((size, h), pygame.SRCALPHA)
+        m = h // 2
+        pygame.draw.polygon(base, color, [(0, m - h // 3), (size * 3 // 5, 0), (size, m - h // 8), (size * 7 // 10, m), (size, m + h // 8),
+                                          (size * 3 // 5, h - 1), (0, m + h // 3)])
+        pygame.draw.polygon(base, tuple(c // 2 for c in color), [(size // 3, 2), (size // 8, -h // 4 + 2), (size // 2, 6)])
+        pygame.draw.circle(base, (255, 255, 255), (size * 3 // 5, m - h // 5), max(2, size // 14))
+        pygame.draw.circle(base, (20, 20, 20), (size * 3 // 5 + 1, m - h // 5), max(1, size // 28))
+    image = pygame.transform.rotate(base, -angle)
+    _grimoire_images[key] = image
+    return image
+
+
+def fire_grimoire(player, aim_x, aim_y, bullets, all_sprites):
+    """마법서 기본 공격: 무작위 속성 + 레벨에 따른 형태 (1인·멀티 공용)"""
+    _level, name, shape, size, count, mult, radius, ratio, pierce, speed = grimoire_form(player)
+    cx, cy = player.rect.center
+    up = player.skill_upgrades["grimoire"]
+    radius += GRIMOIRE_BLAST * up["blast"]
+    ratio += GRIMOIRE_RESONANCE * up["resonance"]
+    speed += GRIMOIRE_SPEED * up["speed"]
+    base_angle = math.atan2(aim_y - cy, aim_x - cx)
+    damage = get_weapon_damage(player) * mult * (1 + GRIMOIRE_POWER * up["power"])
+    elements = grimoire_elements(player)
+    if getattr(player, "grimoire_seen", None) != (len(elements), name):   # 새 속성/진화 알림
+        if getattr(player, "grimoire_seen", None) is not None and (LOCAL_PLAYER is None or player is LOCAL_PLAYER):
+            fx.add_text(cx, player.rect.top - 44, f"마법서 진화: {name}", (200, 150, 255), big=True, life=90)
+        player.grimoire_seen = (len(elements), name)
+    shots = [(i - (count - 1) / 2) * 0.22 for i in range(count)]
+    if random.random() < GRIMOIRE_ECHO * up["echo"]:   # 연속 시전: 한 번 더
+        shots += [offset + 0.12 for offset in shots]
+        fx.add_text(cx, player.rect.top - 24, "연속 시전!", (220, 180, 255))
+    for offset in shots:
+        element = random.choice(elements)
+        info = GRIMOIRE_ELEMENTS[element]
+        angle = base_angle + offset
+        bullet = Bullet(cx, cy, cx + math.cos(angle) * 500, cy + math.sin(angle) * 500, damage, "normal", "grimoire")
+        bullet.speed = speed
+        bullet.pierce = pierce
+        bullet.splash_radius, bullet.splash_ratio = radius, ratio
+        bullet.grimoire_element = element
+        bullet.splash_kind = grimoire_explosion_kind(element)
+        bullet.grimoire_color = info[1]
+        bullet.grimoire_dragon = shape == "dragon"
+        bullet.grimoire_glow = size
+        bullet.trail = None if shape == "dragon" else (info[1], max(6, size // 4), 18)
+        fx.disc(cx + math.cos(angle) * 30, cy + math.sin(angle) * 30, info[1], max(22, size // 2), life=9, alpha=170)   # 시전 빛
+        fx.wave(cx, cy, info[1], 20, 44 + size // 2, life=10, width=4)
+        bullet.image = _grimoire_image(shape, size, element, math.degrees(angle))
+        bullet.rect = bullet.image.get_rect(center=(cx, cy))
+        bullets.add(bullet)
+        all_sprites.add(bullet)
+    fire_muzzle_flash(player, aim_x, aim_y)
+
+
+def grimoire_status(player, zombie, element, damage, zombies, spread=False):
+    """속성 효과 한 번. spread: 폭발에 같이 맞은 좀비 (상태 이상만)"""
+    x, y = zombie.rect.center
+    mastery = 1 + GRIMOIRE_MASTERY * player.skill_upgrades["grimoire"]["mastery"]   # 원소 숙련
+    if element == "fire":
+        ignite(zombie)
+        if mastery > 1:   # 숙련만큼 더 오래 탐
+            zombie.burn_time = max(zombie.burn_time, int(180 * mastery))
+        fx.element_hit(x, y, "fire")
+    elif element == "ice":
+        zombie.slow_time = max(zombie.slow_time, int(120 * mastery))
+        zombie.slow_multiplier = min(zombie.slow_multiplier, 0.5)
+        fx.element_hit(x, y, "ice")
+    elif element == "lightning":
+        zombie.electric_fx = 30
+        if not spread:   # 가까운 좀비 2마리로 번개가 튐
+            near = sorted(((math.hypot(o.rect.centerx - x, o.rect.centery - y), o.rect.x, o.rect.y, id(o), o) for o in zombies
+                           if o is not zombie and o.health > 0), key=lambda e: e[:3])
+            for dist, _x, _y, _i, other in near[:2]:
+                if dist < 170:
+                    other.health -= damage * 0.5 * mastery * get_damage_multiplier(other)
+                    other.electric_fx = 30
+                    fx.lightning(x, y, other.rect.centerx, other.rect.centery, (255, 245, 110))
+    elif element == "poison":
+        zombie.grimoire_poison_time = 240   # 4초
+        zombie.grimoire_poison_damage = max(getattr(zombie, "grimoire_poison_damage", 0), damage * 0.15 * mastery)
+        zombie.grimoire_poison_owner = player
+        fx.burst(x, y, (130, 220, 70), 4, speed=(0.5, 2), size=(2, 4), life=(10, 20), gravity=-0.08)
+    elif element == "wind":
+        push_zombie(zombie, player.rect.centerx, player.rect.centery, 9 * mastery)
+        fx.burst(x, y, (190, 250, 225), 4, speed=(2, 5), size=(2, 3), life=(8, 14))
+    elif element == "earth":
+        zombie.slow_time = max(zombie.slow_time, int(30 * mastery))   # 0.5초 기절
+        zombie.slow_multiplier = 0.0
+        fx.burst(x, y, (170, 125, 70), 5, speed=(1, 3), size=(3, 5), life=(10, 18), gravity=0.15)
+    elif element == "dark":
+        if not spread:   # 준 피해의 3% 회복 (1번에 최대 체력 1%까지)
+            player.health = min(player.max_health, player.health + min(damage * 0.03 * mastery, player.max_health * 0.01 * mastery))
+        fx.burst(x, y, (130, 60, 190), 4, speed=(0.5, 2), size=(3, 5), life=(10, 18))
+    elif element == "light":
+        if not spread:   # 방어를 무시하는 추가 피해
+            zombie.health -= damage * 0.3 * mastery
+        fx.burst(x, y, (255, 250, 200), 5, speed=(1, 4), size=(2, 4), life=(8, 14))
+
+
+def grimoire_on_hit(player, bullet, zombie, zombies):
+    """기본 공격이 맞았을 때: 맞은 좀비 + 폭발에 같이 맞은 좀비에게 속성 효과"""
+    element = bullet.grimoire_element
+    grimoire_status(player, zombie, element, bullet.damage, zombies)
+    bx, by = bullet.rect.center
+    color = GRIMOIRE_ELEMENTS[element][1]
+    fx.disc(bx, by, color, bullet.splash_radius, life=14, alpha=120)
+    fx.wave(bx, by, color, bullet.splash_radius * 0.3, bullet.splash_radius + 10, life=14, width=6)
+    fx.burst(bx, by, color, 12, speed=(2, 7), size=(3, 6), life=(10, 20))
+    for other in zombies:
+        if other is not zombie and other.health > 0 and math.hypot(other.rect.centerx - bx, other.rect.centery - by) < bullet.splash_radius:
+            grimoire_status(player, other, element, bullet.damage, zombies, spread=True)
+
+
+class GrimoireSkill(ActiveSkill):
+    """마법서 스킬: 레벨에 따라 진화 (최대 300레벨)
+    원소 폭발: 가진 속성마다 큰 폭발 / 100 원소 폭풍: 3초 동안 주변에 낙하 + 폭발
+    200 원소 드래곤: 드래곤이 조준점 주위를 돌며 벰 / 300 천지창조: 폭풍 + 드래곤 3마리 + 마지막에 거대 폭발"""
+
+    def __init__(self, player, x, y, damage, radius, elements, stage):
+        super().__init__({0: 12 * len(elements) + 12, 1: 190, 2: 250, 3: 310}[stage])
+        self.x, self.y, self.damage, self.radius, self.elements, self.stage = x, y, damage, radius, elements, stage
+        self.hit_ready = {}
+        self.heads = []
+        name = GRIMOIRE_SKILLS[stage][1]
+        fx.add_text(player.rect.centerx, player.rect.top - 30, name + "!", (200, 150, 255), big=True, life=70)
+        fx.wave(x, y, (200, 150, 255), 20, radius * 1.5, life=20, width=10)
+        fx.beam(player.rect.centerx, player.rect.centery, x, y, (200, 150, 255), width=8, life=12)
+        fx.anim("effects/magic_circle.png", x, y, radius * 2 / 128, 4)
+
+    def update(self, player, zombies, bullets, all_sprites, explosions):
+        alive = super().update(player, zombies, bullets, all_sprites, explosions)
+        if not alive:
+            for head in self.heads:
+                head.kill()
+        return alive
+
+    def _circle(self):
+        """바닥 마법진: 두 겹 고리 + 도는 빛 (그리기 전용)"""
+        r = self.radius * (1 + 0.5 * (self.stage > 0))
+        fx.wave(self.x, self.y, (200, 150, 255), r, r, life=3, width=4)
+        fx.wave(self.x, self.y, (130, 90, 200), r * 0.7, r * 0.7, life=3, width=2)
+        for i in range(6):
+            a = self.frames * 0.05 + i * math.pi / 3
+            fx.trail(self.x + math.cos(a) * r, self.y + math.sin(a) * r, GRIMOIRE_ELEMENTS[self.elements[i % len(self.elements)]][1], 9, 8)
+
+    def _blast(self, player, zombies, all_sprites, explosions, x, y, radius, damage, element):
+        info = GRIMOIRE_ELEMENTS[element]
+        boom = Explosion(x, y, radius, grimoire_explosion_kind(element))
+        explosions.add(boom)
+        all_sprites.add(boom)
+        fx.disc(x, y, info[1], radius, life=20, alpha=170)
+        fx.wave(x, y, info[1], radius * 0.3, radius + 30, life=18, width=10)
+        fx.wave(x, y, (255, 255, 255), radius * 0.2, radius * 0.8, life=12, width=4)
+        fx.burst(x, y, info[1], 24, speed=(3, 10), size=(3, 7), life=(14, 26))
+        for zombie in list(zombies):
+            if zombie.health > 0 and math.hypot(zombie.rect.centerx - x, zombie.rect.centery - y) < radius:
+                skill_damage(zombie, damage)
+                grimoire_status(player, zombie, element, damage, zombies, spread=True)
+
+    def tick(self, player, zombies, bullets, all_sprites, explosions):
+        t = self.frames
+        kw = (player, zombies, all_sprites, explosions)
+        self._circle()
+        if self.stage == 0:     # 속성마다 큰 폭발 (0.2초 간격)
+            if t % 12 == 1 and t // 12 < len(self.elements):
+                self._blast(*kw, self.x, self.y, self.radius, self.damage * 4, self.elements[t // 12])
+                fx.add_shake(5)
+            return True
+        if self.stage in (1, 3) and t % (6 if self.stage == 3 else 8) == 0 and t < self.duration - 40:   # 원소 폭풍
+            a, d = random.uniform(0, 2 * math.pi), random.uniform(0, self.radius * 2.2)
+            x, y = self.x + math.cos(a) * d, self.y + math.sin(a) * d
+            element = random.choice(self.elements)
+            fx.beam(x - 90, y - 420, x, y, GRIMOIRE_ELEMENTS[element][1], width=16, life=10)
+            fx.anim("effects/magic_meteor.png", x - 30, y - 140, 2.0, 3)
+            self._blast(*kw, x, y, 90, self.damage * 2, element)
+        if self.stage in (2, 3):   # 원소 드래곤 (천지창조는 3마리)
+            count = 3 if self.stage == 3 else 1
+            for i in range(count):
+                a = t * 0.07 + i * 2 * math.pi / count
+                r = self.radius * (1.0 + 0.25 * math.sin(t * 0.05))
+                hx, hy = self.x + math.cos(a) * r, self.y + math.sin(a) * r
+                element = self.elements[(t // 30 + i) % len(self.elements)]
+                color = GRIMOIRE_ELEMENTS[element][1]
+                body_a = a - 0.35   # 긴 몸통은 머리 뒤에서부터 (머리가 가려지지 않게)
+                fx.trail(self.x + math.cos(body_a) * r, self.y + math.sin(body_a) * r, color, 36, 26)
+                fx.disc(hx, hy, color, 58, life=3, alpha=120)
+                if t % 4 == 0:
+                    fx.anim("effects/magic_dragon_body.png", hx, hy, 1.5, 6)
+                if len(self.heads) <= i:
+                    head = SkillVisual(_EMPTY_IMAGE, (hx, hy), pixel_art=True)
+                    self.heads.append(head)
+                    all_sprites.add(head)
+                head = self.heads[i]
+                head.image = _grimoire_image("dragon", 110, element, math.degrees(a) + 90)   # 도는 방향을 봄
+                head.rect = head.image.get_rect(center=(int(hx), int(hy)))
+                for zombie in zombies:
+                    if zombie.health > 0 and self.hit_ready.get(zombie, 0) <= t and \
+                            math.hypot(zombie.rect.centerx - hx, zombie.rect.centery - hy) < 80:
+                        self.hit_ready[zombie] = t + 15
+                        skill_damage(zombie, self.damage * 2)
+                        grimoire_status(player, zombie, element, self.damage, zombies, spread=True)
+                        fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, color)
+        if t == self.duration - 2:   # 마지막 큰 폭발
+            scale = 2.5 if self.stage == 3 else 1.3
+            self._blast(*kw, self.x, self.y, self.radius * scale, self.damage * (10 if self.stage == 3 else 5), self.elements[-1])
+            fx.add_shake(12 if self.stage == 3 else 7)
+        return True
+
+
 def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zombies, bullets, all_sprites, explosions):
     current_time = pygame.time.get_ticks()
 
@@ -5588,6 +5912,11 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         radius = 220 + up["range"]
         player.active_skills.append(BlackHoleSkill(mouse_world_x, mouse_world_y, radius,
                                                    base * 0.8 * (1 + 0.08 * up["damage"]), all_sprites, pull_all=True))
+
+    elif weapon_type == "grimoire":
+        # 원소 마법: 레벨에 따라 진화 (폭발 → 폭풍 → 드래곤 → 천지창조)
+        player.active_skills.append(GrimoireSkill(player, mouse_world_x, mouse_world_y, base * (1 + 0.08 * up["damage"]),
+                                                  130 + up["range"], grimoire_elements(player), grimoire_skill_stage(player)))
 
     elif weapon_type == "rocket":
         # 락온 미사일: 조준점 주변 좀비 전부에게 1발씩 (최소 8발, 목표가 적으면 다시 나눠 맞힘)
@@ -6723,6 +7052,12 @@ def get_player_buffs(player):
         buffs.append((f"콤보 {player.glove_combo} (공격 속도 +{speed}%{state})", "combo", player.glove_combo_timer, (255, 150, 90)))
     if player.ability == "damage" and player.health <= player.max_health * 0.5:
         buffs.append(("광전사: 공격력 +25%", "rage", 1, (255, 120, 90)))
+    if "special_phoenix" in player.special_upgrades:   # ★ 불사조: 다시 쓸 수 있을 때까지 남은 시간
+        phoenix_left = player.phoenix_ready - player.special_tick
+        if phoenix_left > 0:
+            buffs.append(("불사조 쿨타임", "phoenix", phoenix_left, (255, 170, 50)))
+        else:
+            buffs.append(("불사조 준비됨", "phoenix_ready", 1, (255, 200, 90)))
     if getattr(player, "shield_hp", 0) >= 1:
         buffs.append((f"방어막 {int(player.shield_hp)} / {int(shield_capacity(player))}", "shield", int(player.shield_hp), (110, 190, 255)))
     if getattr(player, "overshield", 0) >= 1:
@@ -6810,7 +7145,7 @@ def draw_player_status(surface, player, x=14, y=14):
     for label, key, frames, color in buffs:
         active.add(key)
         maxes[key] = max(maxes.get(key, 0), frames)
-        buff_text = label if key in ("rage", "groove") else f"{label}  {frames / FPS:.1f}초"
+        buff_text = label if key in ("rage", "groove", "phoenix_ready") else f"{label}  {frames / FPS:.1f}초"
         ui_text(surface, buff_text, ui_fit_font(font_tiny, buff_text, w - 106), ui_bright(color), (x + 14, by), shadow=False)
         ui_bar(surface, (x + w - 84, by + 6, 72, 8), frames / max(maxes[key], 1), ui_bright(color, 150), back=(30, 30, 40), radius=4)
         by += 24
@@ -7015,6 +7350,7 @@ def select_weapon():
         {"name": "기관총", "desc": "꾹 눌러 연사", "skill": "포탑 설치", "type": "machinegun", "color": (255, 130, 70)},
         {"name": "플라즈마", "desc": "착탄 시 작은 폭발", "skill": "블랙홀", "type": "plasma", "color": CYAN},
         {"name": "로켓", "desc": "유도 로켓, 큰 폭발", "skill": "락온 미사일", "type": "rocket", "color": (255, 80, 60)},
+        {"name": "마법서", "desc": "경험치 2배, 레벨 진화", "skill": "원소 마법", "type": "grimoire", "color": (190, 120, 255)},
         {"name": "나무 방망이", "desc": "넉백 저항 무시", "skill": "풀스윙 홈런 (차징)", "type": "melee", "color": (210, 140, 70)},
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
@@ -7029,10 +7365,10 @@ def select_weapon():
         top = ui_title(screen, "무기를 선택하세요", 24, "게임 시작 후에는 바꿀 수 없음 · 우클릭으로 무기 전용 스킬 사용")
         first = max(top + 46, (SCREEN_HEIGHT - (card_h * 2 + 58)) // 2 - 20)
         rows_y = [first, first + card_h + 58]
-        rects = _card_row(6, 210, card_h, rows_y[0], gap=16) + _card_row(6, 210, card_h, rows_y[1], gap=16)
-        for label, y, rect in (("원거리", rows_y[0], rects[0]), ("근접", rows_y[1], rects[6])):
+        rects = _card_row(7, 210, card_h, rows_y[0], gap=16) + _card_row(6, 210, card_h, rows_y[1], gap=16)
+        for label, y, rect, last in (("원거리", rows_y[0], rects[0], rects[6]), ("근접", rows_y[1], rects[7], rects[12])):
             ui_text(screen, label, font_hud, UI_ACCENT, (rect.x, y - 30))
-            pygame.draw.line(screen, UI_BORDER, (rect.x + 60, y - 18), (rects[5].right, y - 18))
+            pygame.draw.line(screen, UI_BORDER, (rect.x + 60, y - 18), (last.right, y - 18))
         mouse_pos = pygame.mouse.get_pos()
         for weapon, rect in zip(weapons, rects):
             stats = WEAPON_STATS[weapon["type"]]
@@ -7078,6 +7414,11 @@ WEAPON_HELP = {
                 "업그레이드 \"도탄 +3회\", 전용 \"치명타 피해 +25%\" (최대 380%). 쿨타임 12초."]),
     "plasma": (["맞으면 작은 폭발 (주변 40%)."],
                ["블랙홀: 3초 동안 모든 좀비를 빨아들이고 범위 안의 좀비에게 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
+    "grimoire": (["패시브 현자의 지식: 최종 경험치 2배. 속성탄 업그레이드는 나오지 않음.",
+                  "쏠 때마다 가진 속성 중 하나가 무작위로 나감: 처음엔 화염, 50레벨마다 얼음 · 번개 · 맹독 · 바람 · 대지, 300레벨에 어둠과 빛.",
+                  "레벨에 따라 진화: 구체 → 50 대형 구체 → 100 쌍둥이 구체 → 150 창 → 200 드래곤 → 300 삼두 드래곤 (최대)."],
+                 ["원소 마법: 레벨에 따라 진화. 원소 폭발 (속성마다 큰 폭발) → 100 원소 폭풍 (주변에 3초 동안 낙하).",
+                  "200 원소 드래곤 (조준점 주위를 돌며 벰) → 300 천지창조 (폭풍 + 드래곤 3마리 + 거대 폭발). 쿨타임 14초."]),
     "rocket": (["유도 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 따라감 (잠근 좀비에 붉은 조준선).",
                 "느리게 출발해서 점점 빨라짐. 맞으면 큰 폭발 (주변 65%)."],
                ["락온 미사일: 조준점 주변(500px) 좀비를 전부 잠가 한 마리당 미사일 1발 (최소 8발), 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 x2).",
@@ -7133,6 +7474,10 @@ def class_live_lines(player):
         lines.append(f"콤보 {player.glove_combo} · 한 번에 추가 타격 {gloves_extra_hits(player)}대")
     elif weapon.weapon_type == "katana":
         lines.append(f"연참 x{player.katana_chain}")
+    elif weapon.weapon_type == "grimoire":
+        names = " · ".join(GRIMOIRE_ELEMENTS[key][0] for key in grimoire_elements(player))
+        lines.append(f"지금 형태: {grimoire_form(player)[1]} · 스킬: {GRIMOIRE_SKILLS[grimoire_skill_stage(player)][1]}")
+        lines.append(f"속성: {names}")
     return lines
 
 
@@ -7510,6 +7855,14 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"박자 버프: PERFECT +{BEAT_BUFF_PERFECT * 100 * (1 + BEAT_BUFF_UPGRADE * lv):.2f}% / 최대 +{int((BEAT_BUFF_MAX + BEAT_BUFF_UPGRADE_CAP * lv) * 100)}%")
     if counts.get("plasma_skill_range", 0) > 0:
         lines.append(f"블랙홀 범위: +{counts['plasma_skill_range'] * 15}px")
+    if counts.get("grimoire_skill_range", 0) > 0:
+        lines.append(f"원소 마법 범위: +{counts['grimoire_skill_range'] * 15}px")
+    grimoire_lines = (("grimoire_power", "마력 증폭: 기본 공격 피해 +{}%", 10), ("grimoire_blast", "폭발 확대: 범위 +{}px", 12),
+                      ("grimoire_resonance", "원소 공명: 주변 피해 +{}%", 5), ("grimoire_echo", "연속 시전: 확률 {}%", 15),
+                      ("grimoire_mastery", "원소 숙련: 속성 효과 +{}%", 20), ("grimoire_skill_damage", "원소 마법 피해: +{}%", 8))
+    for kind, text, per in grimoire_lines:
+        if counts.get(kind, 0) > 0:
+            lines.append(text.format(counts[kind] * per))
     if counts.get("rocket_skill_count", 0) > 0:
         lines.append(f"로켓 폭발 범위 증가: +{counts['rocket_skill_count'] * 15}px")
 
@@ -7641,6 +7994,11 @@ def is_upgrade_at_limit(player, upgrade_type):
         return True   # 로켓은 처음 맞는 곳에서 폭발하므로 관통 의미 없음
     if weapon_type == "sniper" and upgrade_type == "skill_piercing":
         return True   # 저격총은 이미 무한 관통
+    if upgrade_type in GRIMOIRE_UPGRADE_KEYS:
+        key, most = GRIMOIRE_UPGRADE_KEYS[upgrade_type]
+        return most > 0 and player.skill_upgrades["grimoire"][key] >= most
+    if weapon_type == "grimoire" and upgrade_type in ("skill_fire_bullets", "skill_ice_bullets", "skill_electric_bullets"):
+        return True   # 마법서는 속성탄 대신 레벨에 따라 속성이 늘어남
     if upgrade_type == "knockback" and weapon_type not in MELEE_WEAPONS and weapon_type != "rocket":
         return True   # 넉백은 근접 무기와 로켓 폭발에만 있음
 
@@ -8121,6 +8479,17 @@ def build_upgrade_choices(player, level=None):
             {"name": "블랙홀 범위 +15px", "desc": "블랙홀 범위 확대", "type": "plasma_skill_range", "color": (100, 255, 255)},
             {"name": "블랙홀 피해 +8%", "desc": "블랙홀 강화", "type": "plasma_skill_damage", "color": (100, 200, 255)},
         ]
+    elif weapon_type == "grimoire":
+        weapon_upgrades = [
+            {"name": "마력 증폭", "desc": "기본 공격 피해 +10%", "type": "grimoire_power", "color": (255, 130, 200)},
+            {"name": "폭발 확대", "desc": "기본 공격 폭발 범위 +12px", "type": "grimoire_blast", "color": (255, 170, 90)},
+            {"name": "원소 공명", "desc": "폭발 주변 피해 +5%", "type": "grimoire_resonance", "color": (255, 220, 110)},
+            {"name": "연속 시전", "desc": "15% 확률로 한 번 더 발사 (중첩)", "type": "grimoire_echo", "color": (170, 190, 255)},
+            {"name": "원소 숙련", "desc": "속성 효과 +20% (둔화, 독, 번개, 회복 등)", "type": "grimoire_mastery", "color": (130, 230, 170)},
+            {"name": "마력 가속", "desc": "기본 공격 탄속 +1.5", "type": "grimoire_speed", "color": (130, 220, 255)},
+            {"name": "원소 마법 범위 +15px", "desc": "스킬 범위 확대", "type": "grimoire_skill_range", "color": (200, 150, 255)},
+            {"name": "원소 마법 피해 +8%", "desc": "스킬 강화", "type": "grimoire_skill_damage", "color": (220, 170, 255)},
+        ]
     elif weapon_type == "rocket":
         weapon_upgrades = [
             {"name": "로켓 범위 +15px", "desc": "폭발 범위 확대", "type": "rocket_skill_count", "color": (255, 100, 100)},
@@ -8366,6 +8735,10 @@ def apply_upgrade(player, selected_upgrade):
         player.skill_upgrades["plasma"]["range"] += 15
     elif selected_upgrade["type"] == "plasma_skill_damage":
         player.skill_upgrades["plasma"]["damage"] += 1  # 1회당 +8%
+    elif selected_upgrade["type"] == "grimoire_skill_range":
+        player.skill_upgrades["grimoire"]["range"] += 15
+    elif selected_upgrade["type"] in GRIMOIRE_UPGRADE_KEYS:   # 나머지 마법서 전용 (1회당 +1, 효과는 쓰는 곳에서 계산)
+        player.skill_upgrades["grimoire"][GRIMOIRE_UPGRADE_KEYS[selected_upgrade["type"]][0]] += 1
     elif selected_upgrade["type"] == "rocket_skill_count":
         # "로켓 범위 +15px": 폭발 범위 증가 (예전에는 로켓 발사 수가 15발씩 늘어났음)
         player.skill_upgrades["rocket"]["explosion"] += 15
@@ -8446,6 +8819,14 @@ def get_upgrade_name(upgrade_type):
         "machinegun_skill_charge": "포탑 최대 충전 +1",
         "plasma_skill_range": "블랙홀 범위 +15px",
         "plasma_skill_damage": "블랙홀 피해 +8%",
+        "grimoire_power": "마력 증폭",
+        "grimoire_blast": "폭발 확대",
+        "grimoire_resonance": "원소 공명",
+        "grimoire_echo": "연속 시전",
+        "grimoire_mastery": "원소 숙련",
+        "grimoire_speed": "마력 가속",
+        "grimoire_skill_range": "원소 마법 범위 +15px",
+        "grimoire_skill_damage": "원소 마법 피해 +8%",
         "rocket_skill_count": "로켓 범위 +15px",
         "rocket_skill_damage": "미사일 피해 +5%",
     }
@@ -8460,6 +8841,20 @@ def get_max_zombies(wave):
 def get_spawn_interval(wave):
     """일반 좀비가 하나씩 나오는 간격(프레임): 웨이브가 오를수록 짧아짐 (최소 0.33초)"""
     return max(20, 60 - wave * 3)
+
+
+# 소환 제한: 소환 좀비 1마리가 살려 둘 수 있는 부하 수 + 필드 전체 상한 (렉 방지)
+#  예전에는 "필드 좀비 수 < 최대 좀비 수 + 3~10"일 때만 쿨타임이 돌아서, 필드가 조금만 차도 아예 소환을 못 했음
+SUMMON_LIMITS = {"demon": 10, "boss": 10, "paladin": 6, "god": 24, "king": 15}
+SUMMON_FIELD_CAP = 300
+
+
+def can_summon(zombie, zombies):
+    """이 좀비가 지금 소환해도 되는지 (쿨타임이 다 찼을 때만 부름)"""
+    if len(zombies) >= SUMMON_FIELD_CAP:
+        return False
+    alive = sum(1 for z in zombies if z.parent_zombie is zombie and z.health > 0)
+    return alive < SUMMON_LIMITS.get(zombie.zombie_type, 10)
 
 
 def get_summon_count(base, wave, per_waves):
@@ -9301,7 +9696,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102136          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102137          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -9677,6 +10072,9 @@ def main():
                                 all_sprites.add(bullet)
                             fire_muzzle_flash(player, mouse_world_x, mouse_world_y, kick=2.5)
 
+                        elif player.weapon.weapon_type == "grimoire":
+                            fire_grimoire(player, mouse_world_x, mouse_world_y, bullets, all_sprites)
+
                         elif player.weapon.weapon_type == "rocket":
                             rocket = Bullet(player.rect.centerx, player.rect.centery, mouse_world_x, mouse_world_y, get_weapon_damage(player), "rocket", "rocket")
                             rocket.lock_on(zombies, mouse_world_x, mouse_world_y)   # 유도 로켓
@@ -9926,9 +10324,9 @@ def main():
             # 악마 좀비 임프 소환
             for zombie in list(zombies):
                 if zombie.zombie_type == "demon" and zombie in zombies:
-                    if hasattr(zombie, 'imp_spawn_cooldown') and len(zombies) < max_zombies + 3:
+                    if hasattr(zombie, 'imp_spawn_cooldown'):
                         zombie.imp_spawn_cooldown += 1
-                        if zombie.imp_spawn_cooldown >= zombie.imp_spawn_interval:
+                        if zombie.imp_spawn_cooldown >= zombie.imp_spawn_interval and can_summon(zombie, zombies):
                             # 임프 소환 (웨이브가 오를수록 한 번에 더 많이: 1 + 4웨이브마다 1마리)
                             for _ in range(get_summon_count(1, wave, 4)):
                                 imp_angle = random.uniform(0, 2 * math.pi)
@@ -9950,9 +10348,9 @@ def main():
 
                 # 보스 갱스터 소환
                 elif zombie.zombie_type == "boss" and zombie in zombies:
-                    if hasattr(zombie, 'gangster_spawn_cooldown') and len(zombies) < max_zombies + 5:
+                    if hasattr(zombie, 'gangster_spawn_cooldown'):
                         zombie.gangster_spawn_cooldown += 1
-                        if zombie.gangster_spawn_cooldown >= zombie.gangster_spawn_interval:
+                        if zombie.gangster_spawn_cooldown >= zombie.gangster_spawn_interval and can_summon(zombie, zombies):
                             # 갱스터 대량 소환
                             # 웨이브가 오를수록 한 번에 더 많이 (2 + 4웨이브마다 1마리)
                             for _ in range(get_summon_count(zombie.gangster_spawn_count, wave, 4)):
@@ -9975,9 +10373,9 @@ def main():
 
                 # 기사단장 기사 소환
                 elif zombie.zombie_type == "paladin" and zombie in zombies:
-                    if hasattr(zombie, 'knight_spawn_cooldown') and len(zombies) < max_zombies + 5:
+                    if hasattr(zombie, 'knight_spawn_cooldown'):
                         zombie.knight_spawn_cooldown += 1
-                        if zombie.knight_spawn_cooldown >= zombie.knight_spawn_interval:
+                        if zombie.knight_spawn_cooldown >= zombie.knight_spawn_interval and can_summon(zombie, zombies):
                             # 기사 소환 (웨이브가 오를수록 한 번에 더 많이: 1 + 6웨이브마다 1마리)
                             for _ in range(get_summon_count(1, wave, 6)):
                                 knight_angle = random.uniform(0, 2 * math.pi)
@@ -9999,9 +10397,9 @@ def main():
 
                 # 신 천사 소환
                 elif zombie.zombie_type == "god" and zombie in zombies:
-                    if hasattr(zombie, 'apostle_spawn_cooldown') and len(zombies) < max_zombies + 10:
+                    if hasattr(zombie, 'apostle_spawn_cooldown'):
                         zombie.apostle_spawn_cooldown += 1
-                        if zombie.apostle_spawn_cooldown >= zombie.apostle_spawn_interval:
+                        if zombie.apostle_spawn_cooldown >= zombie.apostle_spawn_interval and can_summon(zombie, zombies):
                             # 12사도 12명 동시 소환
                             apostle_names = ["베드로", "안드레아", "야고보", "요한", "빌립", "바르톨로메오",
                                             "도마", "마태오", "야고보", "다대오", "시몬", "맛디아"]
@@ -10039,9 +10437,9 @@ def main():
 
                 # 왕 일반 좀비 대량 소환
                 elif zombie.zombie_type == "king" and zombie in zombies:
-                    if hasattr(zombie, 'minion_spawn_cooldown') and len(zombies) < max_zombies + 10:
+                    if hasattr(zombie, 'minion_spawn_cooldown'):
                         zombie.minion_spawn_cooldown += 1
-                        if zombie.minion_spawn_cooldown >= zombie.minion_spawn_interval:
+                        if zombie.minion_spawn_cooldown >= zombie.minion_spawn_interval and can_summon(zombie, zombies):
                             # 일반 좀비 대량 소환
                             # 웨이브가 오를수록 한 번에 더 많이 (3 + 3웨이브마다 1마리)
                             for _ in range(get_summon_count(zombie.minion_spawn_count, wave, 3)):
@@ -10161,7 +10559,7 @@ def main():
 
                         # 착탄 폭발 (플라즈마): 맞은 좀비 주변에 폭발 피해
                         if is_player_bullet and bullet.splash_radius > 0:
-                            splash = Explosion(bullet.rect.centerx, bullet.rect.centery, bullet.splash_radius, "plasma")
+                            splash = Explosion(bullet.rect.centerx, bullet.rect.centery, bullet.splash_radius, getattr(bullet, "splash_kind", "plasma"))
                             explosions.add(splash)
                             all_sprites.add(splash)
                             for other_zombie in list(zombies):
@@ -10173,6 +10571,8 @@ def main():
                                     other_zombie.health -= bullet.damage * bullet.splash_ratio * get_damage_multiplier(other_zombie)
 
                         if is_player_bullet:
+                            if getattr(bullet, "grimoire_element", None):
+                                grimoire_on_hit(player, bullet, zombie, zombies)
                             if player.skills.get("skill_fire_bullets", False):
                                 ignite(zombie)   # 화염탄 (이미 불타면 중첩)
                                 fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "fire")
