@@ -503,7 +503,7 @@ WEAPON_STATS = {
                    "splash_radius": 70, "splash_ratio": 0.4},  # DPS 56  + 착탄 폭발(주변 40%)
     "rocket":     {"name": "로켓",   "dmg": 85, "rate": 1.0,  "speed": 9,  "color": RED,
                    "splash_radius": 130, "splash_ratio": 0.65},  # DPS 85  + 큰 폭발(주변 65%)
-    "grimoire":   {"name": "마법서", "dmg": 24, "rate": 2.0, "speed": 11, "color": (190, 120, 255)},  # DPS 48  + 레벨 따라 진화 (패시브: 경험치 2배)
+    "grimoire":   {"name": "마법서", "dmg": 12, "rate": 2.0, "speed": 11, "color": (190, 120, 255)},  # DPS 24  + 레벨 따라 진화 (패시브: 경험치 2배, 기본 스탯 매우 낮음)
     # ----- 근접 (플레이어 주변 원형 범위 전체 타격, 사거리는 Melee 클래스의 attack_range) -----
     "melee":  {"name": "나무 방망이", "dmg": 36, "rate": 2.8,  "color": (139, 69, 19)},  # DPS 101  범위 110
     "katana": {"name": "카타나",      "dmg": 26, "rate": 4.0,  "color": (255, 215, 0)},  # DPS 104  범위 120
@@ -5450,6 +5450,7 @@ class BombardmentSkill(ActiveSkill):
 #  원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 반응이 터짐 (GRIMOIRE_REACTIONS)
 #  기본 공격과 스킬은 레벨에 따라 진화 (최대 300레벨)
 GRIMOIRE_EXP_MULT = 2.0
+GRIMOIRE_HEALTH_MULT, GRIMOIRE_MOVE_MULT = 0.5, 0.8   # 마법서를 들고 시작하면 최대 체력 x0.5, 이동 속도 x0.8 (공격력은 WEAPON_STATS)
 # 전용 업그레이드: 카드 종류 -> (저장 이름, 최대 횟수, 0이면 제한 없음)
 GRIMOIRE_UPGRADE_KEYS = {"grimoire_power": ("power", 0), "grimoire_blast": ("blast", 10), "grimoire_resonance": ("resonance", 8),
                          "grimoire_echo": ("echo", 5), "grimoire_mastery": ("mastery", 5), "grimoire_speed": ("speed", 6),
@@ -5496,6 +5497,13 @@ GRIMOIRE_SKILLS = [
     (300, "천지창조", 310, 0, 6, 3, (2.5, 10)),
 ]
 _grimoire_images = {}
+
+
+def apply_grimoire_base(player):
+    """새 게임 시작 때 한 번: 마법서는 기본 스탯이 매우 낮음 (1인·멀티 공용)"""
+    if player.weapon.weapon_type == "grimoire":
+        player.max_health = player.health = round(player.max_health * GRIMOIRE_HEALTH_MULT)
+        player.speed *= GRIMOIRE_MOVE_MULT
 
 
 def grimoire_elements(player):
@@ -7532,7 +7540,7 @@ def select_weapon():
         {"name": "기관총", "desc": "꾹 눌러 연사", "skill": "포탑 설치", "type": "machinegun", "color": (255, 130, 70)},
         {"name": "플라즈마", "desc": "착탄 시 작은 폭발", "skill": "블랙홀", "type": "plasma", "color": CYAN},
         {"name": "로켓", "desc": "유도 로켓, 큰 폭발", "skill": "락온 미사일", "type": "rocket", "color": (255, 80, 60)},
-        {"name": "마법서", "desc": "경험치 2배, 레벨 진화", "skill": "원소 마법", "type": "grimoire", "color": (190, 120, 255)},
+        {"name": "마법서", "desc": "경험치 2배, 기본 스탯 매우 낮음", "skill": "원소 마법", "type": "grimoire", "color": (190, 120, 255)},
         {"name": "나무 방망이", "desc": "넉백 저항 무시", "skill": "풀스윙 홈런 (차징)", "type": "melee", "color": (210, 140, 70)},
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
@@ -7597,6 +7605,7 @@ WEAPON_HELP = {
     "plasma": (["맞으면 작은 폭발 (주변 40%)."],
                ["블랙홀: 3초 동안 모든 좀비를 빨아들이고 범위 안의 좀비에게 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
     "grimoire": (["패시브 현자의 지식: 최종 경험치 2배. 속성탄 업그레이드는 나오지 않음.",
+                  "기본 스탯이 매우 낮음: 공격력 12, 최대 체력 절반, 이동 속도 -20%.",
                   "쏠 때마다 가진 속성 중 하나가 무작위로 나감: 처음엔 화염, 50레벨마다 무작위 속성 하나, 300레벨에 전부 (8속성).",
                   "원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 터짐 (증기 폭발, 초전도, 뇌우, 심판 등 12종 + 원소 공명).",
                   "25레벨마다 진화 (13단계): 구체 → 대형 → 거대 → 쌍둥이 → 삼중 → 창 → 쌍창 → 삼중 창 → 새끼 드래곤 → 드래곤 → 쌍두 → 300 삼두 드래곤 (최대).",
@@ -9880,7 +9889,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102141          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102142          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -10066,6 +10075,7 @@ def main():
         # 공격형 능력: "공격력 +60%"가 실제 무기 공격력에 반영되도록 (예전에는 거의 쓰이지 않는 player.damage만 올랐음)
         if selected_ability == "damage":
             player.weapon.damage *= 1.6
+        apply_grimoire_base(player)
     camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
     all_sprites = pygame.sprite.Group()
     all_sprites.add(player)

@@ -356,6 +356,7 @@ class MatchState:
             p.weapon = Weapon(info["weapon"])
             if info["ability"] == "damage":
                 p.weapon.damage *= 1.6
+            apply_grimoire_base(p)
             p.pid = info["pid"]
             p.color = PLAYER_COLORS[index % len(PLAYER_COLORS)]
             p.image.fill(p.color)
