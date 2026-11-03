@@ -5427,7 +5427,8 @@ GRIMOIRE_FORMS = [
     (275, "쌍두 드래곤", "dragon", 90, 2, 1.6, 125, 0.55, 9999, 14),
     (300, "삼두 드래곤", "dragon", 100, 3, 1.4, 130, 0.6, 9999, 14),
 ]
-GRIMOIRE_GROWTH = 0.004   # 형태와 상관없이 레벨마다 기본 공격 피해 +0.4% (300레벨 약 +120%)
+GRIMOIRE_DRAGON_MULT, GRIMOIRE_DRAGON_REACH = 5.0, 100   # 스킬 드래곤: 닿는 좀비에게 공격력 배율, 닿는 거리
+GRIMOIRE_GROWTH = 0.004   # 레벨마다 기본 공격과 스킬 피해 +0.4% (300레벨 +120%에서 멈춤)
 # 스킬 7단계: 레벨, 이름, 지속(프레임, 0이면 속성 수로 계산), 폭발 반복 수, 폭풍 간격(0이면 없음), 드래곤 수, 마지막 폭발 (크기, 피해 배율)
 GRIMOIRE_SKILLS = [
     (1, "원소 폭발", 0, 1, 0, 0, None),
@@ -5475,6 +5476,11 @@ def grimoire_form(player):
     radius += round((following[6] - radius) * t)
     ratio += (following[7] - ratio) * t
     return level, name, shape, size, count, mult, radius, ratio, pierce, speed
+
+
+def grimoire_growth(player):
+    """레벨에 따른 피해 배율 (기본 공격 · 스킬 공통)"""
+    return 1 + GRIMOIRE_GROWTH * min(player.level, 300)
 
 
 def grimoire_skill_stage(player):
@@ -5532,7 +5538,7 @@ def fire_grimoire(player, aim_x, aim_y, bullets, all_sprites):
     ratio += GRIMOIRE_RESONANCE * up["resonance"]
     speed += GRIMOIRE_SPEED * up["speed"]
     base_angle = math.atan2(aim_y - cy, aim_x - cx)
-    damage = get_weapon_damage(player) * mult * (1 + GRIMOIRE_POWER * up["power"]) * (1 + GRIMOIRE_GROWTH * min(player.level, 300))
+    damage = get_weapon_damage(player) * mult * (1 + GRIMOIRE_POWER * up["power"]) * grimoire_growth(player)
     elements = grimoire_elements(player)
     if getattr(player, "grimoire_seen", None) != (len(elements), name):   # 새 속성/진화 알림
         if getattr(player, "grimoire_seen", None) is not None and (LOCAL_PLAYER is None or player is LOCAL_PLAYER):
@@ -5716,9 +5722,9 @@ class GrimoireSkill(ActiveSkill):
                 head.rect = head.image.get_rect(center=(int(hx), int(hy)))
                 for zombie in zombies:
                     if zombie.health > 0 and self.hit_ready.get(zombie, 0) <= t and \
-                            math.hypot(zombie.rect.centerx - hx, zombie.rect.centery - hy) < 80:
+                            math.hypot(zombie.rect.centerx - hx, zombie.rect.centery - hy) < GRIMOIRE_DRAGON_REACH:
                         self.hit_ready[zombie] = t + 15
-                        skill_damage(zombie, self.damage * 2)
+                        skill_damage(zombie, self.damage * GRIMOIRE_DRAGON_MULT)
                         grimoire_status(player, zombie, element, self.damage, zombies, spread=True)
                         fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, color)
         if t == self.duration - 2:   # 마지막 큰 폭발
@@ -5957,7 +5963,7 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
 
     elif weapon_type == "grimoire":
         # 원소 마법: 레벨에 따라 진화 (폭발 → 폭풍 → 드래곤 → 천지창조)
-        player.active_skills.append(GrimoireSkill(player, mouse_world_x, mouse_world_y, base * (1 + 0.08 * up["damage"]),
+        player.active_skills.append(GrimoireSkill(player, mouse_world_x, mouse_world_y, base * (1 + 0.08 * up["damage"]) * grimoire_growth(player),
                                                   130 + up["range"], grimoire_elements(player), grimoire_skill_stage(player)))
 
     elif weapon_type == "rocket":
@@ -7459,7 +7465,7 @@ WEAPON_HELP = {
     "grimoire": (["패시브 현자의 지식: 최종 경험치 2배. 속성탄 업그레이드는 나오지 않음.",
                   "쏠 때마다 가진 속성 중 하나가 무작위로 나감: 처음엔 화염, 50레벨마다 얼음 · 번개 · 맹독 · 바람 · 대지, 300레벨에 어둠과 빛.",
                   "25레벨마다 진화 (13단계): 구체 → 대형 → 거대 → 쌍둥이 → 삼중 → 창 → 쌍창 → 삼중 창 → 새끼 드래곤 → 드래곤 → 쌍두 → 300 삼두 드래곤 (최대).",
-                  "단계 사이에도 레벨마다 크기 · 폭발 범위 · 피해가 조금씩 커짐."],
+                  "단계 사이에도 레벨마다 크기와 폭발 범위가 조금씩 커짐. 레벨마다 기본 공격과 스킬 피해 +0.4% (300레벨 +120%까지)."],
                  ["원소 마법: 50레벨마다 진화 (7단계). 원소 폭발 → 50 연쇄 폭발 → 100 원소 폭풍 → 150 대폭풍.",
                   "200 원소 드래곤 → 250 쌍룡 → 300 천지창조 (폭풍 + 드래곤 3마리 + 거대 폭발). 쿨타임 14초."]),
     "rocket": (["유도 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 따라감 (잠근 좀비에 붉은 조준선).",
@@ -7520,7 +7526,7 @@ def class_live_lines(player):
     elif weapon.weapon_type == "grimoire":
         names = " · ".join(GRIMOIRE_ELEMENTS[key][0] for key in grimoire_elements(player))
         lines.append(f"지금 형태: {grimoire_form(player)[1]} · 스킬: {GRIMOIRE_SKILLS[grimoire_skill_stage(player)][1]}")
-        lines.append(f"속성: {names}")
+        lines.append(f"속성: {names} · 레벨 성장: 피해 +{(grimoire_growth(player) - 1) * 100:.0f}%")
     return lines
 
 
@@ -9739,7 +9745,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102138          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102139          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
