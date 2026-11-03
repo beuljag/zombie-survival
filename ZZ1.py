@@ -68,12 +68,12 @@
 - 철: 체력 110, 공격력 0.28, 철갑옷 (받는 피해 25% 감소), 죽으면 돌좀비로 부활
 - 벽: 체력 160, 공격력 0.1, 가장 느림, 수호 오라 (주변 좀비가 받는 피해 25% 감소)
 
-- 함성: 체력 45, 공격력 0.5, 주변(220) 좀비의 이동속도 +30% (주황 고리) - 먼저 잡기
+- 함성: 체력 45, 공격력 0.5, 주변(220) 좀비의 이동 속도 +30% (주황 고리) - 먼저 잡기
 
 【빠른 좀비 (6가지)】
-- 빠른: 체력 15, 공격력 0.4, 빠른 이동속도 4.0, 지그재그로 움직여 맞히기 어려움
+- 빠른: 체력 15, 공격력 0.4, 빠른 이동 속도 4.0, 지그재그로 움직여 맞히기 어려움
 - 주자: 체력 12, 공격력 0.35, 오래 쫓을수록 빨라짐 (최대 +60%, 맞으면 초기화)
-- 닌자: 체력 10, 공격력 0.6, 매우 빠른 이동속도 7.5, 원거리 공격
+- 닌자: 체력 10, 공격력 0.6, 매우 빠른 이동 속도 7.5, 원거리 공격
 - 스파크: 체력 14, 공격력 0.5, 닿으면 감전 (0.6초 동안 공격 불가)
 - 바람: 체력 8, 공격력 0.3, 속도 130% 증가, 죽으면 광역 혼합 효과
 - 그림자: 체력 9, 공격력 0.55, 가장 빠름, 멀리 있으면 거의 안 보임 + 총알 25% 회피
@@ -99,22 +99,22 @@
 - 왕: 체력 260, 공격력 1.9, 일반 좀비 대량 소환 (3마리)
 - 신: 체력 350, 공격력 2.5, 12초마다 12사도 + 12천사 동시 소환, 죽으면 신성한 폭발, 흰색
   12천사 (각자 다른 능력): 라파엘(치유: 주변 회복) / 미카엘(수호: 주변 피해 30% 감소) / 우리엘(화염: 파이어볼)
-  / 하니엘(서리: 둔화 투사체) / 라미엘(번개: 직격 + 감전) / 아리엘(질풍: 빠름 + 주변 이동속도 +30%)
+  / 하니엘(서리: 둔화 투사체) / 라미엘(번개: 직격 + 감전) / 아리엘(질풍: 빠름 + 주변 이동 속도 +30%)
   / 라구엘(심판: 근처 신성 폭발) / 예레미엘(부활: 한 번 부활) / 메타트론(결계: 처음 4번 공격 무효)
   / 산달폰(분열: 죽으면 임프 3마리) / 아즈라엘(흡혈: 체력 흡수) / 가브리엘(순간이동: 플레이어 근처로 이동)
 
 【거대 좀비 (6가지)】
 - 콜로서스: 체력 500, 공격력 2.0, 매우 느림, 3초마다 지진 (주변 피해 10 + 화면 흔들림)
-- 타이탄: 체력 600, 공격력 2.3, 30% 확률로 거인 2마리로 부활, 느린 이동속도 0.25
+- 타이탄: 체력 600, 공격력 2.3, 30% 확률로 거인 2마리로 부활, 느린 이동 속도 0.25
 - 거인: 체력 450, 공격력 1.8, 4초마다 큰 돌 던지기 (피해 12)
-- 베히모스: 체력 700, 공격력 2.5, 가장 큼, 돌진 공격, 이동속도 0.2
-- 리바이어던: 체력 650, 공격력 2.4, 가로/세로 쓰나미 공격, 느린 이동속도 0.28
+- 베히모스: 체력 700, 공격력 2.5, 가장 큼, 돌진 공격, 이동 속도 0.2
+- 리바이어던: 체력 650, 공격력 2.4, 가로/세로 쓰나미 공격, 느린 이동 속도 0.28
 - 엘더: 체력 800, 공격력 2.8, 가장 높은 체력, 4초마다 주변 좀비 체력 8% 회복
 
 【업그레이드 시스템】
 기본 업그레이드:
 - 체력: +15 / +25 / +40 최대 체력 증가
-- 속도: +0.3 또는 +0.5 이동속도 증가
+- 속도: +0.3 또는 +0.5 이동 속도 증가
 - 데미지: +2 또는 +5 모든 무기 데미지 증가
 - 재생: +0.3 또는 +0.5 초당 체력 회복
 - 치명타: 5% 확률로 1.3배 데미지 (중첩 가능, 5%씩 증가) / 저격총 전용 "치명타 피해 +25%"로 배율 증가 (최대 3.8배)
@@ -129,7 +129,7 @@
 - 얼음탄 (Lv2): 좀비 속도 저하
 - 전기탄 (Lv3): 인접한 좀비들에게 전기 전달
 - 자동조준 (Lv4): 가까운 적 자동 조준
-- 방어막 (Lv3): 최대 체력 30%만큼 피해를 먼저 막는 보호막, 4초 동안 안 맞으면 다시 차오름, 또 찍으면 +15% (최대 150%)
+- 방어막 (Lv3): 최대 체력 30%만큼 피해를 먼저 막음, 4초 동안 안 맞으면 다시 차오름, 또 찍으면 +15% (최대 150%)
 - 순간이동 (Lv4): 마우스 위치로 즉시 이동
 - 시간감속 (Lv5): 주변 좀비 속도 감소
 - 폭발 공격 (Lv4): 공격 시 작은 폭발 (주변 30%, 근접 무기는 12%, 0.2초에 한 번)
@@ -150,13 +150,13 @@
 - 도끼: 대회전 베기 - 도끼를 크게 한 바퀴 휘둘러 주변을 베고(3.5배) 멀리 날려 버림 + 준 피해의 10% 흡혈 (제한 없음) (12초)
   체력이 가득 차서 넘친 흡혈량의 50%는 5초 동안 흡혈 보호막 (최대 체력의 50%까지, 피해를 먼저 받음)
 - 창: 물보라 - 주변(230)으로 물결을 일으켜 좀비를 튕겨 내고 3초 동안 50% 느리게 함 (2배 피해) + 내 상태 이상 해제 (8초)
-  창 데미지는 이동속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
+  창 데미지는 이동 속도에 비례, 창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해 + 넉백
 - 일렉 기타: 공격 속도가 빠를수록 박자도 빨라짐, 박자 맞출 때마다 기타 멜로디가 한 음씩 이어짐
 - 일렉 기타: 박자 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +35%, 2초 동안 못 맞추면 사라짐)
-- 일렉 기타: 앙코르 - 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% · 상태 이상 정화/면역,
+- 일렉 기타: 앙코르 - 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동 속도 +20% · 받는 피해 -25% · 상태 이상 정화/면역,
   팀 전체 남은 스킬 쿨타임 -10% (팀원은 추가로 -3초) + 내 주변 음파 + 넓은 범위 좀비 불협화음 (5초 동안 받는 피해 +25%, 40% 느려짐) (20초)
 - 글로브: 초당 공격 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림 (추가 타격 45%)
-- 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공속 +2% (최대 +35%),
+- 글로브 콤보: 맞힐 때마다 +1 (1.2초 안에 못 맞히면 끊김), 콤보당 공격 속도 +2% (최대 +35%),
   10콤보마다 강타 충격파 (2.5배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동), 백열권은 콤보당 +3% 후 어퍼컷에서 콤보 소모
 - 글로브: 백열권 - 1.2초 동안 마우스 방향 앞쪽을 주먹으로 마구 두드리고(0.07초마다 0.5배), 마지막 어퍼컷(4배)으로 날려 보내며 1초 기절 (15초)
 - 글록: 항공 폭격 - 비행기가 날아와 조준 방향 직선(약 1000px)에 폭탄을 줄줄이 떨어뜨림
@@ -186,7 +186,7 @@
    - 리바이어던: 가로/세로 쓰나미 공격 (교차 형태)
    - 용: 돌진 공격 + 부채꼴 파이어볼
    - 바람: 속도 130% 증가
-8. 아이템 드롭: 좀비 처치 시 3% 확률 (보스/거대 좀비는 50%) - 체력 +25 / 공격력 +30% 10초 / 이동속도 +30% 10초
+8. 아이템 드롭: 좀비 처치 시 3% 확률 (보스/거대 좀비는 50%) - 체력 +25 / 공격력 +30% 10초 / 이동 속도 +30% 10초
 9. 웨이브 시스템: 60초마다 난이도 상승, 새로운 좀비 타입 해금
    - 웨이브마다 등장하는 좀비 수 +2, 등장 간격 단축, 보스 소환 수도 증가
    - 보스/거대 좀비 체력 1.6배 (다른 좀비가 소환한 개체 제외)
@@ -414,9 +414,9 @@ ANGEL_ROLES = [
     ("healer", "라파엘 (치유)", (120, 255, 150)),       # "신이 치유하신다" - 3초마다 주변 좀비 체력 10% 회복
     ("guardian", "미카엘 (수호)", (150, 180, 255)),     # 천사군의 대장 - 주변 좀비가 받는 피해 30% 감소
     ("flame", "우리엘 (화염)", (255, 140, 60)),         # "신의 불꽃" - 파이어볼 발사
-    ("frost", "하니엘 (서리)", (150, 230, 255)),        # 달의 천사 - 얼음 투사체 (이동속도 50% 감소)
+    ("frost", "하니엘 (서리)", (150, 230, 255)),        # 달의 천사 - 얼음 투사체 (이동 속도 50% 감소)
     ("thunder", "라미엘 (번개)", (255, 240, 90)),       # "신의 천둥" - 번개 직격 + 잠깐 감전
-    ("gale", "아리엘 (질풍)", (200, 255, 230)),         # 자연과 바람의 천사 - 자신은 2배 빠르고 주변 좀비 이동속도 +30%
+    ("gale", "아리엘 (질풍)", (200, 255, 230)),         # 자연과 바람의 천사 - 자신은 2배 빠르고 주변 좀비 이동 속도 +30%
     ("judgment", "라구엘 (심판)", (255, 215, 120)),     # 정의와 심판의 천사 - 가까이 오면 신성한 폭발
     ("rebirth", "예레미엘 (부활)", (255, 180, 220)),    # 부활의 희망을 맡은 천사 - 한 번 죽어도 체력 50%로 부활
     ("barrier", "메타트론 (결계)", (190, 160, 255)),    # 보호 문양 "메타트론의 큐브" - 처음 4번의 공격을 막아냄
@@ -498,7 +498,7 @@ SHIELD_RECHARGE_PER_FRAME = 0.25 / 60
 #  (폭탄 데미지 = 1000 × 현재 공격력 / 글록 기본 공격력)
 #  "폭격 범위" 업그레이드 1회당: 폭격 길이 +100px, 폭발 반경(폭) +15px
 GLOCK_STRIKE_BASE_DAMAGE = 1000
-# 창: 공격력이 이동속도에 비례 (기본 속도 7 기준) / 들고 달리면 정면 좀비에게 돌진 피해 + 넉백 / 스킬 물보라
+# 창: 공격력이 이동 속도에 비례 (기본 속도 7 기준) / 들고 달리면 정면 좀비에게 돌진 피해 + 넉백 / 스킬 물보라
 SPEAR_BASE_SPEED = 7
 SPEAR_CHARGE_RATIO = 0.8          # 돌진 피해 = 현재 창 공격력의 80%
 SPEAR_CHARGE_REACH = 100          # 정면 이 거리 안
@@ -508,13 +508,13 @@ SPEAR_CHARGE_KNOCKBACK = 14
 SPLASH_RADIUS = 230               # 물보라 기본 반경 ("물보라 범위 +30px" 업그레이드)
 SPLASH_DAMAGE_MULT = 2.0
 SPLASH_KNOCKBACK = 16
-SPLASH_SLOW = 0.5                 # 둔화 배율 (0.5 = 이동속도 50%, "물보라 둔화 +8%" 업그레이드로 더 느리게)
+SPLASH_SLOW = 0.5                 # 둔화 배율 (0.5 = 이동 속도 50%, "물보라 둔화 +8%" 업그레이드로 더 느리게)
 SPLASH_SLOW_FRAMES = 180          # 3초
-# 저격총 도탄 사격: 맞을 때마다 공격력 3배, 기본 10번 튕김 ("도탄 +3회" 업그레이드 1회당 +3번)
+# 저격총 도탄 사격: 맞을 때마다 공격력 x3, 기본 10번 튕김 ("도탄 +3회" 업그레이드 1회당 +3번)
 SNIPER_RICOCHET_DAMAGE_MULT = 3.0
 SNIPER_RICOCHET_BOUNCES = 10
 SNIPER_RICOCHET_UPGRADE = 3
-# 글로브 백열권: 1.2초 동안 앞쪽 부채꼴(반경 170, ±50°)을 0.07초마다 두드림 (공격력 0.6배) → 마지막 어퍼컷 (4배, 멀리 날림, 1초 기절)
+# 글로브 백열권: 1.2초 동안 앞쪽 부채꼴(반경 170, ±50°)을 0.07초마다 두드림 (공격력 x0.6) → 마지막 어퍼컷 (4배, 멀리 날림, 1초 기절)
 GLOVES_FLURRY_FRAMES = 72
 GLOVES_FLURRY_RADIUS = 170
 GLOVES_FLURRY_HALF_ARC = 50
@@ -558,7 +558,7 @@ MISSILE_LOCK_RANGE = 500
 #  박자에 맞출 때마다 노래(기타 멜로디)가 한 음씩 이어서 연주됨
 #  PERFECT(±60ms) 1.8배 / GOOD(±120ms) 1.3배 / MISS 0.6배, PERFECT를 이어 가면 그루브 +1 (최대 10, 1당 +4%), MISS면 그루브 0
 #  박자 버프: 박자에 맞춰 칠 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +35%), 2초 동안 못 맞추면 사라짐
-#  스킬 앙코르: 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% · 상태 이상 정화+면역,
+#  스킬 앙코르: 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동 속도 +20% · 받는 피해 -25% · 상태 이상 정화+면역,
 #             팀원 스킬 쿨타임 3초 감소 + 주변 음파 (1.5배, 넉백) + 넓은 범위 좀비에게 "불협화음" (5초 동안 받는 피해 +25%, 40% 느려짐)
 BEAT_MS = 500             # 기본 박자 (가장 느림)
 BEAT_MS_MIN = 240         # 가장 빠른 박자
@@ -695,7 +695,7 @@ EXPLOSION_SKILL_COOLDOWN = 12
 ITEM_DROP_CHANCE = 0.03        # 일반 좀비 처치 시 드롭 확률 (3%)
 BOSS_ITEM_DROP_CHANCE = 0.5    # 보스/거대 좀비 처치 시 드롭 확률 (50%)
 ITEM_LIFETIME_FRAMES = 600     # 바닥에 떨어진 아이템 유지 시간 10초 (일시정지 중에는 줄지 않음)
-ITEM_BUFF_FRAMES = 600         # 공격력/이동속도 버프 지속 시간 10초
+ITEM_BUFF_FRAMES = 600         # 공격력/이동 속도 버프 지속 시간 10초
 ITEM_BUFF_MULTIPLIER = 1.3     # 버프 효과 +30%
 ITEM_HEAL_AMOUNT = 25
 ITEM_COLORS = {"health": RED, "damage": YELLOW, "speed": CYAN}
@@ -1720,11 +1720,11 @@ def draw_zombie_sprite(surface, camera, zombie, player):
     ring_r = int(max(w, h) * 0.75)
     if getattr(zombie, "guard_mult", 1.0) < 1.0:      # 수호 오라 안 (받는 피해 감소)
         pygame.draw.circle(surface, (150, 180, 255), center, ring_r, 2)
-    if zombie.zombie_type == "howler":                # 함성 범위 (이 안의 좀비는 이동속도 +30%)
+    if zombie.zombie_type == "howler":                # 함성 범위 (이 안의 좀비는 이동 속도 +30%)
         pulse = 220 - (fx.frame * 3) % 60
         pygame.draw.circle(surface, (200, 120, 40), center, 220, 1)
         pygame.draw.circle(surface, (255, 170, 60), center, pulse, 2)
-    elif getattr(zombie, "hasted", False):              # 이동속도 버프 받는 중: 발밑 주황 화살표
+    elif getattr(zombie, "hasted", False):              # 이동 속도 버프 받는 중: 발밑 주황 화살표
         tip_y = center[1] + h // 2 + 6
         pygame.draw.lines(surface, (255, 170, 60), False,
                           [(center[0] - 6, tip_y), (center[0], tip_y - 5), (center[0] + 6, tip_y)], 2)
@@ -2046,7 +2046,7 @@ class Item(pygame.sprite.Sprite):
     EFFECT_TEXTS = {
         "health": f"체력 +{ITEM_HEAL_AMOUNT}",
         "damage": "공격력 +30% (10초)",
-        "speed": "이동속도 +30% (10초)",
+        "speed": "이동 속도 +30% (10초)",
     }
 
     def __init__(self, x, y, item_type):
@@ -2194,7 +2194,7 @@ class Player(pygame.sprite.Sprite):
         self.encore_power = 0.0  # 앙코르 방어 (받는 피해 감소 비율)
         self.beat_buff_time = 0  # 박자 버프 (팀 전체 공격력)
         self.beat_buff_power = 0.0
-        self.beat_pos = 0.0      # 일렉 기타 박자 시계 (박자 단위, 공속에 따라 빨라짐)
+        self.beat_pos = 0.0      # 일렉 기타 박자 시계 (박자 단위, 공격 속도에 따라 빨라짐)
         self.beat_hist = []      # 최근 박자 위치 (멀티: 클릭한 순간 기준 판정용)
         self.last_judged_beat = None   # 판정한 박자 번호 (박자 하나에 판정 한 번)
         self.invuln_time = 0     # 무적 남은 시간 (카타나 일섬 직후)
@@ -2290,7 +2290,7 @@ class Player(pygame.sprite.Sprite):
                 return keys.action_held(action)
             return binding_held(action, keys)        # 지정한 키/마우스 버튼 중 하나라도 누르면
 
-        # 둔화 상태에서는 속도 감소, 이동속도 아이템 버프 중에는 증가
+        # 둔화 상태에서는 속도 감소, 이동 속도 아이템 버프 중에는 증가
         current_speed = self.speed * self.slow_multiplier
         if self.speed_buff_time > 0:
             current_speed *= ITEM_BUFF_MULTIPLIER
@@ -2384,7 +2384,7 @@ class Zombie(pygame.sprite.Sprite):
         # 새 좀비 3종
         "slime": {"w": 30, "h": 30, "color": (90, 220, 90), "speed": 1.6, "health": 40, "dmg": 0.5, "size": 32},       # 분열좀비
         "sniper_z": {"w": 24, "h": 36, "color": (70, 100, 70), "speed": 1.8, "health": 30, "dmg": 0.4, "size": 28},    # 저격좀비
-        "howler": {"w": 28, "h": 38, "color": (230, 140, 40), "speed": 1.5, "health": 45, "dmg": 0.5, "size": 34},     # 함성좀비 (주변 이동속도 +30%)
+        "howler": {"w": 28, "h": 38, "color": (230, 140, 40), "speed": 1.5, "health": 45, "dmg": 0.5, "size": 34},     # 함성좀비 (주변 이동 속도 +30%)
 
         # 폭탄 계열 (6가지)
         "bomber": {"w": 30, "h": 40, "color": (139, 0, 139), "speed": 1.8, "health": 40, "dmg": 0.6, "size": 35, "exp": 1},
@@ -2485,7 +2485,7 @@ class Zombie(pygame.sprite.Sprite):
             self.is_charging = False
             self.charge_timer = 0
             self.charge_range = 500  # 이 거리 안에서만 돌진 준비
-            self.charge_speed_mult = 4  # 이동속도의 4배로 돌진
+            self.charge_speed_mult = 4  # 이동 속도의 4배로 돌진
             self.charge_duration = 12  # 12프레임 동안 돌진
             self.charge_health_scaled = True  # 체력 비례 돌진력 (체력이 줄면 약해짐)
 
@@ -2496,7 +2496,7 @@ class Zombie(pygame.sprite.Sprite):
             self.is_charging = False
             self.charge_timer = 0
             self.charge_range = 600
-            self.charge_speed_mult = 8  # 느린 대신 돌진은 이동속도의 8배
+            self.charge_speed_mult = 8  # 느린 대신 돌진은 이동 속도의 8배
             self.charge_duration = 30  # 0.5초 동안 돌진
             self.charge_health_scaled = False
 
@@ -2621,7 +2621,7 @@ class Zombie(pygame.sprite.Sprite):
         # ===== 추가 고유 능력 상태값 =====
         self.angel_role = None      # 12천사 역할
         self.guard_mult = 1.0       # 수호 오라(벽좀비/수호의 천사) 안에 있으면 받는 피해 감소
-        self.hasted = False         # 질풍의 천사 오라 안에 있으면 이동속도 +30%
+        self.hasted = False         # 질풍의 천사 오라 안에 있으면 이동 속도 +30%
         self.block_hits = 0         # 결계: 남은 공격 무효 횟수
         self.no_reward = False      # 자폭한 임프는 점수/경험치 없음
         self.ability_cooldown = 0   # 추가 능력 쿨타임 (프레임)
@@ -3043,7 +3043,7 @@ class Zombie(pygame.sprite.Sprite):
         elif role == "frost" and distance < 500 and bullets is not None:
             self.ability_cooldown = 180
             ice = IceProjectile(cx, cy, player.rect.centerx, player.rect.centery)
-            ice.slow_effect = 0.5  # 이동속도 50% 감소 (얼음좀비보다 약하게)
+            ice.slow_effect = 0.5  # 이동 속도 50% 감소 (얼음좀비보다 약하게)
             bullets.add(ice)
             all_sprites.add(ice)
         elif role == "thunder" and distance < 450:
@@ -3590,7 +3590,7 @@ def tick_glove_combo(player):
         player.beat_buff_time -= 1
         if player.beat_buff_time <= 0:
             player.beat_buff_power = 0.0
-    if player.weapon is not None and player.weapon.weapon_type == "hammer":   # 박자 시계 (공속 비례)
+    if player.weapon is not None and player.weapon.weapon_type == "hammer":   # 박자 시계 (공격 속도 비례)
         player.beat_pos += 1000 / 60 / beat_ms_of(player.weapon)
         player.beat_hist.append(player.beat_pos)
         if len(player.beat_hist) > 40:
@@ -3600,7 +3600,7 @@ def tick_glove_combo(player):
 
 
 def beat_ms_of(weapon):
-    """일렉 기타 박자 간격(ms): 공격 간격 x 1.25 (기본 0.5초, 공속이 빨라지면 최대 0.24초까지)"""
+    """일렉 기타 박자 간격(ms): 공격 간격 x 1.25 (기본 0.5초, 공격 속도이 빨라지면 최대 0.24초까지)"""
     attack_ms = 1000.0 / (weapon.fire_rate * weapon.attack_speed * getattr(weapon, "rush_mult", 1.0))
     return max(BEAT_MS_MIN, min(BEAT_MS, attack_ms * BEAT_PER_ATTACK))
 
@@ -4373,7 +4373,7 @@ def get_knockback_multiplier(player):
 
 
 def get_spear_speed_factor(player):
-    """창 데미지 배율 = 현재 이동속도 / 기본 이동속도 (이동속도 업그레이드·버프·둔화 반영)"""
+    """창 데미지 배율 = 현재 이동 속도 / 기본 이동 속도 (이동 속도 업그레이드·버프·둔화 반영)"""
     speed = player.speed * player.slow_multiplier
     if player.speed_buff_time > 0:
         speed *= ITEM_BUFF_MULTIPLIER
@@ -4386,7 +4386,7 @@ def skill_cd_factor(player):
 
 
 def get_weapon_damage(player):
-    """현재 무기 공격력 (공격력 아이템 버프 반영, 창은 이동속도 비례)"""
+    """현재 무기 공격력 (공격력 아이템 버프 반영, 창은 이동 속도 비례)"""
     damage = player.weapon.damage
     if player.damage_buff_time > 0:
         damage *= ITEM_BUFF_MULTIPLIER
@@ -5066,7 +5066,7 @@ class FlurrySkill(ActiveSkill):
         return True
 
 
-TURRET_DAMAGE_MULT = 1.5   # 포탑 한 발 = 지금 내 공격력 x 1.5
+TURRET_DAMAGE_MULT = 1.5   # 포탑 한 발 = 지금 내 공격력 x1.5
 TURRET_MAX_CHARGES = 3     # 포탑 충전: 최대 3개까지 모아 두고 한꺼번에 설치 가능 ("포탑 최대 충전 +1" 업그레이드)
 TURRET_PLACE_RANGE = 220   # 포탑은 마우스 쪽 (최대 220px) 에 설치 - 원하는 곳에 모아서 깔 수 있게
 TURRET_FIRE_EVERY = 5      # 프레임마다 한 발 (예전 7)
@@ -5091,13 +5091,13 @@ def tick_turret_charges(player):
 
 
 def bullet_hit_damage(owner, bullet, zombie):
-    """총알 한 발의 피해 (치명타 판정 - 포탑 총알도 평타처럼)"""
+    """총알 한 발의 피해 (치명타 판정 - 포탑 총알도 기본 공격처럼)"""
     return roll_crit_damage(owner, bullet.damage, zombie)
 
 
 class TurretSkill(ActiveSkill):
     """기관총 포탑: 설치한 자리에서 가장 가까운 좀비를 자동 사격
-    총알은 평타와 똑같이 취급 (치명타, 화염/얼음/전기탄, 폭발 공격, 관통, 사거리) + 무한탄약 동안은 매 프레임 사격"""
+    총알은 기본 공격과 똑같이 취급 (치명타, 화염/얼음/전기탄, 폭발 공격, 관통, 사거리) + 무한탄약 동안은 매 프레임 사격"""
     def __init__(self, x, y, duration, damage, all_sprites):
         super().__init__(duration)
         self.x, self.y, self.damage = x, y, damage
@@ -5116,7 +5116,7 @@ class TurretSkill(ActiveSkill):
                 damage = get_weapon_damage(player) * TURRET_DAMAGE_MULT if player.weapon is not None else self.damage
                 bullet = Bullet(self.x, self.y, target.rect.centerx, target.rect.centery, damage, "normal", "machinegun")
                 bullet.speed = 15
-                if player.weapon is not None:   # 평타처럼 관통/사거리
+                if player.weapon is not None:   # 기본 공격처럼 관통/사거리
                     bullet.pierce = player.weapon.pierce
                     bullet.max_range = player.weapon.max_range
                 bullets.add(bullet)
@@ -5506,7 +5506,7 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         player.active_skills.append(WaterSplashSkill(player, all_sprites, base * SPLASH_DAMAGE_MULT, radius, slow))
 
     elif weapon_type == "hammer":
-        # 앙코르: 파워 코드 한 방 → 팀 전체 재생/이동속도/방어 버프 + 내 주변 음파
+        # 앙코르: 파워 코드 한 방 → 팀 전체 재생/이동 속도/방어 버프 + 내 주변 음파
         frames = ENCORE_FRAMES + (up["range"] // 20) * 60                          # "앙코르 시간 +1초"
         power = min(ENCORE_DEFENSE_MAX, ENCORE_DEFENSE + 0.05 * up["damage"])      # "앙코르 방어 +5%"
         now = pygame.time.get_ticks()
@@ -6701,14 +6701,14 @@ def get_player_buffs(player):
     if player.damage_buff_time > 0:
         buffs.append(("공격력 +30%", "damage", player.damage_buff_time, ITEM_COLORS["damage"]))
     if player.speed_buff_time > 0:
-        buffs.append(("이동속도 +30%", "speed", player.speed_buff_time, ITEM_COLORS["speed"]))
+        buffs.append(("이동 속도 +30%", "speed", player.speed_buff_time, ITEM_COLORS["speed"]))
     if player.katana_chain > 0:
         bonus = int(round(get_katana_chain_bonus(player) * player.katana_chain * 100))
         buffs.append((f"연참 x{player.katana_chain} (다음 일섬 +{bonus}%)", "chain", player.katana_chain_timer, (150, 230, 255)))
     if getattr(player, "encore_time", 0) > 0:
         regen = int(ENCORE_REGEN * 100)
         for text, key in ((f"앙코르 - 재생 (초당 {regen}%)", "encore_regen"),
-                          (f"앙코르 - 이동속도 +{int(ENCORE_SPEED * 100)}%", "encore_speed"),
+                          (f"앙코르 - 이동 속도 +{int(ENCORE_SPEED * 100)}%", "encore_speed"),
                           (f"앙코르 - 받는 피해 -{int(player.encore_power * 100)}%", "encore_def"),
                           ("앙코르 - 상태 이상 면역", "encore_immune")):
             buffs.append((text, key, player.encore_time, (220, 140, 255)))
@@ -6720,7 +6720,7 @@ def get_player_buffs(player):
     if getattr(player, "glove_combo", 0) > 0:
         speed = int(round(min(GLOVE_COMBO_SPEED_MAX, GLOVE_COMBO_SPEED * player.glove_combo) * 100))
         state = " · 폭주" if player.glove_combo >= GLOVE_FRENZY_COMBO else ""
-        buffs.append((f"콤보 {player.glove_combo} (공속 +{speed}%{state})", "combo", player.glove_combo_timer, (255, 150, 90)))
+        buffs.append((f"콤보 {player.glove_combo} (공격 속도 +{speed}%{state})", "combo", player.glove_combo_timer, (255, 150, 90)))
     if player.ability == "damage" and player.health <= player.max_health * 0.5:
         buffs.append(("광전사: 공격력 +25%", "rage", 1, (255, 120, 90)))
     if getattr(player, "shield_hp", 0) >= 1:
@@ -6810,7 +6810,8 @@ def draw_player_status(surface, player, x=14, y=14):
     for label, key, frames, color in buffs:
         active.add(key)
         maxes[key] = max(maxes.get(key, 0), frames)
-        ui_text(surface, label if key in ("rage", "groove") else f"{label}  {frames / FPS:.1f}초", font_tiny, ui_bright(color), (x + 14, by), shadow=False)
+        buff_text = label if key in ("rage", "groove") else f"{label}  {frames / FPS:.1f}초"
+        ui_text(surface, buff_text, ui_fit_font(font_tiny, buff_text, w - 106), ui_bright(color), (x + 14, by), shadow=False)
         ui_bar(surface, (x + w - 84, by + 6, 72, 8), frames / max(maxes[key], 1), ui_bright(color, 150), back=(30, 30, 40), radius=4)
         by += 24
     for key in list(maxes):
@@ -6901,7 +6902,7 @@ def draw_hud(surface, player, score, wave, wave_progress, wave_interval, zombies
             text = f"• {name}"
             ui_text(surface, text, ui_fit_font(font_tiny, text, box.w - 28), UI_TEXT, (box.x + 16, box.y + 44 + i * 24), shadow=False)
         if len(names) > max_items:
-            footer = f"(최근 {max_items}개 · 전체는 ESC → 능력 확인)"
+            footer = f"(최근 {max_items}개 · 전체는 ESC → 업그레이드 확인)"
             ui_text(surface, footer, ui_fit_font(font_tiny, footer, box.w - 28), UI_ACCENT, (box.x + 16, box.bottom - 26), shadow=False)
 
     draw_beat_ui(surface, player)
@@ -6959,8 +6960,8 @@ def _card_row(count, card_w, card_h, y, gap=28, margin=40):
 
 def select_ability():
     abilities = [
-        {"name": "속도형", "up": "이동속도 +50%", "down": "체력 -20%", "tip": "치고 빠지기, 원거리 무기와 잘 맞음", "type": "speed", "color": (110, 185, 205)},
-        {"name": "탱커형", "up": "체력 +50%", "down": "이동속도 -30%", "tip": "버티면서 근접 무기로 싸우기 좋음", "type": "tank", "color": (135, 150, 225)},
+        {"name": "속도형", "up": "이동 속도 +50%", "down": "체력 -20%", "tip": "치고 빠지기, 원거리 무기와 잘 맞음", "type": "speed", "color": (110, 185, 205)},
+        {"name": "탱커형", "up": "체력 +50%", "down": "이동 속도 -30%", "tip": "버티면서 근접 무기로 싸우기 좋음", "type": "tank", "color": (135, 150, 225)},
         {"name": "공격형", "up": "공격력 +60%", "down": "체력 -10%", "tip": "빠르게 처치해서 위험을 줄임", "type": "damage", "color": (232, 180, 90)},
     ]
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
@@ -7017,9 +7018,9 @@ def select_weapon():
         {"name": "나무 방망이", "desc": "넉백 저항 무시", "skill": "풀스윙 홈런 (차징)", "type": "melee", "color": (210, 140, 70)},
         {"name": "카타나", "desc": "빠른 베기", "skill": "일섬 (돌진)", "type": "katana", "color": (255, 215, 0)},
         {"name": "도끼", "desc": "강한 한 방, 넉백", "skill": "대회전 베기 (흡혈)", "type": "axe", "color": (230, 90, 120)},
-        {"name": "창", "desc": "속도 비례 공격력, 달리면 돌진", "skill": "물보라 (상태 이상 해제)", "type": "spear", "color": (200, 200, 70)},
-        {"name": "일렉 기타", "desc": "박자 맞춰 치면 강해짐 (리듬)", "skill": "앙코르 (팀 재생·방어)", "type": "hammer", "color": (220, 60, 150)},
-        {"name": "글로브", "desc": "초고속 연타, 짧은 사거리", "skill": "백열권 (연타 + 어퍼컷)", "type": "gloves", "color": (220, 60, 70)},
+        {"name": "창", "desc": "빠를수록 강함, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
+        {"name": "일렉 기타", "desc": "박자 맞춰 치면 강해짐 (리듬)", "skill": "앙코르 (팀 버프)", "type": "hammer", "color": (220, 60, 150)},
+        {"name": "글로브", "desc": "초고속 연타, 짧은 사거리", "skill": "백열권 (연타)", "type": "gloves", "color": (220, 60, 70)},
     ]
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
     card_h = 172
@@ -7055,10 +7056,10 @@ def select_weapon():
 # 일시정지 메뉴
 # ---------- F1: 내 직업(능력 + 무기) 상세 설명 ----------
 ABILITY_HELP = {
-    "speed": ("속도형", ["이동속도 10 (기본 7), 체력 80"]),
-    "tank": ("탱커형", ["체력 150, 이동속도 5"]),
-    "damage": ("공격형", ["무기 공격력 1.6배, 체력 90"]),
-    None: ("능력 없음", ["체력 100, 이동속도 7"]),
+    "speed": ("속도형", ["이동 속도 10 (기본 7), 체력 80"]),
+    "tank": ("탱커형", ["체력 150, 이동 속도 5"]),
+    "damage": ("공격형", ["무기 공격력 x1.6, 체력 90"]),
+    None: ("능력 없음", ["체력 100, 이동 속도 7"]),
 }
 WEAPON_HELP = {
     "glock": (["균형 잡힌 기본 권총."],
@@ -7066,9 +7067,9 @@ WEAPON_HELP = {
                "폭탄 1발 기본 1000 피해 (반경 75), 공격력이 오르면 같은 비율로 증가.",
                "업그레이드 \"폭격 범위 증가\": 길이 +100px, 폭 +15px. 쿨타임 80초."]),
     "machinegun": (["누르고 있으면 연사. 한 발은 약하지만 매우 빠름."],
-                   ["포탑 설치 (충전식): 마우스 쪽(최대 220px)에 10초 동안 가까운 좀비를 자동으로 쏘는 포탑 (한 발 = 지금 공격력 x 1.5).",
+                   ["포탑 설치 (충전식): 마우스 쪽(최대 220px)에 10초 동안 가까운 좀비를 자동으로 쏘는 포탑 (한 발 = 지금 공격력 x1.5).",
                     "충전 최대 3개 - 모아 뒀다가 연달아 여러 개 설치 가능, 12초마다 1개 충전 (업그레이드 \"포탑 최대 충전 +1\", 최대 5개).",
-                    "포탑 총알은 평타와 똑같이 치명타 · 화염 · 얼음 · 전기탄 · 폭발 공격 · 관통 적용, 무한탄약 동안은 쉬지 않고 사격."]),
+                    "포탑 총알은 기본 공격과 똑같이 치명타 · 화염 · 얼음 · 전기탄 · 폭발 공격 · 관통 적용, 무한탄약 동안은 쉬지 않고 사격."]),
     "shotgun": (["한 번에 3발 산탄. 사거리 380 (근거리 전용)."],
                 ["용의 숨결: 앞쪽 부채꼴로 불을 뿜어 피해 + 불붙임. 쿨타임 10초."]),
     "sniper": (["강한 한 발. 기본 공격이 무한 관통 (사거리 끝까지)."],
@@ -7079,7 +7080,7 @@ WEAPON_HELP = {
                ["블랙홀: 3초 동안 모든 좀비를 빨아들이고 범위 안의 좀비에게 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
     "rocket": (["유도 로켓: 쏘는 순간 조준점에서 가장 가까운 좀비(180px 안)를 잠그고 따라감 (잠근 좀비에 붉은 조준선).",
                 "느리게 출발해서 점점 빨라짐. 맞으면 큰 폭발 (주변 65%)."],
-               ["락온 미사일: 조준점 주변(500px) 좀비를 전부 잠가 한 마리당 미사일 1발 (최소 8발), 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 2배).",
+               ["락온 미사일: 조준점 주변(500px) 좀비를 전부 잠가 한 마리당 미사일 1발 (최소 8발), 퍼져 나갔다가 휘어져 날아가 폭발 (공격력 x2).",
                 "목표가 8마리보다 적으면 남은 미사일은 조준점으로. 쿨타임 12초."]),
     "melee": (["초보자용 근접 무기. 조준 방향 부채꼴 안의 좀비를 모두 때림.",
                "넉백이 저항을 무시함 - 보스와 넉백 면역 좀비도 밀려남."],
@@ -7091,9 +7092,9 @@ WEAPON_HELP = {
                 "처치 1마리당 체력 1 회복. 치명타 · 속성탄 · 폭발 공격도 적용, 카타나 강화 1회당 일섬 +10%.",
                 "레벨 6부터 \"오의 연섬\": 일섬 피해 25%가 방어 무시 고정 피해 (최소 대상 최대 체력 6%). 쿨타임 6초."]),
     "axe": (["강한 한 방과 넉백."],
-            ["대회전 베기: 반경 190을 한 바퀴 휘둘러 공격력 3.5배, 멀리 날려 보냄.",
+            ["대회전 베기: 반경 190을 한 바퀴 휘둘러 공격력 x3.5, 멀리 날려 보냄.",
              "준 피해의 10%만큼 회복, 넘친 회복량의 50%는 5초 동안 보호막 (최대 체력 50%까지). 쿨타임 12초."]),
-    "spear": (["가장 긴 사거리. 공격력이 이동속도에 비례.",
+    "spear": (["가장 긴 사거리. 공격력이 이동 속도에 비례.",
                "창을 들고 달리면 공격하지 않아도 정면 좀비에게 피해(80%) + 넉백."],
               ["물보라: 큰 창이 떨어진 뒤 물결이 퍼져 좀비를 튕겨 내고 3초 동안 50% 느리게 (2배).",
                "쓰는 순간 내 상태 이상(독 · 둔화 · 감전 · 부식)을 모두 해제. 쿨타임 8초."]),
@@ -7102,7 +7103,7 @@ WEAPON_HELP = {
                 "박자를 맞출 때마다 팀 전체 공격력이 조금씩 쌓임 (PERFECT +0.5%, GOOD +0.25%, 최대 +35%, 2초 동안 못 맞추면 사라짐).",
                 "공격 속도가 빠를수록 박자도 빨라짐. 판정 밑에 빠름/느림 표시, 박자를 맞추면 기타 멜로디가 이어짐.",
                 "전용 업그레이드: 박자 버프 증가 / 박자 버프 지속 +0.5초 / 판정 범위 증가."],
-               ["앙코르: 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동속도 +20% · 받는 피해 -25% · 상태 이상 정화 + 면역.",
+               ["앙코르: 팀 전체 6초 동안 재생(초당 최대 체력 3%) · 이동 속도 +20% · 받는 피해 -25% · 상태 이상 정화 + 면역.",
                 "팀 전체 남은 스킬 쿨타임 -10% (팀원은 추가로 -3초), 주변 음파 (1.5배, 넉백).",
                 "반경 320 좀비에게 불협화음: 5초 동안 받는 피해 +25%, 40% 느려짐. 쿨타임 20초."]),
     "gloves": (["초고속 연타. 공격 속도가 초당 5.5/7/9회 이상이면 한 번에 1/2/3대 더 때림.",
@@ -7118,7 +7119,7 @@ def class_live_lines(player):
     weapon = player.weapon
     rate = 1000.0 / max(1.0, weapon.get_attack_interval())
     cooldown = SKILL_COOLDOWNS[weapon.weapon_type] * skill_cd_factor(player) / 1000
-    lines = [f"체력 {int(player.health)}/{int(player.max_health)} · 이동속도 {player.speed:.1f} · 레벨 {player.level}",
+    lines = [f"체력 {int(player.health)}/{int(player.max_health)} · 이동 속도 {player.speed:.1f} · 레벨 {player.level}",
              f"공격력 {get_weapon_damage(player):.1f} · 초당 공격 {rate:.2f}회 · 스킬 쿨타임 {cooldown:.1f}초"]
     if weapon.weapon_type == "hammer":
         beat_ms = beat_ms_of(weapon)
@@ -7325,7 +7326,7 @@ def show_pause_menu(player):
     background = ui_snapshot()
     buttons = [
         {"name": "돌아가기", "desc": "게임 계속하기 (ESC)", "type": "resume", "color": (128, 196, 132)},
-        {"name": "능력 확인", "desc": "획득한 능력 보기", "type": "abilities", "color": (106, 155, 204)},
+        {"name": "업그레이드 확인", "desc": "얻은 업그레이드 보기", "type": "abilities", "color": (106, 155, 204)},
         {"name": "키 설정", "desc": "조작 키 바꾸기", "type": "keys", "color": (180, 160, 220)},
         {"name": "설정", "desc": "화면 모드 · 창 크기 · 볼륨", "type": "settings", "color": (120, 190, 200)},
         {"name": "저장하고 나가기", "desc": "다음에 실행하면 이어하기", "type": "save_exit", "color": (232, 180, 90)},
@@ -7513,7 +7514,7 @@ def build_cumulative_upgrade_lines(player):
         lines.append(f"로켓 폭발 범위 증가: +{counts['rocket_skill_count'] * 15}px")
 
     if counts.get("attack_speed", 0) > 0:
-        lines.append(f"공격 쿨 감소 획득: {counts['attack_speed']}회")
+        lines.append(f"공격 속도 +5% 획득: {counts['attack_speed']}회")
     if player.pierce_level > 0:
         lines.append(f"투사체 관통: +{player.pierce_level}마리")
 
@@ -7547,7 +7548,7 @@ def show_obtained_upgrades(player, background=None):
         screen.blit(background, (0, 0))
         ui_overlay(screen, 190)
         ui_panel(screen, panel, alpha=240, radius=16)
-        ui_text(screen, "능력 확인", font_large, UI_TEXT, (panel.centerx, panel.y + 20), "midtop")
+        ui_text(screen, "업그레이드 확인", font_large, UI_TEXT, (panel.centerx, panel.y + 20), "midtop")
 
         for tab, rect, label in (("history", history_tab_rect, f"획득 순서 ({len(player.obtained_upgrades)})"),
                                  ("summary", summary_tab_rect, "누적 효과")):
@@ -7993,15 +7994,15 @@ def build_upgrade_choices(player, level=None):
         {"name": "완전 회복", "desc": "체력을 완전히 회복", "type": "heal_full", "color": (0, 255, 100)},
 
         # 이동 관련
-        {"name": "이동속도 +0.3", "desc": "이동 속도 증가", "type": "speed", "color": CYAN},
-        {"name": "이동속도 +0.5", "desc": "이동 속도 증가", "type": "speed_big", "color": (0, 255, 255)},
+        {"name": "이동 속도 +0.3", "desc": "이동 속도 증가", "type": "speed", "color": CYAN},
+        {"name": "이동 속도 +0.5", "desc": "이동 속도 증가", "type": "speed_big", "color": (0, 255, 255)},
 
         # 공격 관련
         {"name": "공격력 +8%", "desc": "무기 공격력 8% 증가", "type": "base_damage", "color": (255, 165, 0)},
         {"name": "공격력 +15%", "desc": "무기 공격력 15% 증가", "type": "base_damage_big", "color": (255, 100, 0)},
 
         # 넉백 관련
-        {"name": "넉백 강화", "desc": "적 넉백 강도 +10%", "type": "knockback", "color": (200, 100, 255)},
+        {"name": "넉백 강화", "desc": "좀비 넉백 강도 +10%", "type": "knockback", "color": (200, 100, 255)},
 
         # 특수 효과
         {"name": "재생 능력", "desc": "초당 체력 0.3 회복", "type": "regen", "color": (100, 255, 100)},
@@ -8015,7 +8016,7 @@ def build_upgrade_choices(player, level=None):
         {"name": "회피", "desc": "5% 확률로 피해 회피", "type": "dodge", "color": (100, 200, 255)},
 
         # 무기별 추가 보상
-        {"name": "공격 쿨 감소", "desc": "모든 무기 공격 속도 +5%", "type": "attack_speed", "color": (255, 200, 100)},
+        {"name": "공격 속도 +5%", "desc": "공격이 5% 빨라짐", "type": "attack_speed", "color": (255, 200, 100)},
 
         # 우클릭 스킬 관련 (새로 추가)
         {"name": "스킬 쿨타임 -5%", "desc": "우클릭 스킬 쿨타임 5% 단축", "type": "skill_cooldown_reduction", "color": (150, 100, 255)},
@@ -8030,10 +8031,10 @@ def build_upgrade_choices(player, level=None):
         {"name": "화염탄", "desc": "불붙임, 또 맞히면 중첩 (10중첩마다 1발씩 더 맞혀야 쌓임)", "type": "skill_fire_bullets", "color": (255, 100, 0), "min_level": 2},
         {"name": "얼음탄", "desc": "좀비를 느리게 하는 총알", "type": "skill_ice_bullets", "color": (100, 200, 255), "min_level": 2},
         {"name": "전기탄", "desc": "인접한 좀비들에게 전기 전달", "type": "skill_electric_bullets", "color": (255, 255, 0), "min_level": 3},
-        {"name": "자동조준", "desc": "가까운 적을 자동으로 조준", "type": "skill_auto_aim", "color": (150, 255, 100), "min_level": 4},
-        {"name": "방어막 강화", "desc": f"보호막 +{int(SHIELD_STACK_RATIO * 100)}% (지금 최대 체력의 {round(shield_ratio(player) * 100)}%)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3}
+        {"name": "자동조준", "desc": "가까운 좀비를 자동으로 조준", "type": "skill_auto_aim", "color": (150, 255, 100), "min_level": 4},
+        {"name": "방어막 강화", "desc": f"방어막 +{int(SHIELD_STACK_RATIO * 100)}% (지금 최대 체력의 {round(shield_ratio(player) * 100)}%)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3}
         if player.shield_active else
-        {"name": "방어막", "desc": "최대 체력 30% 보호막 (4초 안 맞으면 다시 참, 또 찍으면 늘어남)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3},
+        {"name": "방어막", "desc": "최대 체력 30%만큼 피해를 막음 (4초 안 맞으면 다시 참, 또 찍으면 늘어남)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3},
         {"name": "순간이동", "desc": "마우스 위치로 즉시 이동", "type": "skill_teleport", "color": (200, 100, 255), "min_level": 4},
         {"name": "시간감속", "desc": "주변 좀비를 느리게 함", "type": "skill_slowdown", "color": (100, 255, 255), "min_level": 5},
         {"name": "폭발 공격", "desc": f"공격 시 작은 폭발 (주변 {int((EXPLOSION_SKILL_RATIO_MELEE if player.weapon.weapon_type in MELEE_WEAPONS else EXPLOSION_SKILL_RATIO) * 100)}%)",
@@ -8166,7 +8167,7 @@ def show_upgrade_menu(player, camera, level=None):
         if special:   # 50레벨: 특수 업그레이드
             top = ui_title(screen, f"LV.{level} 특수 업그레이드!", SCREEN_HEIGHT // 2 - 230, "아주 강력한 보상 · 한 가지를 선택하세요", color=SPECIAL_COLOR)
         else:
-            top = ui_title(screen, "레벨 업!", SCREEN_HEIGHT // 2 - 230, f"LV.{level} · 한 가지를 선택하세요", color=UI_ACCENT)
+            top = ui_title(screen, "레벨업!", SCREEN_HEIGHT // 2 - 230, f"LV.{level} · 한 가지를 선택하세요", color=UI_ACCENT)
         rects = _card_row(len(selected_upgrades), 300, 140, max(top + 40, SCREEN_HEIGHT // 2 - 85) + rise, gap=30)
         mouse_pos = pygame.mouse.get_pos()
         for i, (upgrade, rect) in enumerate(zip(selected_upgrades, rects)):
@@ -8381,8 +8382,8 @@ def get_upgrade_name(upgrade_type):
         "health_huge": f"체력 +{HEALTH_UPGRADE_HUGE}",
         "heal": "체력 회복",
         "heal_full": "완전 회복",
-        "speed": "이동속도 +0.3",
-        "speed_big": "이동속도 +0.5",
+        "speed": "이동 속도 +0.3",
+        "speed_big": "이동 속도 +0.5",
         "base_damage": "공격력 +8%",
         "base_damage_big": "공격력 +15%",
         "knockback": "넉백 강화",
@@ -8392,8 +8393,8 @@ def get_upgrade_name(upgrade_type):
         "crit": "치명타",
         "dodge": "회피",
         "attack_speed": "공격 속도 +5%",
-        "skill_cooldown_reduction": "스킬 쿨 -5%",
-        "skill_cooldown_reduction_big": "스킬 쿨 -10%",
+        "skill_cooldown_reduction": "스킬 쿨타임 -5%",
+        "skill_cooldown_reduction_big": "스킬 쿨타임 -10%",
         "special_orbit": "★ 수호 위성", "special_smite": "★ 천벌", "special_timestop": "★ 시간 정지",
         "special_reaper": "★ 사신의 낫", "special_singularity": "★ 특이점",
         **{u["type"]: u["name"] for u in SPECIAL_UPGRADES},
@@ -9300,7 +9301,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102135          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102136          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -9867,7 +9868,7 @@ def main():
 
             # 오라 능력 (매 프레임 다시 계산)
             #  - 벽좀비 / 수호의 천사: 주변 좀비가 받는 피해 감소
-            #  - 질풍의 천사: 주변 좀비 이동속도 +30%
+            #  - 질풍의 천사: 주변 좀비 이동 속도 +30%
             #  - 엘더 / 치유의 천사: 주기적으로 주변 좀비 회복
             for zombie in zombies:
                 zombie.guard_mult = 1.0
@@ -10230,7 +10231,7 @@ def main():
                     # 10초간 공격력 +30% (예전 효과 "player.damage +15"는 거의 어떤 공격에도 쓰이지 않던 값이었음)
                     player.damage_buff_time = ITEM_BUFF_FRAMES
                 elif item.item_type == "speed":
-                    # 10초간 이동속도 +30% (예전처럼 영구 +2면 몇 개만 먹어도 너무 빨라짐)
+                    # 10초간 이동 속도 +30% (예전처럼 영구 +2면 몇 개만 먹어도 너무 빨라짐)
                     player.speed_buff_time = ITEM_BUFF_FRAMES
                 score += 5
 

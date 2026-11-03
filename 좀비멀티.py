@@ -33,7 +33,7 @@ import ZZ1 as g
 from ZZ1 import *  # noqa: F401,F403 - 1인 모드의 클래스/함수/상수를 그대로 사용
 
 PORT = 50007
-DISCOVERY_PORT = 50008        # 같은 랜의 방 찾기 (방장이 1초마다 "방 있어요"를 UDP로 알림)
+DISCOVERY_PORT = 50008        # 같은 랜의 방 찾기 (호스트가 1초마다 "방 있어요"를 UDP로 알림)
 DISCOVERY_TAG = "zombie-survival-room"
 MAX_PLAYERS = 4
 INPUT_DELAY = 3          # 입력이 반영되기까지의 프레임 (네트워크 지연을 감추는 버퍼). 내 이동은 예측해서 바로 보여주므로 지연이 느껴지지 않음
@@ -623,8 +623,7 @@ class MatchState:
             if p.health <= 0 or getattr(p, "surrendered", False):   # 포기는 재생/회복으로 버티지 않게 바로
                 p.health = min(p.health, 0)
                 p.dead = True
-                p.death_wave = self.wave
-                p.active_skills.clear()
+                p.death_wave = self.wave   # 쓰던 스킬은 끝까지 진행 (예전에는 목록만 비워서 스킬이 멈추고 이펙트가 영구히 남았음)
                 fx.death_burst(p.rect.centerx, p.rect.centery, p.color, 40)
                 fx.add_text(p.rect.centerx, p.rect.top - 30, f"{p.name} 포기" if getattr(p, "surrendered", False)
                             else f"{p.name} 쓰러짐! ({REVIVE_WAVES}웨이브 뒤 부활)", (255, 120, 120), big=True, life=90)
@@ -1319,7 +1318,7 @@ def draw_minimap(state, camera, local):
 
 def draw_upgrade_summary(local, top, ui):
     """TAB(설정한 키): 지금까지 얻은 효과를 종합해서 보여 줌 (게임은 계속 진행)
-    화면이 작아서 다 안 들어가면 마우스 휠로 스크롤 (멀티는 ESC 능력 확인 화면이 없어서)"""
+    화면이 작아서 다 안 들어가면 마우스 휠로 스크롤 (멀티는 ESC 업그레이드 확인 화면이 없어서)"""
     lines = build_cumulative_upgrade_lines(local) or ["아직 얻은 업그레이드가 없습니다"]
     recent = [get_upgrade_entry_name(e) for e in local.obtained_upgrades[-5:]]
     rows = [("line", line, 24) for line in lines]
@@ -1329,7 +1328,7 @@ def draw_upgrade_summary(local, top, ui):
     content_h = sum(r[2] for r in rows)
     h = max(160, min(SCREEN_HEIGHT - top - 140, 60 + content_h))
     box = ui_panel(screen, (SCREEN_WIDTH - w - 14, top, w, h), alpha=225)
-    ui_text(screen, f"내 능력 종합 (업그레이드 {len(local.obtained_upgrades)}개)", font_hud, UI_ACCENT, (box.x + 14, box.y + 10))
+    ui_text(screen, f"업그레이드 종합 ({len(local.obtained_upgrades)}개)", font_hud, UI_ACCENT, (box.x + 14, box.y + 10))
     view = pygame.Rect(box.x + 6, box.y + 42, box.w - 12, box.h - 48)
     max_scroll = max(0, content_h - view.h)
     ui["summary_scroll"] = max(0, min(max_scroll, ui.get("summary_scroll", 0)))
@@ -1473,9 +1472,9 @@ def draw_match(state, camera, ui):
     ui["cards"] = []
     if local.pending_choices and not local.left:
         choices = local.pending_choices[0]
-        width, height, gap = 270, 104, 18
+        width, height, gap = 270, 124, 18
         x0 = SCREEN_WIDTH // 2 - (len(choices) * width + (len(choices) - 1) * gap) // 2
-        y0 = SCREEN_HEIGHT - 190
+        y0 = SCREEN_HEIGHT - 210
         special = bool(choices) and choices[0].get("special", False)
         ui_text(screen, f"{'★ 특수 업그레이드!' if special else '레벨업! 업그레이드'} 선택 (클릭 또는 {binding_label('pick1')}/{binding_label('pick2')}/{binding_label('pick3')}) "
                         f"· 남은 선택 {len(local.pending_choices)}", font_hud, g.SPECIAL_COLOR if special else UI_ACCENT,
@@ -1507,9 +1506,12 @@ def draw_match(state, camera, ui):
     if state.paused and not state.game_over:
         who = state.by_pid.get(state.paused_by)
         ui_overlay(screen, 120)
-        ui_text(screen, "일시정지", font_large, UI_TEXT, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 60), "center")
+        box = pygame.Rect(0, 0, 520, 130)
+        box.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 30)
+        ui_panel(screen, box, alpha=235, radius=16)
+        ui_text(screen, "일시정지", font_large, UI_TEXT, (box.centerx, box.y + 42), "center")
         ui_text(screen, f"{who.name if who else '누군가'}이(가) 멈춤  ·  ESC → P 로 다시 시작 (누구나)", font_desc, UI_SUB,
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), "center")
+                (box.centerx, box.y + 96), "center")
     if ui.get("waiting", 0) > 30:
         banner("다른 플레이어를 기다리는 중...", UI_ACCENT, 262)
     if ui.get("desync"):
@@ -1522,7 +1524,7 @@ def draw_match(state, camera, ui):
         ui_text(screen, "멀티 게임 메뉴", font_large, UI_TEXT, (box.centerx, box.y + 22), "midtop")
         ui_text(screen, "P  일시정지 / 다시 시작 (모두 멈춤)", font_medium, (150, 200, 255), (box.centerx, box.y + 100), "midtop")
         ui_text(screen, "G  게임 포기 (내 캐릭터, 부활 없음)", font_medium, (230, 150, 110), (box.centerx, box.y + 155), "midtop")
-        ui_text(screen, "Q  방 나가기 (같은 방에 다시 참가하면 돌아옴)", font_medium, UI_DANGER, (box.centerx, box.y + 210), "midtop")
+        ui_text(screen, "Q  방 나가기 (다시 참가 가능)", font_medium, UI_DANGER, (box.centerx, box.y + 210), "midtop")
         ui_text(screen, "ESC  돌아가기", font_medium, UI_GOOD, (box.centerx, box.y + 270), "midtop")
     if state.game_over:
         ranking = sorted(state.players, key=lambda p: -p.damage_dealt)
@@ -1623,7 +1625,7 @@ def run_match(lockstep, seed, roster, local_pid, resume_log=None):
                     elif pick_from_event(event) >= 0 and local.pending_choices:
                         clicks["u"] = pick_from_event(event)
                 elif event.type == pygame.MOUSEWHEEL and ui.get("stack") and ui.get("summary_max", 0) > 0:
-                    ui["summary_scroll"] = ui.get("summary_scroll", 0) - event.y * 48   # TAB 능력 종합 스크롤
+                    ui["summary_scroll"] = ui.get("summary_scroll", 0) - event.y * 48   # TAB 업그레이드 종합 스크롤
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button in (4, 5) and ui.get("stack") and ui.get("summary_max", 0) > 0:
                     pass   # 휠은 위의 MOUSEWHEEL로 처리 (공격/스킬로 잡히지 않게)
                 elif event.type == pygame.MOUSEBUTTONDOWN and not ui["menu"]:
@@ -1918,7 +1920,7 @@ def choose_loadout():
 
 
 class RoomBeacon:
-    """방장: 대기실에 있는 동안 같은 랜에 "방 있어요"를 1초마다 알림 (UDP 방송)"""
+    """호스트: 대기실에 있는 동안 같은 랜에 "방 있어요"를 1초마다 알림 (UDP 방송)"""
     def __init__(self):
         self.sock = None
         self.next_send = 0.0
@@ -1936,7 +1938,7 @@ class RoomBeacon:
         try:
             self.name = socket.gethostname()[:24]
         except OSError:
-            self.name = "방장"
+            self.name = "호스트"
 
     def tick(self, players, weapon_name, **extra):
         """extra: 게임 중이면 in_game=True, open=다시 들어올 수 있는 자리 수"""
@@ -2033,7 +2035,7 @@ def browse_rooms():
             elif not rooms:
                 dots = "." * (1 + (pygame.time.get_ticks() // 400) % 3)
                 ui_text(screen, f"방을 찾는 중{dots}", font_medium, UI_SUB, (SCREEN_WIDTH // 2, y + 20), "midtop", shadow=False)
-                ui_text(screen, "방장이 '방 만들기'를 눌렀는지, 같은 네트워크인지 확인하세요 (방화벽에서 게임 허용이 필요할 수 있어요)",
+                ui_text(screen, "호스트가 '방 만들기'를 눌렀는지, 같은 네트워크인지 확인하세요 (방화벽에서 게임 허용이 필요할 수 있어요)",
                         font_tiny, UI_DIM, (SCREEN_WIDTH // 2, y + 70), "midtop", shadow=False)
             for ip, info in rooms[:6]:
                 rect = pygame.Rect(SCREEN_WIDTH // 2 - 320, y, 640, 78)
@@ -2042,7 +2044,7 @@ def browse_rooms():
                 full = (info.get("open", 0) <= 0) if in_game else info.get("players", 0) >= info.get("max", MAX_PLAYERS)
                 color = (128, 196, 132) if same and not full else (150, 140, 130)
                 card = ui_card(screen, rect, color, same and not full and rect.collidepoint(mouse),
-                               f"{info.get('name', '방')}의 방", [f"{ip}  ·  방장 무기: {info.get('weapon', '?')}"], title_font=font_hud)
+                               f"{info.get('name', '방')}의 방", [f"{ip}  ·  호스트 무기: {info.get('weapon', '?')}"], title_font=font_hud)
                 if in_game:
                     status = "게임 중" if full else ("업데이트 필요" if not same else "게임 중 · 다시 들어가기")
                 else:
