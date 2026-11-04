@@ -2799,6 +2799,11 @@ class Zombie(pygame.sprite.Sprite):
         # 기사단장 부활 체크
         if self.zombie_type == "paladin" and not self._paladin_resurrected:
             self._paladin_resurrected = True
+            if getattr(self, "wave_boss", False):   # 웨이브 보스는 종류가 그대로 (패턴, 그림, 체력 바를 유지) - 갑옷 좀비로 바뀌면 패턴을 못 찾아 튕겼음
+                self.health = self.max_health * 0.6
+                fx.add_text(self.rect.centerx, self.rect.top - 40, "기사단장 부활!", (255, 230, 150), big=True, life=90)
+                fx.ring(self.rect.centerx, self.rect.centery, (255, 230, 150), 160, count=40, size=5)
+                return
             self.zombie_type = "armored"
             self.armor_reduction = 0.6
             self.image.fill((100, 100, 150))  # 갑옷 좀비 회색
@@ -5829,6 +5834,36 @@ GRIMOIRE_TRIPLES = {frozenset(_E[c] for c in key): name for key, name in {
     "rpw": "독비 폭풍", "rpe": "썩은 늪", "rpd": "죽음의 강", "rph": "치유의 샘",
     "rwe": "흙탕 폭풍", "rwd": "검은 태풍", "rwh": "무지개 바람", "red": "저승의 늪", "reh": "생명의 샘", "rdh": "달빛 바다",
 }.items()}
+# 3중 반응의 고유 효과: 조합마다 하나씩 (속성 효과에 더해서 터짐) - (종류, 값, ...) 묶음
+#  heal 회복(최대 체력 비율) / shield 흡혈 보호막 / invuln 무적(프레임) / power 공격력 +30%(프레임) / haste 이동 속도 +30%(프레임) / cool 남은 스킬 쿨타임 감소(비율)
+#  true 최대 체력 비례 피해 / exec 처형(체력 비율) / bolt 연쇄 번개(횟수, 배율) / meteor 낙하(수, 배율) / blast 넓은 2차 폭발(배율)
+#  burn 화상 추가 / poison 맹독 추가 / boom 화상 폭발(중첩당 배율) / toxin 맹독 폭발(중첩당 배율) / spread 맞은 좀비의 화상·맹독을 주변으로
+#  stun 기절(프레임) / slow 둔화(프레임) / vuln 받는 피해 증가(프레임) / pull 끌어당김(힘) / push 밀어냄(힘)
+GRIMOIRE_TRIPLE_EFFECTS = {frozenset(_E[c] for c in key): effects for key, effects in {
+    "fil": (("bolt", 6, 0.8),), "fip": (("spread",), ("poison", 3)), "fiw": (("blast", 1.0),), "fie": (("meteor", 4, 1.0),),
+    "fid": (("boom", 0.1),), "fih": (("heal", 0.04),), "flp": (("bolt", 4, 0.6), ("poison", 3)), "flw": (("bolt", 8, 0.5),),
+    "fle": (("meteor", 3, 1.5),), "fld": (("true", 0.05),), "flh": (("power", 300),), "fpw": (("spread",), ("blast", 0.6)),
+    "fpe": (("toxin", 0.1),), "fpd": (("exec", 0.12),), "fph": (("heal", 0.03), ("burn", 3)), "fwe": (("meteor", 6, 0.7),),
+    "fwd": (("pull", 20), ("burn", 3)), "fwh": (("haste", 300), ("heal", 0.03)), "fed": (("stun", 120), ("burn", 4)), "feh": (("shield", 0.2),),
+    "fdh": (("true", 0.08),),
+    "ilp": (("bolt", 5, 0.7), ("slow", 240)), "ilw": (("bolt", 6, 0.5), ("slow", 300)), "ile": (("stun", 150),), "ild": (("vuln", 600), ("bolt", 3, 0.6)),
+    "ilh": (("cool", 0.2),), "ipw": (("spread",), ("slow", 300)), "ipe": (("slow", 360), ("poison", 3)), "ipd": (("exec", 0.1), ("slow", 240)),
+    "iph": (("heal", 0.05),), "iwe": (("push", 30), ("stun", 45)), "iwd": (("pull", 22), ("slow", 300)), "iwh": (("haste", 420),),
+    "ied": (("stun", 180),), "ieh": (("shield", 0.15), ("stun", 60)), "idh": (("cool", 0.3),),
+    "lpw": (("bolt", 10, 0.35),), "lpe": (("toxin", 0.07), ("stun", 30)), "lpd": (("bolt", 5, 0.5), ("poison", 5)), "lph": (("cool", 0.15), ("heal", 0.02)),
+    "lwe": (("blast", 0.9), ("stun", 40)), "lwd": (("pull", 18), ("bolt", 4, 0.7)), "lwh": (("power", 240), ("haste", 240)), "led": (("exec", 0.08), ("stun", 60)),
+    "leh": (("meteor", 8, 0.5),), "ldh": (("true", 0.06), ("bolt", 3, 0.8)),
+    "pwe": (("poison", 8),), "pwd": (("exec", 0.15),), "pwh": (("shield", 0.1), ("heal", 0.02)), "ped": (("poison", 6), ("stun", 45)),
+    "peh": (("heal", 0.08),), "pdh": (("toxin", 0.14),), "wed": (("pull", 25), ("vuln", 450)), "weh": (("power", 420),), "wdh": (("invuln", 60),), "edh": (("true", 0.1),),
+    "rfi": (("shield", 0.1), ("burn", 2)), "rfl": (("meteor", 5, 0.9),), "rfp": (("spread",), ("heal", 0.02)), "rfw": (("push", 36), ("burn", 3)),
+    "rfe": (("blast", 1.2),), "rfd": (("boom", 0.14),), "rfh": (("power", 180), ("heal", 0.03)),
+    "ril": (("bolt", 7, 0.6), ("slow", 180)), "rip": (("slow", 480),), "riw": (("push", 40),), "rie": (("stun", 75), ("blast", 0.7)), "rid": (("vuln", 900),), "rih": (("cool", 0.25), ("heal", 0.02)),
+    "rlp": (("bolt", 6, 0.4), ("poison", 4)), "rlw": (("bolt", 12, 0.3),), "rle": (("stun", 100), ("bolt", 3, 0.5)), "rld": (("true", 0.04), ("vuln", 600)), "rlh": (("power", 360),),
+    "rpw": (("spread",), ("push", 20)), "rpe": (("poison", 10),), "rpd": (("exec", 0.18),), "rph": (("heal", 0.1),),
+    "rwe": (("blast", 0.8), ("slow", 240)), "rwd": (("pull", 30),), "rwh": (("haste", 360), ("shield", 0.08)), "red": (("exec", 0.1), ("poison", 4)), "reh": (("shield", 0.25),), "rdh": (("invuln", 90), ("heal", 0.02)),
+}.items()}
+GRIMOIRE_BOSS_EFFECT_RATIO = 0.2   # 처형 · 최대 체력 비례 피해는 보스급에게 이 배율만
+GRIMOIRE_DETONATE_STACK_MAX = 30   # 화상 · 맹독 폭발은 이 중첩까지만 계산
 GRIMOIRE_TRIPLE_BASE_RATIO, GRIMOIRE_TRIPLE_BASE_RADIUS = 1.5, 160
 GRIMOIRE_TRIPLE_RATIO = {"fire": 0.5, "lightning": 0.5, "light": 0.4, "dark": 0.4, "earth": 0.3, "ice": 0.2, "water": 0.2, "wind": 0.1, "poison": 0.1}
 GRIMOIRE_TRIPLE_RADIUS = {"wind": 40, "water": 30, "ice": 20, "poison": 20, "fire": 10, "lightning": 10, "earth": 10, "dark": 0, "light": 0}
@@ -5855,6 +5890,112 @@ def grimoire_poison_stacks(player, zombie, damage, stacks):
     zombie.grimoire_poison_time = 240
     zombie.grimoire_poison_damage = max(getattr(zombie, "grimoire_poison_damage", 0), damage)
     zombie.grimoire_poison_owner = player
+
+
+def grimoire_triple_effects(player, zombie, effects, targets, damage, mastery, x, y, radius, zombies):
+    """3중 반응의 고유 효과 (게임 판정: 난수를 쓰지 않음)"""
+    is_boss = lambda z: z.zombie_type in GUARANTEED_DROP_TYPES
+    px, py = player.rect.centerx, player.rect.top - 58
+    for effect in effects:
+        kind = effect[0]
+        if kind == "heal":
+            player.health = min(player.max_health, player.health + player.max_health * effect[1] * mastery)
+            fx.add_text(px, py, "회복!", (120, 255, 140), big=True)
+        elif kind == "shield":
+            add_overshield(player, player.max_health * effect[1] * mastery)
+            fx.add_text(px, py, "보호막!", (140, 210, 255), big=True)
+        elif kind == "invuln":
+            player.invuln_time = max(player.invuln_time, effect[1])
+            fx.add_text(px, py, "무적!", (255, 240, 170), big=True)
+        elif kind == "power":
+            player.damage_buff_time = max(player.damage_buff_time, effect[1])
+            fx.add_text(px, py, "공격력 증가!", (255, 190, 90), big=True)
+        elif kind == "haste":
+            player.speed_buff_time = max(player.speed_buff_time, effect[1])
+            fx.add_text(px, py, "이동 속도 증가!", (130, 240, 255), big=True)
+        elif kind == "cool":
+            key = player.weapon.weapon_type
+            now = pygame.time.get_ticks()
+            player.skill_cooldowns[key] = now + int(max(0, player.skill_cooldowns[key] - now) * (1 - effect[1]))
+            fx.add_text(px, py, "쿨타임 감소!", (200, 170, 255), big=True)
+        elif kind == "true":   # 맞은 좀비: 최대 체력 비례 (방어 무시)
+            zombie.health -= zombie.max_health * effect[1] * mastery * (GRIMOIRE_BOSS_EFFECT_RATIO if is_boss(zombie) else 1)
+            fx.beam(x, y - 560, x, y, (255, 255, 255), width=40, life=12)
+        elif kind == "exec":   # 체력이 낮은 좀비 처형
+            for target in targets:
+                if target.health > 0 and target.health < target.max_health * effect[1] * (GRIMOIRE_BOSS_EFFECT_RATIO if is_boss(target) else 1):
+                    target.health = 0
+                    fx.add_text(target.rect.centerx, target.rect.top - 20, "처형", (255, 90, 100))
+        elif kind == "bolt":   # 연쇄 번개: 안 맞은 가까운 좀비로 계속 튐
+            hit, bx, by = set(), x, y
+            for _ in range(effect[1]):
+                options = [z for z in zombies if z.health > 0 and z not in hit and math.hypot(z.rect.centerx - bx, z.rect.centery - by) < 300]
+                if not options:
+                    break
+                next_z = min(options, key=lambda z: (math.hypot(z.rect.centerx - bx, z.rect.centery - by), z.rect.x, z.rect.y))
+                fx.lightning(bx, by, next_z.rect.centerx, next_z.rect.centery, (255, 245, 130))
+                next_z.health -= damage * effect[2] * mastery * get_damage_multiplier(next_z)
+                next_z.electric_fx = 30
+                hit.add(next_z)
+                bx, by = next_z.rect.center
+        elif kind == "meteor":   # 가까운 좀비들에게 낙하
+            near = sorted(targets, key=lambda z: (math.hypot(z.rect.centerx - x, z.rect.centery - y), z.rect.x, z.rect.y))
+            for target in near[:effect[1]]:
+                if target.health > 0:
+                    tx, ty = target.rect.center
+                    fx.beam(tx - 90, ty - 500, tx, ty, (255, 170, 80), width=18, life=10)
+                    fx.disc(tx, ty, (255, 150, 70), 50, life=12, alpha=170)
+                    target.health -= damage * effect[2] * mastery * get_damage_multiplier(target)
+        elif kind == "blast":   # 더 넓게 퍼지는 2차 폭발
+            wide = radius * 1.6
+            fx.wave(x, y, (255, 255, 255), radius, wide, life=16, width=10)
+            for target in zombies:
+                if target.health > 0 and math.hypot(target.rect.centerx - x, target.rect.centery - y) < wide:
+                    target.health -= damage * effect[1] * mastery * get_damage_multiplier(target)
+        elif kind == "burn":
+            for target in targets:
+                grimoire_burn_stacks(target, effect[1])
+        elif kind == "poison":
+            for target in targets:
+                grimoire_poison_stacks(player, target, damage * 0.15 * mastery, effect[1])
+        elif kind == "boom":   # 화상 중첩을 터뜨림
+            for target in targets:
+                stacks = min(GRIMOIRE_DETONATE_STACK_MAX, target.burn_stacks) if target.burn_time > 0 else 0
+                if stacks and target.health > 0:
+                    target.health -= damage * effect[1] * stacks * mastery * get_damage_multiplier(target)
+                    target.burn_stacks = target.burn_hits = target.burn_time = 0
+                    fx.disc(target.rect.centerx, target.rect.centery, (255, 130, 40), 60, life=12, alpha=180)
+        elif kind == "toxin":  # 맹독 중첩을 터뜨림
+            for target in targets:
+                stacks = min(GRIMOIRE_DETONATE_STACK_MAX, getattr(target, "grimoire_poison_stacks", 0)) if getattr(target, "grimoire_poison_time", 0) > 0 else 0
+                if stacks and target.health > 0:
+                    target.health -= damage * effect[1] * stacks * mastery * get_damage_multiplier(target)
+                    target.grimoire_poison_stacks = target.grimoire_poison_time = 0
+                    fx.disc(target.rect.centerx, target.rect.centery, (140, 230, 80), 60, life=12, alpha=180)
+        elif kind == "spread":  # 맞은 좀비의 화상 · 맹독이 주변으로 옮음
+            burn = zombie.burn_stacks if zombie.burn_time > 0 else 0
+            poison = getattr(zombie, "grimoire_poison_stacks", 0) if getattr(zombie, "grimoire_poison_time", 0) > 0 else 0
+            for target in targets:
+                if target is zombie:
+                    continue
+                if burn:
+                    grimoire_burn_stacks(target, burn)
+                if poison:
+                    grimoire_poison_stacks(player, target, damage * 0.15 * mastery, poison)
+        elif kind == "stun":
+            for target in targets:
+                target.slow_time = max(target.slow_time, int(effect[1] * mastery))
+                target.slow_multiplier = 0.0
+        elif kind == "slow":
+            for target in targets:
+                target.slow_time = max(target.slow_time, int(effect[1] * mastery))
+                target.slow_multiplier = min(target.slow_multiplier, 0.5)
+        elif kind == "vuln":
+            for target in targets:
+                target.discord_time = max(target.discord_time, effect[1])
+        elif kind in ("pull", "push"):
+            for target in targets:
+                push_zombie(target, x, y, effect[1] * (-1 if kind == "pull" else 1))
 
 
 def grimoire_triple_stats(elements):
@@ -5913,6 +6054,7 @@ def grimoire_triple(player, zombie, elements, damage, zombies):
     if "light" in elements:   # 맞은 좀비에게 최대 체력 비례 피해 (방어 무시)
         boss = zombie.zombie_type in GUARANTEED_DROP_TYPES
         zombie.health -= zombie.max_health * (0.005 if boss else 0.03) * mastery
+    grimoire_triple_effects(player, zombie, GRIMOIRE_TRIPLE_EFFECTS[frozenset(elements)], targets, damage, mastery, x, y, radius, zombies)
 
 
 def grimoire_react(player, zombie, first, second, damage, zombies):
@@ -7960,7 +8102,7 @@ WEAPON_HELP = {
     "grimoire": (["패시브 현자의 지식: 최종 경험치 2배 (★ 현자를 찍으면 합쳐서 6배). 속성탄 업그레이드는 나오지 않음.",
                   "기본 스탯이 매우 낮음: 공격력 12, 최대 체력 절반, 이동 속도 -20%. 대신 스킬 피해 3배.",
                   "쏠 때마다 가진 속성 중 하나가 무작위로 나감: 시작 속성은 무작위, 50레벨마다 무작위 속성 하나, 300레벨에 전부 (9속성).",
-                  "원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 터짐 (2속성 36종). 서로 다른 3속성이면 3중 반응 (84종). 3초 안에 또 반응하면 원소 공명도 터짐.",
+                  "원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 터짐 (2속성 36종). 서로 다른 3속성이면 3중 반응 (84종, 조합마다 고유 효과). 3초 안에 또 반응하면 원소 공명도 터짐.",
                   "반응의 화상과 맹독은 한 번에 여러 중첩이 쌓임 (2속성 3중첩, 3중 반응 5중첩).",
                   "25레벨마다 진화 (13단계): 구체 → 대형 → 거대 → 쌍둥이 → 삼중 → 창 → 쌍창 → 삼중 창 → 새끼 드래곤 → 드래곤 → 쌍두 → 300 삼두 드래곤 (최대).",
                   "단계 사이에도 레벨마다 크기와 폭발 범위가 조금씩 커짐. 레벨마다 공격력 +0.4% (300레벨 +120%까지)."],
@@ -10244,7 +10386,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102148          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102149          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
