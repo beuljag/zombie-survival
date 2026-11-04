@@ -762,6 +762,7 @@ class MatchState:
         if p.skills.get("skill_ice_bullets", False):
             zombie.slow_time = max(zombie.slow_time, 120)
             zombie.slow_multiplier = min(zombie.slow_multiplier, 0.6)
+            zombie.chilled = True
             fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "ice")
         if p.skills.get("skill_electric_bullets", False):
             zombie.electric_fx = 30

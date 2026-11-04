@@ -1698,5 +1698,77 @@
     "sheetWidth": 576,
     "sheetHeight": 96,
     "layout": "horizontal"
+  },
+  "effects/explosion_magic_water.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_scald.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_flashfreeze.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_electrocute.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_pollution.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_typhoon.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_mud.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_abyss.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
+  },
+  "effects/reaction_rainbow.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal"
   }
 }

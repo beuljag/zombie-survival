@@ -1783,7 +1783,10 @@ def draw_zombie_sprite(surface, camera, zombie, player):
     stealth = zombie.zombie_type == "shadow" and math.hypot(look_x, look_y) > 250
     # 상태이상 표시: 불타는 중(주황빛 + 불꽃), 느려진 중(푸른빛 + 서리)
     burning = zombie.burn_time > 0
-    frozen = zombie.slow_time > 0 and zombie.slow_multiplier < 1.0
+    slowed = zombie.slow_time > 0 and zombie.slow_multiplier < 1.0
+    frozen = slowed and getattr(zombie, "chilled", False)        # 얼음 효과일 때만 얼음 표시
+    stunned = slowed and zombie.slow_multiplier <= 0             # 기절: 머리 위 별
+    slowed = slowed and not frozen and not stunned               # 그 외 둔화: 발밑 표시
     flicker = (25 if fx.frame % 6 < 3 else 0) if burning else None
     electrified = zombie.electric_fx > 0
     if electrified:
@@ -1842,6 +1845,20 @@ def draw_zombie_sprite(surface, camera, zombie, player):
         surface.blit(ice_art, ice_art.get_rect(center=center))
     elif frozen:                                      # 얼음 테두리
         pygame.draw.rect(surface, (200, 240, 255), rotated.get_rect(center=center).inflate(-4, -4), 2, border_radius=3)
+    if stunned:                                       # 기절: 머리 위를 도는 별
+        for k in range(3):
+            a = fx.frame * 0.18 + k * 2 * math.pi / 3
+            px, py = center[0] + math.cos(a) * max(16, w * 0.55), center[1] - h * 0.62 + math.sin(a) * 6
+            pygame.draw.polygon(surface, (255, 225, 80), [(px, py - 6), (px + 5, py), (px, py + 6), (px - 5, py)])
+            pygame.draw.polygon(surface, (120, 80, 10), [(px, py - 6), (px + 5, py), (px, py + 6), (px - 5, py)], 1)
+    elif slowed:                                      # 둔화: 발밑에 내려가는 보라색 꺾쇠
+        foot = center[1] + rotated.get_height() // 2 - 2
+        for k in range(2):
+            y = foot + (fx.frame // 3 + k * 5) % 10
+            pygame.draw.lines(surface, (190, 160, 240), False, [(center[0] - 9, y - 4), (center[0], y + 1), (center[0] + 9, y - 4)], 2)
+    poison_stacks = getattr(zombie, "grimoire_poison_stacks", 0)
+    if poison_stacks >= 2 and getattr(zombie, "grimoire_poison_time", 0) > 0:   # 맹독 중첩
+        ui_text(surface, f"독 x{poison_stacks}", font_label, (150, 235, 90), (center[0] + rotated.get_width() // 3, center[1]), "midleft")
     if fire_art is not None:                          # 머리 위 불꽃 (도트)
         stacks = getattr(zombie, "burn_stacks", 1)
         k = 1.5 + 0.12 * min(stacks, 20)   # 중첩이 쌓일수록 불꽃이 커짐 (20중첩부터는 같은 크기)
@@ -2337,7 +2354,7 @@ class Player(pygame.sprite.Sprite):
         self.special_upgrades = []   # 50레벨마다 고르는 특수 업그레이드 (한 번씩만)
         self.phoenix_ready = 0       # ★ 불사조를 다시 쓸 수 있는 special_tick
         # 마법서: 얻는 속성 순서 (시작 속성까지 무작위) - 멀티는 같은 씨앗이라 모든 PC가 같음
-        self.grimoire_order = random.sample(["fire", "ice", "lightning", "poison", "wind", "earth", "dark", "light"], 8)
+        self.grimoire_order = random.sample(["fire", "ice", "lightning", "poison", "wind", "earth", "dark", "light", "water"], 9)
         self.special_tick = 0        # 특수 업그레이드 타이머 (게임 프레임)
         self.damage_dealt = 0.0      # 게임 오버 화면: 총 피해
         self.best_hit = 0.0          # 게임 오버 화면: 가장 강한 한 방
@@ -2874,6 +2891,7 @@ class Zombie(pygame.sprite.Sprite):
             self.slow_time -= 1
         else:
             self.slow_multiplier = 1.0
+            self.chilled = False
 
         if self.discord_time > 0:
             self.discord_time -= 1
@@ -2894,8 +2912,10 @@ class Zombie(pygame.sprite.Sprite):
             if self.grimoire_poison_time % 30 == 0:
                 owner_before = DAMAGE_OWNER[0]
                 DAMAGE_OWNER[0] = getattr(self, "grimoire_poison_owner", None) or owner_before
-                self.health -= self.grimoire_poison_damage
+                self.health -= self.grimoire_poison_damage * max(1, getattr(self, "grimoire_poison_stacks", 1))   # 중첩만큼 강하게
                 DAMAGE_OWNER[0] = owner_before
+            if self.grimoire_poison_time <= 0:
+                self.grimoire_poison_stacks = 0
 
         # 돌좀비: 화상·둔화 면역
         if self.zombie_type == "stone":
@@ -4486,6 +4506,7 @@ def apply_hit_elements(player, zombie, zombies, base_damage, chain_range=150):
     if player.skills.get("skill_ice_bullets", False):
         zombie.slow_time = max(zombie.slow_time, 120)
         zombie.slow_multiplier = min(zombie.slow_multiplier, 0.6)
+        zombie.chilled = True
         fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "ice")
     if player.skills.get("skill_electric_bullets", False):
         zombie.electric_fx = 30
@@ -4647,11 +4668,11 @@ def trigger_bomb_explosion(zombie, player, zombies, all_sprites, explosions, rad
 EXP_BOOST_PER = 0.4   # "경험치 +40%" 업그레이드 1회당 (예전 20%)
 
 
-EXP_WAVE_BONUS = 0.02   # 게임이 진행될수록 경험치 조금씩 더: 웨이브 1개마다 +2% (웨이브 11 = +20%, 웨이브 51 = +100%)
+EXP_WAVE_BONUS = 0.05   # 게임이 진행될수록 경험치 더: 웨이브 1개마다 +5% (웨이브 11 = +50%, 웨이브 51 = +250%)
 
 
 def get_exp_reward(player, wave):
-    """경험치 보상 계산 (exp_boost 중첩 반영: 획득 1회당 +40%, 웨이브마다 +2%)"""
+    """경험치 보상 계산 (exp_boost 중첩 반영: 획득 1회당 +40%, 웨이브마다 +5%)"""
     base_exp = int(20 + (wave - 1) * 8)
     exp_multiplier = 1.0 + (EXP_BOOST_PER * player.levels.get("exp_boost", 0))
     exp_multiplier *= 1 + EXP_WAVE_BONUS * (wave - 1)
@@ -5536,7 +5557,7 @@ class BombardmentSkill(ActiveSkill):
 # 우클릭 스킬 실행 함수
 # ===== 마법서 =====
 #  패시브 현자의 지식: 최종 경험치 2배 / 속성탄 업그레이드 없음
-#  기본 공격: 쏠 때마다 가진 속성 중 하나가 무작위로 나감. 시작 속성은 무작위, 50레벨마다 무작위 속성 하나 (300레벨에 남은 2개, 최대 진화)
+#  기본 공격: 쏠 때마다 가진 속성 중 하나가 무작위로 나감. 시작 속성은 무작위, 50레벨마다 무작위 속성 하나 (300레벨에 남은 3개, 최대 진화)
 #  원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 반응이 터짐 (GRIMOIRE_REACTIONS)
 #  기본 공격과 스킬은 레벨에 따라 진화 (최대 300레벨)
 GRIMOIRE_EXP_MULT = 2.0
@@ -5558,6 +5579,7 @@ GRIMOIRE_ELEMENTS = {
     "earth": ("대지", (190, 140, 80), 250, "mine"),
     "dark": ("어둠", (160, 80, 220), 300, "blackhole"),
     "light": ("빛", (255, 250, 200), 300, "holy"),
+    "water": ("물", (70, 150, 255), 300, "plasma"),
 }
 # 기본 공격 형태: 레벨, 이름, 그림(orb/lance/dragon), 크기, 발 수, 1발 피해 배율, 폭발 반경, 주변 피해, 관통, 탄속
 GRIMOIRE_FORMS = [
@@ -5601,9 +5623,13 @@ def apply_grimoire_base(player):
 
 def grimoire_elements(player):
     """지금 쓸 수 있는 속성들: 무작위 시작 속성 + 50레벨마다 무작위 하나, 300레벨에 전부"""
-    count = 7 if player.level >= 300 else player.level // 50
+    count = 8 if player.level >= 300 else player.level // 50
     order = player.grimoire_order
-    return (["fire"] + order if len(order) == 7 else order)[:count + 1]   # 7개: 화염이 먼저 고정이던 예전 저장 파일
+    if len(order) == 7:   # 화염이 먼저 고정이던 예전 저장 파일
+        order = ["fire"] + order
+    if "water" not in order:   # 물 속성이 없던 예전 저장 파일
+        order = order + ["water"]
+    return order[:count + 1]
 
 
 def grimoire_explosion_kind(element):
@@ -5760,20 +5786,133 @@ GRIMOIRE_REACTIONS = {
     frozenset(("wind", "light")): ("빛의 돌풍", "lightgale", (240, 255, 210), 170, 1.0),
     frozenset(("earth", "dark")): ("저주받은 대지", "cursed", (120, 80, 110), 150, 1.0),
     frozenset(("earth", "light")): ("수정 폭발", "crystal", (235, 200, 240), 150, 1.6),
+    frozenset(("water", "fire")): ("열수 폭발", "scald", (250, 190, 150), 160, 1.6),
+    frozenset(("water", "ice")): ("급속 동결", "flashfreeze", (150, 215, 255), 130, 1.1),
+    frozenset(("water", "lightning")): ("감전", "electrocute", (130, 210, 255), 180, 1.6),
+    frozenset(("water", "poison")): ("오염수", "pollution", (110, 190, 130), 170, 0.8),
+    frozenset(("water", "wind")): ("태풍", "typhoon", (130, 200, 235), 230, 1.0),
+    frozenset(("water", "earth")): ("진흙탕", "mud", (130, 105, 75), 150, 0.8),
+    frozenset(("water", "dark")): ("심연의 물", "abyss", (50, 70, 150), 170, 1.0),
+    frozenset(("water", "light")): ("무지개", "rainbow", (190, 235, 255), 150, 1.0),
 }
 GRIMOIRE_RESONANCE_REACTION = ("원소 공명", "resonance", (210, 170, 255), 110, 1.0)   # 같은 좀비가 3초 안에 또 반응하면 추가로 터짐
 # 반응별 추가 효과
-GRIMOIRE_REACT_IGNITE = {"firestorm", "lava", "plasma", "blackflame", "solar"}
-GRIMOIRE_REACT_POISON = {"toxic", "neurotoxin", "plague", "frostbite", "poisonstorm", "acidbog"}
-GRIMOIRE_REACT_STUN = {"lava": 30, "neurotoxin": 20, "sandstorm": 40, "frozen": 90, "darkfrost": 60, "earthshock": 30, "crystal": 20}   # 프레임
-GRIMOIRE_REACT_SLOW = {"blizzard": (180, 0.4), "frostbite": (180, 0.5), "diamond": (180, 0.5), "acidbog": (180, 0.5), "cursed": (180, 0.6)}   # 프레임, 이동 속도 배율
-GRIMOIRE_REACT_DISCORD = {"superconduct", "blackflame", "cursed"}   # 5초 동안 받는 피해 +25%
-GRIMOIRE_REACT_BOLTS = {"thunderstorm": 6, "blackbolt": 4, "heavenbolt": 5}   # 가까운 몇 마리에게만 번개
-GRIMOIRE_REACT_PUSH = {"sandstorm": 12, "lightgale": 16, "voidwind": -12}     # 음수면 가운데로 끌어당김
-GRIMOIRE_PURIFY_HEAL = 0.02   # 정화: 최대 체력의 2% 회복
+GRIMOIRE_REACT_IGNITE = {"firestorm", "lava", "plasma", "blackflame", "solar", "scald"}
+GRIMOIRE_REACT_POISON = {"toxic", "neurotoxin", "plague", "frostbite", "poisonstorm", "acidbog", "pollution"}
+GRIMOIRE_REACT_STUN = {"lava": 30, "neurotoxin": 20, "sandstorm": 40, "frozen": 90, "darkfrost": 60, "earthshock": 30, "crystal": 20, "flashfreeze": 72, "electrocute": 20}   # 프레임
+GRIMOIRE_REACT_SLOW = {"blizzard": (180, 0.4), "frostbite": (180, 0.5), "diamond": (180, 0.5), "acidbog": (180, 0.5), "cursed": (180, 0.6), "mud": (180, 0.4)}   # 프레임, 이동 속도 배율
+GRIMOIRE_REACT_DISCORD = {"superconduct", "blackflame", "cursed", "abyss"}   # 5초 동안 받는 피해 +25%
+GRIMOIRE_REACT_BOLTS = {"thunderstorm": 6, "blackbolt": 4, "heavenbolt": 5, "electrocute": 5}   # 가까운 몇 마리에게만 번개
+GRIMOIRE_REACT_PUSH = {"sandstorm": 12, "lightgale": 16, "voidwind": -12, "typhoon": 14, "abyss": -12}     # 음수면 가운데로 끌어당김
+GRIMOIRE_PURIFY_HEAL = 0.02   # 정화·무지개: 최대 체력의 2% 회복
+GRIMOIRE_REACT_CHILL = {"blizzard", "frozen", "frostbite", "darkfrost", "diamond", "flashfreeze"}   # 얼음 표시가 나는 반응
+GRIMOIRE_REACT_STACKS, GRIMOIRE_TRIPLE_STACKS = 3, 5   # 반응으로 한 번에 쌓이는 화상·맹독 중첩 (2속성 / 3속성)
+GRIMOIRE_POISON_STACK_MAX = 30
+# 3중 반응: 좀비에게 3초 안에 서로 다른 속성 3개가 맞으면 터짐. 이름은 조합마다 다르고, 위력과 효과는 들어간 속성을 합쳐서 정함
+#  화염: 화상 / 얼음: 느려짐 / 물: 느려짐 (얼음 표시 없음) / 번개: 가까운 6마리에 추가 피해 / 맹독: 맹독 / 바람: 넉백 / 대지: 기절 / 어둠: 받는 피해 증가 (바람과 함께면 끌어당김) / 빛: 최대 체력 비례 피해
+_E = {"f": "fire", "i": "ice", "l": "lightning", "p": "poison", "w": "wind", "e": "earth", "d": "dark", "h": "light", "r": "water"}
+GRIMOIRE_TRIPLES = {frozenset(_E[c] for c in key): name for key, name in {
+    "fil": "천둥 증기", "fip": "독안개 폭발", "fiw": "화빙 폭풍", "fie": "화산 빙하", "fid": "흑빙염", "fih": "오로라 섬광",
+    "flp": "맹독 플라즈마", "flw": "불벼락 폭풍", "fle": "화산 번개", "fld": "지옥 번개", "flh": "태양 폭풍",
+    "fpw": "독화 회오리", "fpe": "유황 분화", "fpd": "저승 불꽃", "fph": "정화의 불",
+    "fwe": "화산재 폭풍", "fwd": "흑염 폭풍", "fwh": "불사조 날개", "fed": "지옥문", "feh": "대지의 심장", "fdh": "일식",
+    "ilp": "독빙뢰", "ilw": "빙뢰 폭풍", "ile": "빙하 균열", "ild": "암흑 빙뢰", "ilh": "천상의 오로라",
+    "ipw": "독 눈보라", "ipe": "얼어붙은 늪", "ipd": "죽음의 서리", "iph": "치유의 눈꽃",
+    "iwe": "눈사태", "iwd": "공허의 눈보라", "iwh": "백야의 바람", "ied": "영구 동토", "ieh": "수정 빙산", "idh": "월식",
+    "lpw": "독뢰 폭풍", "lpe": "부식 방전", "lpd": "역병 번개", "lph": "정화의 번개",
+    "lwe": "지각 폭풍", "lwd": "암흑 폭풍", "lwh": "신의 폭풍", "led": "심연의 균열", "leh": "천지 진동", "ldh": "혼돈의 벼락",
+    "pwe": "황사 독풍", "pwd": "죽음의 바람", "pwh": "정화의 바람", "ped": "무덤의 늪", "peh": "생명의 대지", "pdh": "역병 심판",
+    "wed": "어둠의 모래 폭풍", "weh": "황금 모래 폭풍", "wdh": "황혼의 바람", "edh": "대지의 심판",
+    "rfi": "온천 빙하", "rfl": "끓는 벼락", "rfp": "독 온천", "rfw": "열대 폭풍", "rfe": "마그마 해일", "rfd": "끓는 심연", "rfh": "무지개 화염",
+    "ril": "얼음비 번개", "rip": "오염된 빙하", "riw": "겨울 태풍", "rie": "빙하 해일", "rid": "검은 얼음물", "rih": "얼음 무지개",
+    "rlp": "독성 감전", "rlw": "대태풍", "rle": "진흙 방전", "rld": "심해 번개", "rlh": "천상의 소나기",
+    "rpw": "독비 폭풍", "rpe": "썩은 늪", "rpd": "죽음의 강", "rph": "치유의 샘",
+    "rwe": "흙탕 폭풍", "rwd": "검은 태풍", "rwh": "무지개 바람", "red": "저승의 늪", "reh": "생명의 샘", "rdh": "달빛 바다",
+}.items()}
+GRIMOIRE_TRIPLE_BASE_RATIO, GRIMOIRE_TRIPLE_BASE_RADIUS = 1.5, 160
+GRIMOIRE_TRIPLE_RATIO = {"fire": 0.5, "lightning": 0.5, "light": 0.4, "dark": 0.4, "earth": 0.3, "ice": 0.2, "water": 0.2, "wind": 0.1, "poison": 0.1}
+GRIMOIRE_TRIPLE_RADIUS = {"wind": 40, "water": 30, "ice": 20, "poison": 20, "fire": 10, "lightning": 10, "earth": 10, "dark": 0, "light": 0}
+GRIMOIRE_TRIPLE_COOLDOWN = 3000   # 같은 좀비는 3초에 한 번만 3중 반응
+GRIMOIRE_TRIPLE_BOLT_RATIO = 0.5
 GRIMOIRE_REACT_WINDOW = 3000     # 앞 속성이 남아 있는 시간 (ms)
 GRIMOIRE_REACT_COOLDOWN = 1000   # 같은 좀비는 1초에 한 번만 반응
 GRIMOIRE_JUDGMENT_RATIO, GRIMOIRE_JUDGMENT_BOSS_RATIO = 0.08, 0.01   # 심판: 대상 최대 체력 비례 (방어 무시)
+
+
+def grimoire_burn_stacks(zombie, stacks):
+    """반응의 화상: 한 번에 여러 중첩이 쌓임"""
+    zombie.burn_stacks = (zombie.burn_stacks if zombie.burn_time > 0 else 0) + stacks
+    zombie.burn_hits = 0
+    zombie.burn_time = max(zombie.burn_time, 180)
+    if DAMAGE_OWNER[0] is not None:
+        zombie.burn_owner = DAMAGE_OWNER[0]
+
+
+def grimoire_poison_stacks(player, zombie, damage, stacks):
+    """반응의 맹독: 한 번에 여러 중첩이 쌓임 (0.5초마다 피해 x 중첩, 최대 30)"""
+    alive = getattr(zombie, "grimoire_poison_time", 0) > 0
+    zombie.grimoire_poison_stacks = min(GRIMOIRE_POISON_STACK_MAX, (getattr(zombie, "grimoire_poison_stacks", 0) if alive else 0) + stacks)
+    zombie.grimoire_poison_time = 240
+    zombie.grimoire_poison_damage = max(getattr(zombie, "grimoire_poison_damage", 0), damage)
+    zombie.grimoire_poison_owner = player
+
+
+def grimoire_triple_stats(elements):
+    """3중 반응의 (범위, 피해 배율)"""
+    return (GRIMOIRE_TRIPLE_BASE_RADIUS + sum(GRIMOIRE_TRIPLE_RADIUS[e] for e in elements),
+            GRIMOIRE_TRIPLE_BASE_RATIO + sum(GRIMOIRE_TRIPLE_RATIO[e] for e in elements))
+
+
+def grimoire_triple(player, zombie, elements, damage, zombies):
+    """3중 반응 발동 (1인·멀티 공용, 판정은 게임 난수와 프레임만 씀)"""
+    radius, ratio = grimoire_triple_stats(elements)
+    mastery = 1 + GRIMOIRE_MASTERY * player.skill_upgrades["grimoire"]["mastery"]
+    x, y = zombie.rect.center
+    order = sorted(elements)
+    fx.add_text(x, zombie.rect.top - 52, GRIMOIRE_TRIPLES[frozenset(elements)] + "!!", (255, 225, 120), big=True, life=75)
+    for i, element in enumerate(order):   # 속성마다 빛기둥 + 고리 + 파편
+        color = GRIMOIRE_ELEMENTS[element][1]
+        a = i * 2 * math.pi / 3 + 0.5
+        px, py = x + math.cos(a) * radius * 0.45, y + math.sin(a) * radius * 0.45
+        fx.beam(px, py - 560, px, py, color, width=30, life=16)
+        fx.disc(px, py, color, radius * 0.55, life=18, alpha=165)
+        fx.wave(x, y, color, radius * 0.2, radius * (1.05 + 0.15 * i), life=18 + i * 3, width=10)
+        fx.burst(px, py, color, 14, speed=(3, 12), size=(3, 8), life=(14, 28))
+        pair = GRIMOIRE_REACTIONS[frozenset((element, order[(i + 1) % 3]))]   # 2속성 반응 그림을 겹쳐서 씀
+        fx.anim(f"effects/reaction_{pair[1]}.png", px, py, radius * 1.6 / 96, 4)
+    fx.disc(x, y, (255, 255, 255), radius * 0.4, life=8, alpha=210)
+    fx.add_flash(x, y, (255, 240, 200), 40)
+    fx.shake_at(x, y, 6)
+    targets = [z for z in zombies if z.health > 0 and math.hypot(z.rect.centerx - x, z.rect.centery - y) < radius]
+    for target in targets:
+        target.health -= damage * ratio * mastery * get_damage_multiplier(target)
+        if "fire" in elements:
+            grimoire_burn_stacks(target, GRIMOIRE_TRIPLE_STACKS)
+        if "poison" in elements:
+            grimoire_poison_stacks(player, target, damage * 0.15 * mastery, GRIMOIRE_TRIPLE_STACKS)
+        if "ice" in elements:
+            target.slow_time = max(target.slow_time, int(180 * mastery))
+            target.slow_multiplier = min(target.slow_multiplier, 0.35)
+            target.chilled = True
+        if "water" in elements:
+            target.slow_time = max(target.slow_time, int(180 * mastery))
+            target.slow_multiplier = min(target.slow_multiplier, 0.5)
+        if "earth" in elements:   # 기절
+            target.slow_time = max(target.slow_time, int(60 * mastery))
+            target.slow_multiplier = 0.0
+        if "dark" in elements:
+            target.discord_time = max(target.discord_time, 300)
+        if "wind" in elements:   # 어둠과 함께면 끌어당김
+            push_zombie(target, x, y, -14 if "dark" in elements else 14)
+    if "lightning" in elements:   # 가까운 6마리에 번개 추가 피해
+        targets.sort(key=lambda z: (math.hypot(z.rect.centerx - x, z.rect.centery - y), z.rect.x, z.rect.y))
+        for target in targets[:6]:
+            target.health -= damage * GRIMOIRE_TRIPLE_BOLT_RATIO * mastery * get_damage_multiplier(target)
+            target.electric_fx = 30
+            fx.lightning(x, y, target.rect.centerx, target.rect.centery, (255, 245, 130))
+    if "light" in elements:   # 맞은 좀비에게 최대 체력 비례 피해 (방어 무시)
+        boss = zombie.zombie_type in GUARANTEED_DROP_TYPES
+        zombie.health -= zombie.max_health * (0.005 if boss else 0.03) * mastery
 
 
 def grimoire_react(player, zombie, first, second, damage, zombies):
@@ -5792,22 +5931,21 @@ def grimoire_react(player, zombie, first, second, damage, zombies):
     if art in GRIMOIRE_REACT_BOLTS:
         targets.sort(key=lambda z: (math.hypot(z.rect.centerx - x, z.rect.centery - y), z.rect.x, z.rect.y))
         targets = targets[:GRIMOIRE_REACT_BOLTS[art]]
-    if art == "purify":
+    if art in ("purify", "rainbow"):
         player.health = min(player.max_health, player.health + player.max_health * GRIMOIRE_PURIFY_HEAL * mastery)
     for target in targets:
         target.health -= damage * ratio * mastery * get_damage_multiplier(target)
         tx, ty = target.rect.center
         if art in GRIMOIRE_REACT_IGNITE:
-            ignite(target)
+            grimoire_burn_stacks(target, GRIMOIRE_REACT_STACKS)
         if art in GRIMOIRE_REACT_POISON:
-            target.grimoire_poison_time = 240
-            target.grimoire_poison_damage = max(getattr(target, "grimoire_poison_damage", 0),
-                                                damage * 0.15 * mastery * (2 if art == "plague" else 1))
-            target.grimoire_poison_owner = player
+            grimoire_poison_stacks(player, target, damage * 0.15 * mastery, GRIMOIRE_REACT_STACKS * (2 if art == "plague" else 1))
         if art in GRIMOIRE_REACT_SLOW:
             frames, slow = GRIMOIRE_REACT_SLOW[art]
             target.slow_time = max(target.slow_time, int(frames * mastery))
             target.slow_multiplier = min(target.slow_multiplier, slow)
+        if art in GRIMOIRE_REACT_CHILL:
+            target.chilled = True
         if art in GRIMOIRE_REACT_STUN:   # 기절
             target.slow_time = max(target.slow_time, int(GRIMOIRE_REACT_STUN[art] * mastery))
             target.slow_multiplier = 0.0
@@ -5827,19 +5965,23 @@ def grimoire_react(player, zombie, first, second, damage, zombies):
 def grimoire_status(player, zombie, element, damage, zombies, spread=False):
     """속성 효과 한 번. spread: 폭발에 같이 맞은 좀비 (상태 이상만)"""
     x, y = zombie.rect.center
-    if not spread:   # 원소 반응: 3초 안에 다른 속성이 맞으면 발동
+    if not spread:   # 원소 반응: 3초 안에 다른 속성이 맞으면 발동 (서로 다른 3속성이면 3중 반응)
         now = pygame.time.get_ticks()
-        mark = getattr(zombie, "grimoire_mark", None)
-        if mark is not None and mark[0] != element and now - mark[1] < GRIMOIRE_REACT_WINDOW \
-                and now >= getattr(zombie, "grimoire_react_ready", 0):
+        marks = zombie.__dict__.setdefault("grimoire_marks", {})
+        others = sorted((at, key) for key, at in marks.items() if key != element and now - at < GRIMOIRE_REACT_WINDOW)
+        if others and now >= getattr(zombie, "grimoire_react_ready", 0):
             zombie.grimoire_react_ready = now + GRIMOIRE_REACT_COOLDOWN
-            zombie.grimoire_mark = None
-            grimoire_react(player, zombie, mark[0], element, damage, zombies)
+            if len(others) >= 2 and now >= getattr(zombie, "grimoire_triple_ready", 0):
+                zombie.grimoire_triple_ready = now + GRIMOIRE_TRIPLE_COOLDOWN
+                combo = (others[-2][1], others[-1][1], element)
+                marks.clear()
+                grimoire_triple(player, zombie, combo, damage, zombies)
+            else:
+                grimoire_react(player, zombie, others[-1][1], element, damage, zombies)
             if now - getattr(zombie, "grimoire_last_react", -GRIMOIRE_REACT_WINDOW) < GRIMOIRE_REACT_WINDOW:
                 grimoire_react(player, zombie, element, element, damage, zombies)   # 연속 반응: 표에 없는 조합 = 원소 공명
             zombie.grimoire_last_react = now
-        else:
-            zombie.grimoire_mark = (element, now)
+        marks[element] = now
     mastery = 1 + GRIMOIRE_MASTERY * player.skill_upgrades["grimoire"]["mastery"]   # 원소 숙련
     if element == "fire":
         ignite(zombie)
@@ -5849,6 +5991,7 @@ def grimoire_status(player, zombie, element, damage, zombies, spread=False):
     elif element == "ice":
         zombie.slow_time = max(zombie.slow_time, int(120 * mastery))
         zombie.slow_multiplier = min(zombie.slow_multiplier, 0.5)
+        zombie.chilled = True
         fx.element_hit(x, y, "ice")
     elif element == "lightning":
         zombie.electric_fx = 30
@@ -5880,6 +6023,11 @@ def grimoire_status(player, zombie, element, damage, zombies, spread=False):
         if not spread:   # 방어를 무시하는 추가 피해
             zombie.health -= damage * 0.3 * mastery
         fx.burst(x, y, (255, 250, 200), 5, speed=(1, 4), size=(2, 4), life=(8, 14))
+    elif element == "water":   # 물살: 느려지고 밀려남
+        zombie.slow_time = max(zombie.slow_time, int(120 * mastery))
+        zombie.slow_multiplier = min(zombie.slow_multiplier, 0.7)
+        push_zombie(zombie, player.rect.centerx, player.rect.centery, 5 * mastery)
+        fx.burst(x, y, (120, 190, 255), 5, speed=(1, 4), size=(2, 4), life=(10, 18), gravity=0.15)
 
 
 def grimoire_on_hit(player, bullet, zombie, zombies):
@@ -6007,6 +6155,9 @@ class GrimoireSkill(ActiveSkill):
         elif element == "dark":    # 어두운 원과 보라 파편
             fx.disc(x, y, (60, 20, 90), r * 0.75, life=8, alpha=190)
             fx.burst(x, y, (190, 110, 255), 7, speed=(1, 6), size=(3, 6), life=(12, 22))
+        elif element == "water":   # 튀어 오르는 물방울과 물결
+            fx.burst(x, y, (150, 210, 255), 9, speed=(3, 8), size=(2, 5), life=(12, 22), gravity=0.3, drag=0.97)
+            fx.wave(x, y, (190, 230, 255), r * 0.6, r * 1.4, life=12, width=3)
         elif element == "light":   # 사방으로 뻗는 빛줄기
             for i in range(6):
                 a = i * math.pi / 3 + 0.3
@@ -7808,8 +7959,9 @@ WEAPON_HELP = {
                ["블랙홀: 3초 동안 모든 좀비를 빨아들이고 범위 안의 좀비에게 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
     "grimoire": (["패시브 현자의 지식: 최종 경험치 2배 (★ 현자를 찍으면 합쳐서 6배). 속성탄 업그레이드는 나오지 않음.",
                   "기본 스탯이 매우 낮음: 공격력 12, 최대 체력 절반, 이동 속도 -20%. 대신 스킬 피해 3배.",
-                  "쏠 때마다 가진 속성 중 하나가 무작위로 나감: 시작 속성은 무작위, 50레벨마다 무작위 속성 하나, 300레벨에 전부 (8속성).",
-                  "원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 터짐 (속성 조합마다 다른 28종). 3초 안에 또 반응하면 원소 공명도 터짐.",
+                  "쏠 때마다 가진 속성 중 하나가 무작위로 나감: 시작 속성은 무작위, 50레벨마다 무작위 속성 하나, 300레벨에 전부 (9속성).",
+                  "원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 터짐 (2속성 36종). 서로 다른 3속성이면 3중 반응 (84종). 3초 안에 또 반응하면 원소 공명도 터짐.",
+                  "반응의 화상과 맹독은 한 번에 여러 중첩이 쌓임 (2속성 3중첩, 3중 반응 5중첩).",
                   "25레벨마다 진화 (13단계): 구체 → 대형 → 거대 → 쌍둥이 → 삼중 → 창 → 쌍창 → 삼중 창 → 새끼 드래곤 → 드래곤 → 쌍두 → 300 삼두 드래곤 (최대).",
                   "단계 사이에도 레벨마다 크기와 폭발 범위가 조금씩 커짐. 레벨마다 공격력 +0.4% (300레벨 +120%까지)."],
                  ["원소 마법: 가진 속성을 번갈아 가며 조준점 주변 좀비를 오다다다 연타. 50레벨마다 진화 (7단계): 원소 연타 → 50 원소 난타 → 100 원소 폭풍 → 150 대폭풍.",
@@ -8596,6 +8748,7 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
             skill_damage(zombie, base * SPECIAL_FROST_MULT)
             zombie.slow_time = max(zombie.slow_time, 120)
             zombie.slow_multiplier = min(zombie.slow_multiplier, 0.3)
+            zombie.chilled = True
         fx.ring(cx, cy, (160, 225, 255), SPECIAL_FROST_RANGE, count=48, size=5)
         fx.wave(cx, cy, (170, 230, 255), 30, SPECIAL_FROST_RANGE, life=20, width=12)
         fx.disc(cx, cy, (150, 220, 255), SPECIAL_FROST_RANGE, life=40, alpha=90)
@@ -10091,7 +10244,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102147          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102148          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -10396,6 +10549,7 @@ def main():
                                     if player.skills.get("skill_ice_bullets", False):
                                         zombie.slow_time = max(zombie.slow_time, 120)
                                         zombie.slow_multiplier = min(zombie.slow_multiplier, 0.6)
+                                        zombie.chilled = True
                                         fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "ice")
                                     if player.skills.get("skill_electric_bullets", False):
                                         zombie.electric_fx = 30
@@ -10975,6 +11129,7 @@ def main():
                             if player.skills.get("skill_ice_bullets", False):
                                 zombie.slow_time = max(zombie.slow_time, 120)
                                 zombie.slow_multiplier = min(zombie.slow_multiplier, 0.6)
+                                zombie.chilled = True
                                 fx.element_hit(zombie.rect.centerx, zombie.rect.centery, "ice")
                             if player.skills.get("skill_electric_bullets", False):
                                 zombie.electric_fx = 30
