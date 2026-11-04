@@ -1078,6 +1078,7 @@ class EffectManager:
     """가벼운 파티클/글자 효과 관리 (스프라이트 대신 리스트로 관리해서 많이 띄워도 가벼움)"""
     MAX_PARTICLES = 800
     MAX_TEXTS = 80
+    VIEW_MARGIN = 300   # 화면 밖 이만큼까지는 효과를 만듦 (카메라가 움직여도 자연스럽게)
 
     def __init__(self):
         self.text_cache = {}
@@ -1097,12 +1098,34 @@ class EffectManager:
         # 도형 효과 (특수 업그레이드 등 잘 보여야 하는 것): [종류, x, y, x2, y2, 시작 반경, 끝 반경, 남은수명, 전체수명, 색, 굵기, 투명도]
         #  "ring": 퍼지는 굵은 고리 / "disc": 반투명 원 / "beam": 굵은 빛줄기 (x,y → x2,y2)
         self.shapes = []
+        self.view = None    # 화면 범위 (멀티: 다른 플레이어 쪽 효과는 만들지 않음), None이면 전부 만듦
+        self.flash_color, self.flash_alpha = (255, 255, 255), 0.0
+
+    def set_view(self, camera):
+        margin = self.VIEW_MARGIN
+        self.view = (camera.x - margin, camera.y - margin, camera.x + camera.width + margin, camera.y + camera.height + margin)
+
+    def add_flash(self, x, y, color, alpha):
+        """화면 전체가 잠깐 번쩍임 (내 화면 근처에서 일어난 일만)"""
+        if not self._off_view(x, y):
+            self.flash_color, self.flash_alpha = color, max(self.flash_alpha, alpha)
+
+    def shake_at(self, x, y, amount):
+        """내 화면 근처에서 일어난 일만 화면을 흔듦 (멀티: 멀리 있는 팀원의 스킬로 흔들리지 않게)"""
+        if not self._off_view(x, y):
+            self.add_shake(amount)
+
+    def _off_view(self, x, y, pad=0):
+        view = self.view
+        return view is not None and (x < view[0] - pad or x > view[2] + pad or y < view[1] - pad or y > view[3] + pad)
 
     def anim(self, rel, x, y, scale=1.0, frame_time=6, angle=0.0):
         """도트 효과 애니메이션 한 번 재생 (그림이 없으면 아무것도 안 함) → 재생했으면 True"""
         image = load_asset(rel)
         if image is None:
             return False
+        if self._off_view(x, y, 200):
+            return True
         if len(self.anims) > 160:
             self.anims = self.anims[-120:]
         self.anims.append([rel, x, y, 0, frame_time, scale, angle, asset_frame_count(image, rel)])
@@ -1111,8 +1134,13 @@ class EffectManager:
     # ----- 파티클 -----
     def burst(self, x, y, color, count, speed=(1.0, 4.0), size=(2, 4), life=(14, 28),
               gravity=0.0, drag=0.9, angle=None, spread=math.pi * 2):
+        if self._off_view(x, y):
+            return
         rnd = fx_random
-        for _ in range(int(count)):
+        count = int(count)
+        if len(self.particles) > 400:   # 파티클이 많으면 새로 만드는 수를 줄임
+            count = max(1, count // (4 if len(self.particles) > 600 else 2))
+        for _ in range(count):
             a = rnd.uniform(0, math.pi * 2) if angle is None else angle + rnd.uniform(-spread / 2, spread / 2)
             sp = rnd.uniform(*speed)
             lf = rnd.randint(int(life[0]), int(life[1]))
@@ -1141,6 +1169,8 @@ class EffectManager:
 
     def ring(self, x, y, color, radius, count=24, size=3):
         # 바깥으로 퍼지는 고리
+        if self._off_view(x, y, radius):
+            return
         speed = radius / 7.3  # 수명(16프레임)·감속(0.9) 동안 정확히 radius까지 퍼지도록
         for i in range(count):
             a = i / count * math.pi * 2
@@ -1154,6 +1184,8 @@ class EffectManager:
 
     def lightning(self, x1, y1, x2, y2, color=(190, 220, 255)):
         """두 지점을 잇는 지그재그 번개 줄기"""
+        if self._off_view(x1, y1) and self._off_view(x2, y2):
+            return
         dist = math.hypot(x2 - x1, y2 - y1)
         steps = max(3, int(dist / 12))
         for i in range(steps + 1):
@@ -1179,6 +1211,11 @@ class EffectManager:
     MAX_SHAPES = 160
 
     def _shape(self, kind, x, y, color, r0=0, r1=0, life=12, width=4, x2=0, y2=0, alpha=255):
+        if kind == "beam":
+            if self._off_view(x, y) and self._off_view(x2, y2):
+                return
+        elif self._off_view(x, y, max(r0, r1)):
+            return
         self.shapes.append([kind, x, y, x2, y2, r0, r1, life, life, color, width, alpha])
         if len(self.shapes) > self.MAX_SHAPES:
             del self.shapes[:len(self.shapes) - self.MAX_SHAPES]
@@ -1196,11 +1233,15 @@ class EffectManager:
         self._shape("beam", x1, y1, color, 0, 0, life, width, x2, y2)
 
     def trail(self, x, y, color, size=3, life=10):
+        if self._off_view(x, y):
+            return
         self.particles.append([x + fx_random.uniform(-1.5, 1.5), y + fx_random.uniform(-1.5, 1.5),
                                0, 0, life, life, size, color, 0, 1.0])
 
     # ----- 떠오르는 글자 (데미지 숫자 등) -----
     def add_text(self, x, y, text, color, big=False, life=40):
+        if self._off_view(x, y):
+            return
         key = (text, color, big)
         surf = self.text_cache.get(key)
         if surf is None:
@@ -1269,6 +1310,7 @@ class EffectManager:
         self.texts = texts
         self.shake = self.shake * 0.85 if self.shake > 0.3 else 0.0
         self.hurt = max(0.0, self.hurt - 0.035)
+        self.flash_alpha = self.flash_alpha * 0.82 if self.flash_alpha > 6 else 0.0
         anims = []
         for a in self.anims:
             a[3] += 1
@@ -1301,18 +1343,21 @@ class EffectManager:
                 continue
             if kind == "ring":
                 pygame.draw.circle(surface, color, (int(sx), int(sy)), r, max(1, min(r, int(w * (0.3 + 0.7 * left)))))
-            else:   # disc: 큰 원은 비싸서 반경 260까지만 (색·반경별로 한 번 그려 두고 투명도만 바꿔서 씀)
-                r = min(r, 260)
-                key = (color[:3], r)
+            else:   # disc: 큰 원은 비싸서 반경 260까지만 (색·반경·투명도별로 한 번만 그려 두고 씀)
+                r = max(8, min(r, 260) // 8 * 8)
+                level = int(alpha * left) // 24 * 24
+                if level <= 0:
+                    continue
+                key = (color[:3], r, level)
                 glow = _disc_cache.get(key)
                 if glow is None:
-                    if len(_disc_cache) > 300:
-                        _disc_cache.clear()
+                    if len(_disc_cache) > 400:   # 오래된 것부터 하나씩 버림 (통째로 비우면 다시 만드느라 끊김)
+                        del _disc_cache[next(iter(_disc_cache))]
                     glow = pygame.Surface((r * 2, r * 2))
-                    glow.set_colorkey(BLACK)
                     pygame.draw.circle(glow, color[:3], (r, r), r)
+                    glow.set_colorkey(BLACK, pygame.RLEACCEL)
+                    glow.set_alpha(level, pygame.RLEACCEL)
                     _disc_cache[key] = glow
-                glow.set_alpha(int(alpha * left))
                 surface.blit(glow, (int(sx) - r, int(sy) - r))
 
     def draw(self, surface, camera):
@@ -1336,6 +1381,11 @@ class EffectManager:
             surf.set_alpha(255 if life > fade_start else int(255 * life / fade_start))
             surface.blit(surf, (int(sx - surf.get_width() / 2), int(sy - surf.get_height() / 2)))
             surf.set_alpha(255)
+        if self.flash_alpha > 0:
+            overlay = pygame.Surface(surface.get_size())
+            overlay.fill(self.flash_color)
+            overlay.set_alpha(int(self.flash_alpha))
+            surface.blit(overlay, (0, 0))
 
 
 _anim_cache = {}
@@ -1354,8 +1404,11 @@ def anim_frame(rel, index, scale, angle, count):
             return None
         if scale != 1.0:
             frame = pygame.transform.scale(frame, (max(1, round(frame.get_width() * scale)), max(1, round(frame.get_height() * scale))))
+        else:
+            frame = frame.copy()
         if key[3]:
             frame = pygame.transform.rotate(frame, key[3])
+        frame.set_alpha(255, pygame.RLEACCEL)   # 투명한 부분을 건너뛰어 그리기가 빨라짐
         _anim_cache[key] = frame
     return frame
 
@@ -1706,8 +1759,7 @@ def _zombie_body(zombie, image, angle, frozen, flicker, sparking, stealth, eye_d
         if eye_dir is not None:
             a = eye_dir / EYE_DIRECTIONS * 2 * math.pi
             draw_eyes(surf, surf.get_width() / 2, surf.get_height() / 2, w, h, math.cos(a), math.sin(a))
-        if stealth:
-            surf.set_alpha(40)
+        surf.set_alpha(40 if stealth else 255, pygame.RLEACCEL)
         _zombie_body_cache[key] = surf
     return surf
 
@@ -3171,6 +3223,9 @@ def make_role_angel(x, y, role_index, wave, parent):
 
 
 # 총알 클래스
+_bullet_images = {}   # 회전한 총알 그림 (종류, 3도 단위 각도) -> 표면
+
+
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y, target_x, target_y, damage=25, bullet_type="normal", weapon_type=None):
         super().__init__()
@@ -3350,8 +3405,11 @@ class Bullet(pygame.sprite.Sprite):
         rel = BULLET_ART.get(self.weapon_type)
         raw = load_asset(rel) if rel else None
         if raw is not None:   # 그림만 바꿈 (충돌 rect는 그대로)
-            art = sprite_frame(rel, 0, raw.get_size(), frames=1)
-            self.image = pygame.transform.rotate(art, angle)
+            key = (rel, int(angle) // 3)
+            image = _bullet_images.get(key)
+            if image is None:
+                image = _bullet_images[key] = pygame.transform.rotate(sprite_frame(rel, 0, raw.get_size(), frames=1), key[1] * 3)
+            self.image = image
             return
         if self.weapon_type == "sniper":
             rotation = angle + 90       # 탄두가 이미지 아래쪽
@@ -3359,7 +3417,11 @@ class Bullet(pygame.sprite.Sprite):
             rotation = angle - 90       # 탄두가 이미지 위쪽
         else:
             return                      # 둥근 탄은 회전할 필요 없음
-        self.image = pygame.transform.rotate(self.image, rotation)
+        key = (self.weapon_type, self.bullet_type, int(rotation) // 3)
+        image = _bullet_images.get(key)
+        if image is None:
+            image = _bullet_images[key] = pygame.transform.rotate(self.image, key[2] * 3)
+        self.image = image
 
     @property
     def speed(self):
@@ -3484,6 +3546,7 @@ class Explosion(pygame.sprite.Sprite):
                 size = self.image.get_width()
                 frame = sprite_frame(rel, index, None, frames=count)
                 image = pygame.transform.scale(frame, (size, size))
+                image.set_alpha(255, pygame.RLEACCEL)
                 _explosion_frames[key] = image
             self.image = image
             return
@@ -5847,8 +5910,14 @@ class GrimoireSkill(ActiveSkill):
         self.strikes = 0
         fx.add_text(player.rect.centerx, player.rect.top - 30, name + "!", (200, 150, 255), big=True, life=70)
         fx.wave(x, y, (200, 150, 255), 20, radius * 1.5, life=20, width=10)
-        fx.beam(player.rect.centerx, player.rect.centery, x, y, (200, 150, 255), width=8, life=12)
-        fx.anim("effects/magic_circle.png", x, y, radius * 2 / 128, 4)
+        fx.beam(player.rect.centerx, player.rect.centery, x, y, (200, 150, 255), width=12, life=14)
+        fx.beam(x, y - 620, x, y, (235, 215, 255), width=60 + stage * 10, life=16)   # 하늘에서 열리는 빛기둥
+        fx.anim("effects/magic_circle.png", x, y, radius * 3 / 128, 4)
+        fx.disc(x, y, (200, 150, 255), radius * 1.5, life=20, alpha=150)
+        for i, element in enumerate(elements):   # 가진 속성마다 고리가 퍼짐
+            fx.wave(x, y, GRIMOIRE_ELEMENTS[element][1], 30, radius * (0.9 + 0.2 * i), life=18 + i * 3, width=8)
+        fx.add_flash(x, y, (215, 190, 255), 45 + stage * 6)
+        fx.shake_at(x, y, 4 + stage)
 
     def update(self, player, zombies, bullets, all_sprites, explosions):
         alive = super().update(player, zombies, bullets, all_sprites, explosions)
@@ -5858,13 +5927,21 @@ class GrimoireSkill(ActiveSkill):
         return alive
 
     def _circle(self):
-        """바닥 마법진: 두 겹 고리 + 도는 빛 (그리기 전용)"""
+        """바닥 마법진: 지금 속성 색으로 빛나는 세 겹 고리 + 도는 별 + 도는 빛 (그리기 전용)"""
         r = self.radius * 1.5
-        fx.wave(self.x, self.y, (200, 150, 255), r, r, life=3, width=4)
-        fx.wave(self.x, self.y, (130, 90, 200), r * 0.7, r * 0.7, life=3, width=2)
-        for i in range(6):
-            a = self.frames * 0.05 + i * math.pi / 3
-            fx.trail(self.x + math.cos(a) * r, self.y + math.sin(a) * r, GRIMOIRE_ELEMENTS[self.elements[i % len(self.elements)]][1], 9, 8)
+        color = GRIMOIRE_ELEMENTS[self.elements[self.strikes % len(self.elements)]][1]
+        pulse = 1 + 0.06 * math.sin(self.frames * 0.4)
+        fx.disc(self.x, self.y, color, r * pulse, life=2, alpha=48)
+        fx.wave(self.x, self.y, color, r * pulse, r * pulse, life=2, width=6)
+        fx.wave(self.x, self.y, (200, 150, 255), r * 0.72, r * 0.72, life=2, width=3)
+        fx.wave(self.x, self.y, color, r * 0.42, r * 0.42, life=2, width=2)
+        points = [(self.x + math.cos(self.frames * 0.04 + i * 4 * math.pi / 5) * r * 0.72,
+                   self.y + math.sin(self.frames * 0.04 + i * 4 * math.pi / 5) * r * 0.72) for i in range(5)]
+        for i in range(5):   # 도는 오각별
+            fx.beam(points[i][0], points[i][1], points[(i + 1) % 5][0], points[(i + 1) % 5][1], color, width=3, life=2)
+        for i in range(8):
+            a = -self.frames * 0.07 + i * math.pi / 4
+            fx.trail(self.x + math.cos(a) * r, self.y + math.sin(a) * r, GRIMOIRE_ELEMENTS[self.elements[i % len(self.elements)]][1], 11, 10)
 
     def _blast(self, player, zombies, all_sprites, explosions, x, y, radius, damage, element):
         info = GRIMOIRE_ELEMENTS[element]
@@ -5903,17 +5980,58 @@ class GrimoireSkill(ActiveSkill):
                     grimoire_status(player, zombie, element, damage, zombies, spread=zombie is not target)
 
     def _strike(self, x, y, element):
-        """1타 그림: 하늘에서 내리꽂히는 속성 빛 + 작은 폭발 + 튀는 불꽃 (그리기 전용)"""
+        """1타 그림: 하늘에서 내리꽂히는 속성 빛 + 폭발 + 속성마다 다른 파편 (그리기 전용)"""
         color = GRIMOIRE_ELEMENTS[element][1]
         r = self.strike_radius
         side = fx_random.uniform(-160, 160)
-        fx.beam(x + side, y - 460, x, y, color, width=14, life=7)
-        fx.beam(x + side, y - 460, x, y, (255, 255, 255), width=4, life=4)
-        fx.disc(x, y, color, r, life=8, alpha=165)
-        fx.wave(x, y, color, r * 0.3, r + 16, life=9, width=6)
-        fx.burst(x, y, color, 7, speed=(3, 9), size=(3, 6), life=(8, 16))
-        fx.anim(f"effects/explosion_{grimoire_explosion_kind(element)}.png", x, y, r * 2.4 / 96, 2)
-        fx.add_shake(1.2)
+        fx.beam(x + side, y - 520, x, y, color, width=20 + self.stage * 2, life=8)
+        fx.beam(x + side, y - 520, x, y, (255, 255, 255), width=7, life=5)
+        fx.disc(x, y, color, r * 1.1, life=9, alpha=190)
+        fx.disc(x, y, (255, 255, 255), r * 0.45, life=5, alpha=210)
+        fx.wave(x, y, color, r * 0.3, r + 26, life=11, width=9)
+        fx.burst(x, y, color, 9, speed=(3, 11), size=(3, 7), life=(8, 18))
+        fx.anim(f"effects/explosion_{grimoire_explosion_kind(element)}.png", x, y, r * 3.0 / 96, 2)
+        if element == "fire":      # 위로 솟는 불티
+            fx.burst(x, y, (255, 200, 80), 7, speed=(1, 4), size=(3, 6), life=(14, 24), gravity=-0.25, drag=0.95)
+        elif element == "ice":     # 흩어지는 얼음 조각
+            fx.burst(x, y, (235, 250, 255), 8, speed=(4, 10), size=(2, 5), life=(10, 20), drag=0.88)
+        elif element == "lightning":   # 옆으로 튀는 번개
+            a = fx_random.uniform(0, 2 * math.pi)
+            fx.lightning(x, y, x + math.cos(a) * r * 1.8, y + math.sin(a) * r * 1.8, (255, 245, 130))
+        elif element == "poison":  # 올라오는 독 방울
+            fx.burst(x, y, (170, 240, 90), 7, speed=(0.5, 2.5), size=(4, 8), life=(16, 28), gravity=-0.12, drag=0.96)
+        elif element == "wind":    # 퍼지는 바람 고리
+            fx.wave(x, y, (225, 255, 240), r * 0.5, r * 1.6, life=12, width=3)
+        elif element == "earth":   # 튀었다 떨어지는 돌
+            fx.burst(x, y - 8, (150, 110, 65), 7, speed=(3, 7), size=(4, 8), life=(16, 26), gravity=0.35, drag=0.97)
+        elif element == "dark":    # 어두운 원과 보라 파편
+            fx.disc(x, y, (60, 20, 90), r * 0.75, life=8, alpha=190)
+            fx.burst(x, y, (190, 110, 255), 7, speed=(1, 6), size=(3, 6), life=(12, 22))
+        elif element == "light":   # 사방으로 뻗는 빛줄기
+            for i in range(6):
+                a = i * math.pi / 3 + 0.3
+                fx.beam(x, y, x + math.cos(a) * r * 1.5, y + math.sin(a) * r * 1.5, (255, 250, 200), width=5, life=6)
+        fx.shake_at(x, y, 1.6 + self.stage * 0.2)
+        if self.strikes % 25 == 0:   # 쌓이는 타수
+            fx.add_text(self.x, self.y - self.radius * 1.5 - 20, f"{self.strikes} HIT", (255, 225, 140), big=True, life=26)
+            fx.wave(self.x, self.y, color, 30, self.radius * 1.7, life=14, width=8)
+
+    def _finale_fx(self, radius):
+        """마지막 폭발 그림: 가진 속성마다 빛기둥과 고리 + 화면 번쩍임 (그리기 전용)"""
+        x, y = self.x, self.y
+        count = len(self.elements)
+        for i, element in enumerate(self.elements):
+            color = GRIMOIRE_ELEMENTS[element][1]
+            a = i * 2 * math.pi / count
+            px, py = x + math.cos(a) * radius * 0.6 * (count > 1), y + math.sin(a) * radius * 0.6 * (count > 1)
+            fx.beam(px, py - 640, px, py, color, width=44 + self.stage * 6, life=24)
+            fx.beam(px, py - 640, px, py, (255, 255, 255), width=14, life=14)
+            fx.wave(x, y, color, radius * 0.2, radius * (1.15 + 0.2 * i), life=22 + i * 3, width=14)
+            fx.disc(px, py, color, radius * 0.5, life=22, alpha=170)
+            fx.burst(px, py, color, 18, speed=(4, 15), size=(4, 9), life=(16, 34), drag=0.92)
+        fx.disc(x, y, (255, 255, 255), radius * 0.7, life=10, alpha=230)
+        fx.anim("effects/magic_circle.png", x, y, radius * 2.4 / 128, 3)
+        fx.add_flash(x, y, (255, 245, 225), 70 + self.stage * 10)
 
     def tick(self, player, zombies, bullets, all_sprites, explosions):
         t = self.frames
@@ -5955,7 +6073,8 @@ class GrimoireSkill(ActiveSkill):
             fx.add_text(self.x, self.y - 60, f"{self.strikes} HIT!", (255, 220, 120), big=True, life=70)
             scale, power = self.finale
             self._blast(*kw, self.x, self.y, self.radius * scale, self.damage * power, self.elements[-1])
-            fx.add_shake(min(14, 3 + power))
+            self._finale_fx(self.radius * scale)
+            fx.shake_at(self.x, self.y, min(16, 5 + power))
         return True
 
 
@@ -9972,7 +10091,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102146          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102147          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed

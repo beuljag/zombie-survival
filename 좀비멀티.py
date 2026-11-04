@@ -1003,9 +1003,9 @@ class MatchState:
                 p.slow_multiplier = min(p.slow_multiplier, zombie.slow_effect)
             apply_player_damage(p, damage)
 
-        for bullet in list(bullets):
-            if not bullet.rect.colliderect(p.rect):
-                continue
+        everything = bullets.sprites()
+        for index in p.rect.collidelistall([bullet.rect for bullet in everything]):   # 총알이 많아도 빠르게
+            bullet = everything[index]
             if isinstance(bullet, (SpikeProjectile, NinjaProjectile)):
                 apply_player_damage(p, bullet.damage)
                 bullet.kill()
@@ -1372,6 +1372,9 @@ def spectate_target(state, ui):
     return alive[ui.get("spectate", 0) % len(alive)]
 
 
+MAX_DRAWN_EXPLOSIONS = 60
+
+
 def draw_match(state, camera, ui):
     local = state.by_pid[state.local_pid]
     view = spectate_target(state, ui)
@@ -1381,11 +1384,17 @@ def draw_match(state, camera, ui):
     pred_x, pred_y = ui.get("pred", (0, 0)) if view is local else (0, 0)
     camera.update(view.rect.centerx + pred_x, view.rect.centery + pred_y)
     camera.shake_x, camera.shake_y = fx.shake_offset()
+    fx.set_view(camera)
     screen.fill(BLACK)
     camera.draw_background(screen)
 
+    # 폭발이 너무 많으면 오래된 것은 그리지 않음 (그림 전용)
+    skip_booms = sum(isinstance(sprite, Explosion) for sprite in state.explosions) - MAX_DRAWN_EXPLOSIONS
     for sprite in state.all_sprites:
         if isinstance(sprite, Player):
+            continue
+        if skip_booms > 0 and isinstance(sprite, Explosion):
+            skip_booms -= 1
             continue
         if isinstance(sprite, Zombie):
             target = getattr(sprite, "chase_target", None) or local   # 눈 방향만 (게임 계산에서 이미 찾은 대상)
@@ -1418,7 +1427,7 @@ def draw_match(state, camera, ui):
             pygame.draw.circle(screen, ring_alpha_color, (int(cx), int(cy)), int(32 + pulse), 3)
         sx, sy = camera.apply(p.rect.centerx, p.rect.top)
         p.rect = real_rect
-        tag = font_desc.render(p.name + (" (나)" if p.pid == state.local_pid else ""), True, p.color)
+        tag = g._render_cached(font_desc, p.name + (" (나)" if p.pid == state.local_pid else ""), p.color)[0]
         screen.blit(tag, (sx - tag.get_width() // 2, sy - 30))
         bar = pygame.Rect(0, 0, 40, 5)
         bar.midbottom = (int(sx), int(sy - 4))
@@ -1688,7 +1697,8 @@ def run_match(lockstep, seed, roster, local_pid, resume_log=None):
             if behind > 20 or behind < -20:      # 크게 밀리면(창 이동/긴 끊김) 그냥 지금부터 다시 맞춤
                 pace_start = REAL_GET_TICKS() - state.sim_frame * 1000 / FPS
                 behind = 0
-            max_steps = 2 if behind >= 3 else (0 if behind <= -3 else 1)
+            # 많이 밀리면 한 화면에 3프레임까지 (느린 PC 한 대가 모두를 늦추는 시간을 줄임)
+            max_steps = 3 if behind >= 10 else 2 if behind >= 3 else (0 if behind <= -3 else 1)
             lockstep.poll()
             if catching_up:   # 다시 들어오는 중: 받아 둔 tick을 한꺼번에 계산, 다 따라잡으면 "준비됨"을 알리고 입력을 보내기 시작
                 muted = SFX_MUTED[0]
