@@ -6202,6 +6202,10 @@ class GrimoireSkill(ActiveSkill):
         fx.wave(x, y, (200, 150, 255), 20, radius * 1.5, life=20, width=10)
         fx.beam(player.rect.centerx, player.rect.centery, x, y, (200, 150, 255), width=12, life=14)
         fx.beam(x, y - 620, x, y, (235, 215, 255), width=60 + stage * 10, life=16)   # 하늘에서 열리는 빛기둥
+        for i in range(stage):   # 진화할수록 빛기둥이 주위로 늘어남
+            a = i * 2 * math.pi / max(1, stage)
+            ox, oy = x + math.cos(a) * radius, y + math.sin(a) * radius * 0.7
+            fx.beam(ox, oy - 620, ox, oy, GRIMOIRE_ELEMENTS[elements[i % len(elements)]][1], width=24 + stage * 3, life=18)
         fx.anim("effects/magic_circle.png", x, y, radius * 3 / 128, 4)
         fx.disc(x, y, (200, 150, 255), radius * 1.5, life=20, alpha=150)
         for i, element in enumerate(elements):   # 가진 속성마다 고리가 퍼짐
@@ -6218,9 +6222,15 @@ class GrimoireSkill(ActiveSkill):
 
     def _circle(self):
         """바닥 마법진: 지금 속성 색으로 빛나는 세 겹 고리 + 도는 별 + 도는 빛 (그리기 전용)"""
-        r = self.radius * 1.5
+        r = self.radius * (1.5 + 0.12 * self.stage)   # 진화할수록 커짐
         color = GRIMOIRE_ELEMENTS[self.elements[self.strikes % len(self.elements)]][1]
         pulse = 1 + 0.06 * math.sin(self.frames * 0.4)
+        if self.stage >= 2:   # 바깥 고리가 하나 더
+            fx.wave(self.x, self.y, color, r * 1.14 * pulse, r * 1.14 * pulse, life=2, width=3 + self.stage)
+        if self.stage >= 4:   # 거꾸로 도는 큰 별이 하나 더
+            outer = [(self.x + math.cos(-self.frames * 0.03 + i * 4 * math.pi / 5) * r, self.y + math.sin(-self.frames * 0.03 + i * 4 * math.pi / 5) * r) for i in range(5)]
+            for i in range(5):
+                fx.beam(outer[i][0], outer[i][1], outer[(i + 1) % 5][0], outer[(i + 1) % 5][1], (200, 150, 255), width=3, life=2)
         fx.disc(self.x, self.y, color, r * pulse, life=2, alpha=48)
         fx.wave(self.x, self.y, color, r * pulse, r * pulse, life=2, width=6)
         fx.wave(self.x, self.y, (200, 150, 255), r * 0.72, r * 0.72, life=2, width=3)
@@ -6229,9 +6239,10 @@ class GrimoireSkill(ActiveSkill):
                    self.y + math.sin(self.frames * 0.04 + i * 4 * math.pi / 5) * r * 0.72) for i in range(5)]
         for i in range(5):   # 도는 오각별
             fx.beam(points[i][0], points[i][1], points[(i + 1) % 5][0], points[(i + 1) % 5][1], color, width=3, life=2)
-        for i in range(8):
-            a = -self.frames * 0.07 + i * math.pi / 4
-            fx.trail(self.x + math.cos(a) * r, self.y + math.sin(a) * r, GRIMOIRE_ELEMENTS[self.elements[i % len(self.elements)]][1], 11, 10)
+        count = 8 + self.stage * 2
+        for i in range(count):
+            a = -self.frames * 0.07 + i * 2 * math.pi / count
+            fx.trail(self.x + math.cos(a) * r, self.y + math.sin(a) * r, GRIMOIRE_ELEMENTS[self.elements[i % len(self.elements)]][1], 11 + self.stage, 10)
 
     def _blast(self, player, zombies, all_sprites, explosions, x, y, radius, damage, element):
         info = GRIMOIRE_ELEMENTS[element]
@@ -6273,14 +6284,17 @@ class GrimoireSkill(ActiveSkill):
         """1타 그림: 하늘에서 내리꽂히는 속성 빛 + 폭발 + 속성마다 다른 파편 (그리기 전용)"""
         color = GRIMOIRE_ELEMENTS[element][1]
         r = self.strike_radius
-        side = fx_random.uniform(-160, 160)
-        fx.beam(x + side, y - 520, x, y, color, width=20 + self.stage * 2, life=8)
-        fx.beam(x + side, y - 520, x, y, (255, 255, 255), width=7, life=5)
+        for i in range(1 + self.stage // 2):   # 진화할수록 빛줄기가 늘어남 (1 → 4줄기)
+            side = fx_random.uniform(-160 - self.stage * 30, 160 + self.stage * 30)
+            fx.beam(x + side, y - 520, x, y, color, width=20 + self.stage * 4, life=8)
+            fx.beam(x + side, y - 520, x, y, (255, 255, 255), width=7 + self.stage, life=5)
         fx.disc(x, y, color, r * 1.1, life=9, alpha=190)
         fx.disc(x, y, (255, 255, 255), r * 0.45, life=5, alpha=210)
-        fx.wave(x, y, color, r * 0.3, r + 26, life=11, width=9)
-        fx.burst(x, y, color, 9, speed=(3, 11), size=(3, 7), life=(8, 18))
-        fx.anim(f"effects/explosion_{grimoire_explosion_kind(element)}.png", x, y, r * 3.0 / 96, 2)
+        fx.wave(x, y, color, r * 0.3, r + 26 + self.stage * 8, life=11, width=9 + self.stage)
+        if self.stage >= 3:   # 땅을 울리는 고리가 하나 더
+            fx.wave(x, y, (255, 255, 255), r * 0.5, r * 1.5 + self.stage * 8, life=14, width=3)
+        fx.burst(x, y, color, 9 + self.stage * 3, speed=(3, 11 + self.stage), size=(3, 7 + self.stage // 2), life=(8, 18))
+        fx.anim(f"effects/explosion_{grimoire_explosion_kind(element)}.png", x, y, r * (3.0 + self.stage * 0.2) / 96, 2)
         if element == "fire":      # 위로 솟는 불티
             fx.burst(x, y, (255, 200, 80), 7, speed=(1, 4), size=(3, 6), life=(14, 24), gravity=-0.25, drag=0.95)
         elif element == "ice":     # 흩어지는 얼음 조각
@@ -6304,7 +6318,7 @@ class GrimoireSkill(ActiveSkill):
             for i in range(6):
                 a = i * math.pi / 3 + 0.3
                 fx.beam(x, y, x + math.cos(a) * r * 1.5, y + math.sin(a) * r * 1.5, (255, 250, 200), width=5, life=6)
-        fx.shake_at(x, y, 1.6 + self.stage * 0.2)
+        fx.shake_at(x, y, 1.6 + self.stage * 0.3)
         if self.strikes % 25 == 0:   # 쌓이는 타수
             fx.add_text(self.x, self.y - self.radius * 1.5 - 20, f"{self.strikes} HIT", (255, 225, 140), big=True, life=26)
             fx.wave(self.x, self.y, color, 30, self.radius * 1.7, life=14, width=8)
@@ -10386,7 +10400,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102149          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102150          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
