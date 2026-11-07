@@ -1132,7 +1132,7 @@ class MatchState:
             if not zombie.no_reward:
                 self.score += 10
                 for p in members:   # 경험치 공유
-                    gain = get_exp_reward(p, self.wave)
+                    gain = get_exp_reward(p, self.wave) * kill_exp_mult(zombie)
                     if getattr(zombie, "dash_kill", False):
                         gain = int(gain * KATANA_DASH_EXP_RATIO)
                     p.exp += gain
