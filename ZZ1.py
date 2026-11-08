@@ -2330,7 +2330,8 @@ class Player(pygame.sprite.Sprite):
         self.scythe_stage = 0        # 낫 진화 단계: 0 / 1 (루트 선택) / 2 (2차 진화)
         self.scythe_blood = 0        # 낫 선혈 루트: 혈기 스택
         self.scythe_frenzy_time = 0  # 낫 선혈 루트: 평타 강화 남은 프레임
-        self.scythe_frenzy_spent = 0 # 낫 선혈 루트: 이번 강화에 쓴 혈기
+        self.scythe_frenzy = []      # 낫 선혈 루트: 평타 강화 중첩 [남은 프레임, 위력]
+        self.scythe_executed = False # 낫 처형 루트: 이번 스킬이 처형에 성공했는지
         self.scythe_offered = False  # 멀티: 진화 선택지를 이미 띄웠는지
         self.overshield_time = 0
         self.katana_chain = 0    # 일섬 연속 처치 횟수 (처치 실패 시 0으로)
@@ -3720,11 +3721,15 @@ SCYTHE_EVOLVE_STACKS = 1000       # 이 스택에서 루트 선택
 SCYTHE_EVOLVE2_STACKS = 3000      # 이 스택에서 2차 진화
 SCYTHE_SKILL_MULT = 4.6           # 크게 베기 · 처형 베기: 공격력 배율 (평타를 줄여도 스킬은 그대로가 되게 올림)
 SCYTHE_SLASH_RADIUS, SCYTHE_SLASH_HALF = 240, 105   # 크게 베기: 반경, 반각(도)
+SCYTHE_EXEC_INVULN_FRAMES = 60    # 처형: 이동해서 벤 뒤 무적 1초
+SCYTHE_REAPER_HEAL = 0.01         # 낫 + ★ 사신의 낫: 처형할 때마다 최대 체력의 1% 회복
 SCYTHE_EXEC_PICK = 280            # 처형: 클릭한 곳에서 이 거리 안의 가장 가까운 좀비를 노림
-SCYTHE_EXEC_PER_STACK = 0.0001    # 처형: 영혼 1개당 처형 체력선 +0.01% (영혼 1000에 10%)
-SCYTHE_EXEC_MAX, SCYTHE_EXEC_BOSS_MAX = 0.5, 0.25   # 처형 체력선 상한 (일반 / 보스급)
+SCYTHE_EXEC_PER_STACK = 0.0002    # 처형: 영혼 1개당 처형 체력선 +0.02% (영혼 1000에 20%)
+SCYTHE_EXEC_MAX, SCYTHE_EXEC_BOSS_MAX = 0.6, 0.3   # 처형 체력선 상한 (일반 / 보스급)
 SCYTHE_EXEC_BOSS_RATIO = 0.5      # 보스급은 처형 체력선 절반
-SCYTHE_EXEC2_MULT, SCYTHE_EXEC2_RADIUS = 1.25, 170  # 2차 진화: 처형 체력선 x1.25, 대상 주변도 함께 벰
+SCYTHE_EXEC_DAMAGE_MULT = 1.75    # 처형의 낫: 스킬 피해 x1.75
+SCYTHE_EXEC_COOLDOWN = 6000       # 처형의 낫: 스킬 쿨타임 6초 (ms), 처형에 성공하면 절반
+SCYTHE_EXEC2_MULT = 1.25          # 2차 진화: 처형 체력선 x1.25, 크게 베기에 맞은 좀비 전부 처형 판정
 SCYTHE_BLEED_FRAMES = 180         # 출혈 3초
 SCYTHE_BLEED_RATIO = (0.10, 0.15) # 출혈 0.5초마다: 평타 피해의 비율 (1차 / 2차 진화)
 SCYTHE_BLEED_STACKS = (5, 8)      # 출혈 중첩 상한 (1차 / 2차 진화): 0.5초마다 피해 x 중첩
@@ -3733,6 +3738,8 @@ SCYTHE_BLOOD_DAMAGE = 0.002       # 강화 중 혈기 1개당 평타 피해 +0.2
 SCYTHE_BLOOD_COST = 100           # 선혈 스킬: 혈기 소모 (이보다 적으면 못 씀, 대신 쿨타임 없음)
 SCYTHE_BLOOD_SPEED = 0.001        # 강화 중 혈기 1개당 공격 속도 +0.1%
 SCYTHE_FRENZY_FRAMES = (300, 360) # 평타 강화 지속 (1차 / 2차 진화)
+SCYTHE_FRENZY_LAYERS = (3, 5)     # 평타 강화 중첩 상한 (1차 / 2차 진화): 넘치면 가장 오래된 것부터 사라짐
+SCYTHE_FRENZY_POWER_MAX = 2       # 중첩을 합친 위력 상한 = 혈기 상한의 2배
 SCYTHE_LIFESTEAL = (0.05, 0.08)   # 강화 중 평타 흡혈 (보호막은 생기지 않음)
 SCYTHE_NAMES = {(0, 0): "낫", (1, 1): "처형의 낫", (1, 2): "종말의 낫", (2, 1): "선혈의 낫", (2, 2): "혈왕의 낫"}
 SCYTHE_COLORS = {0: (190, 180, 225), 1: (185, 150, 255), 2: (255, 80, 80)}
@@ -3780,7 +3787,7 @@ def scythe_route_ready(player):
 
 def scythe_route_cards():
     """1000스택 진화 선택지"""
-    return [{"name": "처형의 낫", "desc": "클릭한 곳의 적 뒤로 이동해 벰. 영혼 비례 체력선 아래면 처형",
+    return [{"name": "처형의 낫", "desc": "클릭한 곳의 적 뒤로 이동해 크게 벰. 영혼 비례 체력선 아래면 처형",
              "type": "scythe_route_1", "color": SCYTHE_COLORS[1], "evolve": True},
             {"name": "선혈의 낫", "desc": "평타에 출혈 중첩과 혈기. 스킬은 크게 베기 + 평타 강화 · 흡혈",
              "type": "scythe_route_2", "color": SCYTHE_COLORS[2], "evolve": True}]
@@ -3790,7 +3797,7 @@ def scythe_blood_power(player):
     """강화 중일 때 적용되는 혈기 스택 수 (강화 중이 아니면 0)"""
     if player.scythe_route != 2 or player.scythe_frenzy_time <= 0:
         return 0
-    return min(player.scythe_blood + player.scythe_frenzy_spent, SCYTHE_BLOOD_MAX[player.scythe_stage - 1])   # 이번 강화에 쓴 혈기까지 쳐서 위력 계산
+    return min(sum(power for _time, power in player.scythe_frenzy), SCYTHE_BLOOD_MAX[player.scythe_stage - 1] * SCYTHE_FRENZY_POWER_MAX)   # 중첩마다 쓰기 전 혈기만큼
 
 
 def tick_scythe(player):
@@ -3806,9 +3813,10 @@ def tick_scythe(player):
         fx.wave(cx, cy, color, 30, 320, life=30, width=12)
         fx.burst(cx, cy, color, 60, speed=(3, 11), size=(3, 7), life=(18, 40))
     player.weapon.name = SCYTHE_NAMES[(player.scythe_route, player.scythe_stage)]
-    if player.scythe_frenzy_time > 0:
-        player.scythe_frenzy_time -= 1
-        if player.scythe_frenzy_time % 5 == 0:
+    if player.scythe_frenzy:
+        player.scythe_frenzy = [[time - 1, power] for time, power in player.scythe_frenzy if time > 1]   # 중첩마다 따로 끝남
+        player.scythe_frenzy_time = max((time for time, _power in player.scythe_frenzy), default=0)
+        if player.scythe_frenzy_time > 0 and player.scythe_frenzy_time % 5 == 0:
             fx.burst(player.rect.centerx, player.rect.centery, SCYTHE_COLORS[2], 2, speed=(1, 3), size=(2, 4), life=(10, 20))
     player.weapon.rush_mult = 1 + scythe_blood_power(player) * SCYTHE_BLOOD_SPEED
 
@@ -3831,6 +3839,8 @@ def scythe_on_basic_hit(player, zombie, total):
     zombie.bleed_owner = player
     player.scythe_blood = min(player.scythe_blood + 1, SCYTHE_BLOOD_MAX[1])
     if player.scythe_frenzy_time > 0:
+        if zombie.health - total <= 0:   # 선혈 버프 중 평타로 잡으면 영혼 +1
+            zombie.scythe_soul_owner = player
         player.health = min(player.max_health, player.health + total * SCYTHE_LIFESTEAL[stage])
         fx.burst(player.rect.centerx, player.rect.centery, (120, 255, 140), 2, speed=(1, 3), size=(2, 3), life=(8, 16))
 
@@ -3860,19 +3870,27 @@ def scythe_exec_ratio(player, zombie):
     return min(ratio * SCYTHE_EXEC_BOSS_RATIO, SCYTHE_EXEC_BOSS_MAX) if boss else min(ratio, SCYTHE_EXEC_MAX)
 
 
-def scythe_strike(player, zombie, damage):
-    """처형 베기 한 번: 피해를 준 뒤 체력선 아래면 처형"""
+def scythe_strike(player, zombie, damage, execute=True):
+    """처형의 낫 베기 한 번: 피해를 준 뒤 execute면 체력선 아래일 때 처형"""
     skill_damage(zombie, roll_crit_damage(player, damage, zombie))
     x, y = zombie.rect.center
-    size = max(zombie.rect.width, zombie.rect.height) * 0.9
     color = SCYTHE_COLORS[1]
     fx.hit_spark(x, y, color)
-    if 0 < zombie.health <= zombie.max_health * scythe_exec_ratio(player, zombie):
+    if execute and 0 < zombie.health <= zombie.max_health * scythe_exec_ratio(player, zombie):
         zombie.health = 0
-        fx.add_text(x, y - 46, "처형!", color, big=True, life=50)
-        if not fx.anim("effects/scythe_execute.png", x, y, max(1.5, size / 24), 3):
-            fx.beam(x - size, y - size, x + size, y + size, color, width=10, life=12)
-            fx.beam(x - size, y + size, x + size, y - size, color, width=10, life=12)
+        zombie._normal_revived = True   # 처형당한 일반 좀비는 다시 일어나지 못함
+        player.scythe_kills += 1        # 처형은 영혼을 하나 더 줌
+        player.scythe_executed = True   # 이번 스킬이 처형에 성공함 (쿨타임 절반)
+        size = max(zombie.rect.width, zombie.rect.height)
+        fx.add_text(x, y - 56, "처형!", (235, 215, 255), big=True, life=70)
+        if not fx.anim("effects/scythe_execute.png", x, y, max(2.2, size / 16), 3):
+            fx.beam(x - size, y - size, x + size, y + size, color, width=14, life=14)
+            fx.beam(x - size, y + size, x + size, y - size, color, width=14, life=14)
+        fx.beam(x, y - 620, x, y, (235, 215, 255), width=26, life=14)   # 하늘에서 내리꽂히는 빛
+        fx.wave(x, y, color, 20, 150, life=20, width=10)
+        fx.burst(x, y, color, 36, speed=(3, 11), size=(3, 7), life=(16, 36))
+        fx.add_flash(x, y, (70, 30, 120), 70)
+        fx.shake_at(x, y, 7)
     scythe_mark_soul(player, zombie)
 
 
@@ -3881,13 +3899,16 @@ def scythe_skill(player, x, y, aim, base, zombies, all_sprites):
     cx, cy = player.rect.center
     if player.scythe_route == 2:
         stage = player.scythe_stage - 1
+        player.scythe_frenzy.append([SCYTHE_FRENZY_FRAMES[stage], min(player.scythe_blood, SCYTHE_BLOOD_MAX[stage])])
+        del player.scythe_frenzy[:-SCYTHE_FRENZY_LAYERS[stage]]   # 상한을 넘으면 가장 오래된 중첩부터 버림
         player.scythe_frenzy_time = SCYTHE_FRENZY_FRAMES[stage]
-        player.scythe_frenzy_spent = SCYTHE_BLOOD_COST
         player.scythe_blood -= SCYTHE_BLOOD_COST
-        fx.add_text(cx, player.rect.top - 34, f"선혈 강화! 혈기 -{player.scythe_frenzy_spent}", SCYTHE_COLORS[2], big=True, life=60)
+        fx.add_text(cx, player.rect.top - 34, f"선혈 강화 x{len(player.scythe_frenzy)}! 혈기 -{SCYTHE_BLOOD_COST}", SCYTHE_COLORS[2], big=True, life=60)
         fx.wave(cx, cy, SCYTHE_COLORS[2], 20, 170 + stage * 70, life=20, width=8)
         fx.disc(cx, cy, SCYTHE_COLORS[2], 120 + stage * 50, life=16, alpha=120)
     damage = base * SCYTHE_SKILL_MULT * scythe_skill_mult(player)
+    if player.scythe_route == 1:
+        damage *= SCYTHE_EXEC_DAMAGE_MULT
     if player.scythe_route == 1:
         target = scythe_exec_target(zombies, x, y)
         tx, ty = target.rect.center
@@ -3899,16 +3920,18 @@ def scythe_skill(player, x, y, aim, base, zombies, all_sprites):
             t = i / 9
             fx.trail(cx + (end_x - cx) * t, cy + (end_y - cy) * t, SCYTHE_COLORS[1], 6, 16)
         player.rect.center = (round(end_x), round(end_y))   # Player.update가 실수 좌표를 다시 맞춤
-        player.invuln_time = KATANA_DASH_INVULN_FRAMES
+        player.invuln_time = max(player.invuln_time, SCYTHE_EXEC_INVULN_FRAMES)
+        # 대상의 뒤에서 대상 쪽으로 크게 베기 (진화 전과 같은 범위): 대상은 처형 판정, 2차 진화는 범위 안 전부 처형 판정
+        face = math.atan2(ty - end_y, tx - end_x)
+        radius, half = SCYTHE_SLASH_RADIUS + player.skill_upgrades["scythe"]["range"], math.radians(SCYTHE_SLASH_HALF)
+        all_sprites.add(ConeFlash(end_x, end_y, face, half, radius, SCYTHE_COLORS[1]))
+        fx.anim("effects/scythe_slash.png", end_x, end_y, radius / 46, 3, -math.degrees(face))
         size = max(target.rect.width, target.rect.height) * 1.1
         all_sprites.add(LineFlash(tx - size, ty - size * 0.6, tx + size, ty + size * 0.6, SCYTHE_COLORS[1], width=12, duration=16))
+        others = [z for z in zombies_in_cone(zombies, end_x, end_y, face, half, radius) if z is not target]
         scythe_strike(player, target, damage)
-        if player.scythe_stage >= 2:   # 2차 진화: 주변도 함께 베고 처형
-            fx.wave(tx, ty, SCYTHE_COLORS[1], 30, SCYTHE_EXEC2_RADIUS, life=18, width=10)
-            fx.disc(tx, ty, SCYTHE_COLORS[1], SCYTHE_EXEC2_RADIUS, life=14, alpha=110)
-            for other in list(zombies):
-                if other is not target and other.health > 0 and math.hypot(other.rect.centerx - tx, other.rect.centery - ty) < SCYTHE_EXEC2_RADIUS:
-                    scythe_strike(player, other, damage)
+        for other in others:
+            scythe_strike(player, other, damage, execute=player.scythe_stage >= 2)
         fx.add_shake(4 + player.scythe_stage * 2)
         return
     radius = SCYTHE_SLASH_RADIUS + player.skill_upgrades["scythe"]["range"]
@@ -4826,6 +4849,13 @@ def get_spear_speed_factor(player):
     if player.speed_buff_time > 0:
         speed *= ITEM_BUFF_MULTIPLIER
     return max(0.4, speed / SPEAR_BASE_SPEED)
+
+
+def skill_cooldown_ms(player, weapon_type):
+    """무기 스킬 기본 쿨타임 (처형의 낫은 더 짧음)"""
+    if weapon_type == "scythe" and player.scythe_route == 1:
+        return SCYTHE_EXEC_COOLDOWN
+    return SKILL_COOLDOWNS[weapon_type]
 
 
 def skill_cd_factor(player):
@@ -6945,7 +6975,10 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         if player.skill_cooldowns[weapon_type] <= current_time:
             player.skill_cooldowns[weapon_type] = current_time + int(SKILL_COOLDOWNS[weapon_type] * skill_cd_factor(player))
         return
-    player.skill_cooldowns[weapon_type] = current_time + int(SKILL_COOLDOWNS[weapon_type] * skill_cd_factor(player))
+    player.skill_cooldowns[weapon_type] = current_time + int(skill_cooldown_ms(player, weapon_type) * skill_cd_factor(player))
+    if weapon_type == "scythe" and player.scythe_executed:   # 처형에 성공하면 쿨타임 절반
+        player.scythe_executed = False
+        player.skill_cooldowns[weapon_type] = current_time + (player.skill_cooldowns[weapon_type] - current_time) // 2
     if weapon_type == "hammer":   # 앙코르: 시전자도 팀 전체 쿨타임 10% 감소를 받음
         player.skill_cooldowns[weapon_type] = current_time + int((player.skill_cooldowns[weapon_type] - current_time) * (1 - ENCORE_COOLDOWN_RATIO))
     if reset_cooldown:
@@ -8077,7 +8110,7 @@ def get_player_buffs(player):
         elif player.scythe_route == 2:
             buffs.append((f"혈기 {player.scythe_blood}", "scythe_blood", 1, SCYTHE_COLORS[2]))
             if player.scythe_frenzy_time > 0:
-                buffs.append(("선혈 강화", "scythe_frenzy", player.scythe_frenzy_time, SCYTHE_COLORS[2]))
+                buffs.append((f"선혈 강화 x{len(player.scythe_frenzy)}", "scythe_frenzy", player.scythe_frenzy_time, SCYTHE_COLORS[2]))
     if getattr(player, "encore_time", 0) > 0:
         regen = int(ENCORE_REGEN * 100)
         for text, key in ((f"앙코르 - 재생 (초당 {regen}%)", "encore_regen"),
@@ -8163,7 +8196,7 @@ def draw_player_status(surface, player, x=14, y=14):
     now = pygame.time.get_ticks()
     weapon_type = player.weapon.weapon_type
     remain = max(0, player.skill_cooldowns[weapon_type] - now)
-    total = max(1, SKILL_COOLDOWNS.get(weapon_type, 10000) * skill_cd_factor(player))
+    total = max(1, skill_cooldown_ms(player, weapon_type) * skill_cd_factor(player))
     skill_rect = (x + 12, y + 116, w - 24, 22)
     if weapon_type == "machinegun":   # 포탑 충전식: 남은 개수 + 다음 충전까지
         charges, most = getattr(player, "turret_charges", 0), turret_max_charges(player)
@@ -8505,12 +8538,13 @@ WEAPON_HELP = {
                 "10콤보마다 강타 충격파 (2.5배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동)."],
                ["백열권: 1.2초 동안 앞쪽을 마구 두드린 뒤 어퍼컷 (4배, 멀리 날림, 1초 기절).",
                 "콤보당 +3% (최대 +60%) 강해지고 어퍼컷에서 콤보를 모두 터뜨림. 쿨타임 15초."]),
-    "scythe": (["스킬로 처치할 때마다 영혼 +1 (무한, 평타 처치는 안 쌓임). 영혼 1000에 처형 / 선혈 중 하나로 진화, 3000에 2차 진화.",
+    "scythe": (["스킬로 처치할 때마다 영혼 +1 (무한, 평타 처치는 안 쌓임, 선혈 강화 중 평타 처치는 쌓임). 영혼 1000에 처형 / 선혈 중 하나로 진화, 3000에 2차 진화.",
+                "★ 사신의 낫과 함께: 그 처형도 영혼 +1, 처형할 때마다 최대 체력 1% 회복, 선혈은 혈기 +1, 처형의 낫은 영혼 비례 체력선을 ★ 처형 체력선에 더함.",
                 "처형: 평타는 그대로. 선혈: 평타에 출혈 (3초, 최대 5중첩) + 혈기 스택. 방어막 업그레이드는 나오지 않음."],
                ["크게 베기: 앞쪽 넓은 부채꼴을 공격력 x4.6으로 벰. 영혼 1개당 +0.1%. 쿨타임 10초.",
-                "처형: 클릭한 곳에서 가장 가까운 좀비 뒤로 이동해 베고, 영혼 비례 체력선 아래면 즉사 (영혼 1000에 10%, 보스급 절반). 자동조준 안 받음.",
-                "선혈: 쿨타임 없이 혈기 100 소모 (100 미만이면 사용 불가), 크게 베기 그대로 + 5초 동안 쓰기 전 혈기만큼 평타 피해 · 공격 속도 증가 + 평타 흡혈 5%.",
-                "2차 진화: 처형은 체력선 x1.25 + 주변도 함께 베기, 선혈은 출혈 · 출혈 중첩 (8) · 흡혈 · 혈기 상한 · 지속 시간 증가."]),
+                "처형: 클릭한 곳에서 가장 가까운 좀비 뒤로 이동해 크게 베기 (같은 범위), 그 좀비가 영혼 비례 체력선 아래면 즉사 (영혼 1000에 20%, 보스급 절반). 스킬 피해 x1.75, 쿨타임 6초 (처형 성공 시 절반), 처형은 영혼을 하나 더 줌. 자동조준 안 받음. 쓰면 1초 무적.",
+                "선혈: 쿨타임 없이 혈기 100 소모 (100 미만이면 사용 불가), 크게 베기 그대로 + 5초 동안 쓰기 전 혈기만큼 평타 피해 · 공격 속도 증가 + 평타 흡혈 5%. 강화는 3번까지 중첩 (위력 합산, 흡혈은 그대로). 강화 중 평타로 처치해도 영혼 +1.",
+                "2차 진화: 처형은 체력선 x1.25 + 크게 베기에 맞은 좀비 전부 처형 판정, 선혈은 출혈 · 출혈 중첩 (8) · 강화 중첩 (5) · 흡혈 · 혈기 상한 · 지속 시간 증가."]),
 }
 
 
@@ -8518,7 +8552,7 @@ def class_live_lines(player):
     """지금 내 상태 (공격력, 공격 속도, 쿨타임 등)"""
     weapon = player.weapon
     rate = 1000.0 / max(1.0, weapon.get_attack_interval())
-    cooldown = SKILL_COOLDOWNS[weapon.weapon_type] * skill_cd_factor(player) / 1000
+    cooldown = skill_cooldown_ms(player, weapon.weapon_type) * skill_cd_factor(player) / 1000
     lines = [f"체력 {int(player.health)}/{int(player.max_health)} · 이동 속도 {player.speed:.1f} · 레벨 {player.level}",
              f"공격력 {get_weapon_damage(player):.1f} · 초당 공격 {rate:.2f}회 · 스킬 쿨타임 {cooldown:.1f}초"]
     if weapon.weapon_type == "hammer":
@@ -9202,10 +9236,17 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
             if zombie.health <= 0 or zombie.max_health <= 0:
                 continue
             ratio = SPECIAL_REAPER_BOSS_RATIO if zombie.zombie_type in GUARANTEED_DROP_TYPES else SPECIAL_REAPER_RATIO
+            if is_scythe(player) and player.scythe_route == 1:   # 처형의 낫: 영혼 비례 처형 체력선을 더함
+                ratio += scythe_exec_ratio(player, zombie)
             # 멀티: 내가 마지막으로 때린 좀비만 (예전에는 근처 팀원이 때린 좀비도 처형돼서 모두에게 적용되는 것처럼 보였음)
             if zombie.health < zombie.max_health * ratio and getattr(zombie, "last_attacker", player) is player and \
                     math.hypot(zombie.rect.centerx - cx, zombie.rect.centery - cy) < SPECIAL_REAPER_RANGE:
                 zombie.health = 0
+                if is_scythe(player):   # 낫을 들고 있으면: 영혼 +1, 선혈 루트는 혈기 +1, 체력 회복
+                    zombie.scythe_soul_owner = player
+                    if player.scythe_route == 2:
+                        player.scythe_blood = min(player.scythe_blood + 1, SCYTHE_BLOOD_MAX[1])
+                    player.health = min(player.max_health, player.health + player.max_health * SCYTHE_REAPER_HEAL)
                 size = max(zombie.rect.width, zombie.rect.height) * 0.8
                 all_sprites.add(LineFlash(zombie.rect.centerx - size, zombie.rect.centery - size,
                                           zombie.rect.centerx + size, zombie.rect.centery + size, (255, 60, 80), width=7, duration=16))
@@ -9525,8 +9566,7 @@ def build_upgrade_choices(player, level=None):
             {"name": f"{player.weapon.name} 공격력 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
             {"name": "공격 속도 +8%", "desc": "더 빠른 베기", "type": f"melee_skill_speed_{weapon_type}", "color": (200, 150, 150)},
         ]
-        if player.scythe_route != 1:   # 처형 루트만 크게 베기가 다른 스킬로 바뀜
-            weapon_upgrades.append({"name": "크게 베기 범위 +25px", "desc": "크게 베기 범위 확대", "type": "scythe_skill_range", "color": (190, 180, 225)})
+        weapon_upgrades.append({"name": "크게 베기 범위 +25px", "desc": "크게 베기 범위 확대", "type": "scythe_skill_range", "color": (190, 180, 225)})
     elif weapon_type == "glock":
         weapon_upgrades = [
             {"name": "폭격 범위 증가", "desc": "항공 폭격 길이 +100px, 폭 +15px", "type": "glock_skill_burst", "color": (255, 200, 100)},
@@ -10804,7 +10844,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102158          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102159          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
