@@ -646,11 +646,14 @@ class MatchState:
                 can_fire = True
                 p.weapon.last_shot_time = pygame.time.get_ticks()
             if can_fire:
+                machinegun_belt_roll(p)
                 self.fire_weapon(p, aim_x, aim_y, inp.get("b"))
 
         if inp["r"] and p.weapon.weapon_type == "melee":   # 나무 방망이: 누르고 있으면 힘 모으기
             bat_charge_start(p)
         elif inp["r"]:
+            if is_scythe(p) and p.scythe_route == 1:   # 처형은 자동조준을 받지 않고 실제로 클릭한 곳을 씀
+                aim_x, aim_y = inp["x"], inp["y"]
             execute_weapon_skill(p.weapon.weapon_type, p, aim_x, aim_y, zombies, bullets, all_sprites, explosions)
         if p.bat_charging:
             bat_charge_tick(p, inp.get("s", 0), aim_x, aim_y, zombies, bullets, all_sprites, explosions)
@@ -790,10 +793,14 @@ class MatchState:
                 setattr(p, attr, getattr(p, attr) - 1)
         if p.shock_time > 0:
             p.shock_time -= 1
+        if scythe_route_ready(p) and not p.scythe_offered:   # 1000스택: 진화 루트 선택
+            p.scythe_offered = True
+            p.pending_choices.append(scythe_route_cards())
         tick_katana_chain(p)   # 연참: 3초 안에 다시 안 쓰면 스택 초기화
         tick_overshield(p)     # 흡혈 보호막 3초
         tick_shield(p)         # 방어막 충전
         tick_glove_combo(p)    # 글로브 콤보 (유지 시간 + 공격 속도 보너스)
+        tick_scythe(p)         # 낫 (글로브 콤보 뒤에: 공격 속도 배율을 덮어쓰지 않게)
         if p.regen > 0:
             p.health = min(p.health + p.regen / 60, p.max_health)
         # 독/둔화
@@ -1131,6 +1138,7 @@ class MatchState:
                 continue
             if not zombie.no_reward:
                 self.score += 10
+                scythe_gain_kill(zombie)   # 낫 처치 스택은 마지막으로 때린 사람만
                 for p in members:   # 경험치 공유
                     gain = get_exp_reward(p, self.wave) * kill_exp_mult(zombie)
                     if getattr(zombie, "dash_kill", False):
@@ -1493,7 +1501,7 @@ def draw_match(state, camera, ui):
         x0 = SCREEN_WIDTH // 2 - (len(choices) * width + (len(choices) - 1) * gap) // 2
         y0 = SCREEN_HEIGHT - 210
         special = bool(choices) and choices[0].get("special", False)
-        ui_text(screen, f"{'★ 특수 업그레이드!' if special else '레벨업! 업그레이드'} 선택 (클릭 또는 {binding_label('pick1')}/{binding_label('pick2')}/{binding_label('pick3')}) "
+        ui_text(screen, f"{'낫 진화! 루트' if choices and choices[0].get('evolve') else '★ 특수 업그레이드!' if special else '레벨업! 업그레이드'} 선택 (클릭 또는 {binding_label('pick1')}/{binding_label('pick2')}/{binding_label('pick3')}) "
                         f"· 남은 선택 {len(local.pending_choices)}", font_hud, g.SPECIAL_COLOR if special else UI_ACCENT,
                 (SCREEN_WIDTH // 2, y0 - 34), "midtop")
         mouse = pygame.mouse.get_pos()

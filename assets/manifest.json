@@ -1770,5 +1770,93 @@
     "sheetWidth": 576,
     "sheetHeight": 96,
     "layout": "horizontal"
+  },
+  "weapons/scythe.png": {
+    "frameWidth": 64,
+    "frameHeight": 40,
+    "frames": 1,
+    "sheetWidth": 64,
+    "sheetHeight": 40,
+    "layout": "horizontal",
+    "fps": 7,
+    "loop": true,
+    "animationMethod": "static"
+  },
+  "weapons/scythe_execute.png": {
+    "frameWidth": 64,
+    "frameHeight": 40,
+    "frames": 1,
+    "sheetWidth": 64,
+    "sheetHeight": 40,
+    "layout": "horizontal",
+    "fps": 7,
+    "loop": true,
+    "animationMethod": "static"
+  },
+  "weapons/scythe_execute2.png": {
+    "frameWidth": 64,
+    "frameHeight": 40,
+    "frames": 1,
+    "sheetWidth": 64,
+    "sheetHeight": 40,
+    "layout": "horizontal",
+    "fps": 7,
+    "loop": true,
+    "animationMethod": "static"
+  },
+  "weapons/scythe_blood.png": {
+    "frameWidth": 64,
+    "frameHeight": 40,
+    "frames": 1,
+    "sheetWidth": 64,
+    "sheetHeight": 40,
+    "layout": "horizontal",
+    "fps": 7,
+    "loop": true,
+    "animationMethod": "static"
+  },
+  "weapons/scythe_blood2.png": {
+    "frameWidth": 64,
+    "frameHeight": 40,
+    "frames": 1,
+    "sheetWidth": 64,
+    "sheetHeight": 40,
+    "layout": "horizontal",
+    "fps": 7,
+    "loop": true,
+    "animationMethod": "static"
+  },
+  "effects/scythe_slash.png": {
+    "frameWidth": 128,
+    "frameHeight": 128,
+    "frames": 6,
+    "sheetWidth": 768,
+    "sheetHeight": 128,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "sequence"
+  },
+  "effects/scythe_execute.png": {
+    "frameWidth": 96,
+    "frameHeight": 96,
+    "frames": 6,
+    "sheetWidth": 576,
+    "sheetHeight": 96,
+    "layout": "horizontal",
+    "fps": 12,
+    "loop": false,
+    "animationMethod": "sequence"
+  },
+  "effects/scythe_bleed.png": {
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frames": 4,
+    "sheetWidth": 128,
+    "sheetHeight": 32,
+    "layout": "horizontal",
+    "fps": 8,
+    "loop": false,
+    "animationMethod": "sequence"
   }
 }

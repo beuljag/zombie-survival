@@ -129,7 +129,7 @@
 - 얼음탄 (Lv2): 좀비 속도 저하
 - 전기탄 (Lv3): 인접한 좀비들에게 전기 전달
 - 자동조준 (Lv4): 가까운 적 자동 조준
-- 방어막 (Lv3): 최대 체력 30%만큼 피해를 먼저 막음, 4초 동안 안 맞으면 다시 차오름, 또 찍으면 +15% (최대 150%)
+- 방어막 (Lv3): 최대 체력 20%만큼 피해를 먼저 막음, 4초 동안 안 맞으면 다시 차오름, 또 찍으면 +15% (최대 150%)
 - 순간이동 (Lv4): 마우스 위치로 즉시 이동
 - 시간감속 (Lv5): 주변 좀비 속도 감소
 - 폭발 공격 (Lv4): 공격 시 작은 폭발 (주변 30%, 근접 무기는 12%, 0.2초에 한 번)
@@ -457,7 +457,7 @@ CYAN = (0, 255, 255)
 MAGENTA = (255, 0, 255)
 
 # 자주 쓰는 무기 타입 상수 (반복 생성 방지)
-MELEE_WEAPONS = {"melee", "katana", "axe", "spear", "hammer", "gloves"}
+MELEE_WEAPONS = {"melee", "katana", "axe", "spear", "hammer", "gloves", "scythe"}
 
 # 좀비가 쏘는 Bullet 타입 (플레이어 총알과 구분: 좀비에게는 맞지 않고 플레이어에게만 맞음)
 ENEMY_BULLET_TYPES = {"gangster_bullet", "dragon_fireball", "giant_rock", "zombie_snipe"}
@@ -483,7 +483,7 @@ ZOMBIE_LEASH_DISTANCE = 2500
 ZOMBIE_RESPAWN_DISTANCE = 1000
 
 # 근접 무기 "공격 속도" 업그레이드 1회당 증가율 (창은 스킬 투사체 속도에 적용)
-MELEE_SPEED_UPGRADE_RATES = {"melee": 0.08, "katana": 0.12, "spear": 0.08, "gloves": 0.10}
+MELEE_SPEED_UPGRADE_RATES = {"melee": 0.08, "katana": 0.12, "spear": 0.08, "gloves": 0.10, "scythe": 0.08}
 
 # ===== 무기 밸런스 기준표 =====
 # dmg: 1회 데미지 / rate: 초당 공격 횟수 / speed: 탄속(px/프레임)
@@ -511,11 +511,12 @@ WEAPON_STATS = {
     "spear":  {"name": "창",          "dmg": 36, "rate": 2.0,  "color": (128, 128, 0)},  # DPS 72   범위 165 (가장 김)
     "hammer": {"name": "일렉 기타",   "dmg": 22, "rate": 2.5,  "color": (220, 60, 150)},  # 박자에 맞춰 치면 강해짐 (PERFECT 2배) - 내부 이름은 예전 해머 그대로
     "gloves": {"name": "글로브",      "dmg": 15, "rate": 5.0,  "color": (255, 192, 203)},  # DPS 90   범위 100
+    "scythe": {"name": "낫",          "dmg": 42, "rate": 2.2,  "color": (150, 140, 175)},  # DPS 92   범위 155, 처치 스택 + 진화
 }
 
 # 우클릭 스킬 기본 쿨타임(ms) - "스킬 쿨타임 감소" 업그레이드가 모든 무기에 똑같이 적용됨
 SKILL_COOLDOWNS = {
-    "melee": 8000, "katana": 6000, "axe": 12000, "spear": 8000, "hammer": 20000, "gloves": 15000,
+    "melee": 8000, "katana": 6000, "axe": 12000, "spear": 8000, "hammer": 20000, "gloves": 15000, "scythe": 10000,
     "glock": 80000, "machinegun": 12000, "shotgun": 10000, "sniper": 12000, "plasma": 18000, "rocket": 12000, "grimoire": 14000,
 }
 
@@ -542,12 +543,12 @@ AXE_SKILL_KNOCKBACK = 20
 OVERHEAL_SHIELD_RATIO = 0.5
 OVERHEAL_SHIELD_FRAMES = 300
 OVERHEAL_SHIELD_MAX = 0.5
-# 방어막 업그레이드: 최대 체력 30%만큼 피해를 먼저 막는 충전식 보호막, 4초 동안 안 맞으면 초당 최대치의 25%씩 다시 참
-SHIELD_MAX_RATIO = 0.3
-SHIELD_STACK_RATIO = 0.15    # 또 찍을 때마다 보호막 +15% (최대 체력 기준)
-SHIELD_STACK_MAX = 9         # 최대 9번 = 최대 체력의 150%
+# 방어막 업그레이드: 최대 체력 20%만큼 피해를 먼저 막는 충전식 보호막, 4초 동안 안 맞으면 초당 최대치의 15%씩 다시 참
+SHIELD_MAX_RATIO = 0.2
+SHIELD_STACK_RATIO = 0.1     # 또 찍을 때마다 보호막 +10% (최대 체력 기준)
+SHIELD_STACK_MAX = 9         # 최대 9번 = 최대 체력의 100%
 SHIELD_RECHARGE_DELAY = 240
-SHIELD_RECHARGE_PER_FRAME = 0.25 / 60
+SHIELD_RECHARGE_PER_FRAME = 0.15 / 60
 # 글록 항공 폭격 (쿨타임 80초): 폭탄 1발 기본 데미지 1000, 공격력이 오른 만큼 같은 비율로 증가
 #  (폭탄 데미지 = 1000 × 현재 공격력 / 글록 기본 공격력)
 #  "폭격 범위" 업그레이드 1회당: 폭격 길이 +100px, 폭발 반경(폭) +15px
@@ -696,7 +697,7 @@ def shield_stacks(player):
 
 
 def shield_ratio(player):
-    """보호막 최대치 (최대 체력 대비 비율): 처음 30% + 또 찍을 때마다 15%"""
+    """보호막 최대치 (최대 체력 대비 비율): 처음 20% + 또 찍을 때마다 10%"""
     stacks = shield_stacks(player)
     return SHIELD_MAX_RATIO + SHIELD_STACK_RATIO * (stacks - 1) if stacks else 0.0
 
@@ -1050,7 +1051,7 @@ font_damage_big = pygame.font.SysFont('malgun gothic', 28, bold=True)
 FX_WEAPON_COLORS = {
     "glock": (255, 230, 90), "shotgun": (255, 170, 50), "sniper": (230, 235, 255), "machinegun": (255, 130, 70),
     "grimoire": (200, 150, 255), "plasma": (90, 255, 255), "rocket": (255, 150, 40), "spear": (130, 210, 255), "gloves": (255, 170, 200),
-    "melee": (230, 170, 90), "katana": (210, 230, 255), "axe": (255, 120, 120), "hammer": (255, 110, 210),
+    "melee": (230, 170, 90), "katana": (210, 230, 255), "axe": (255, 120, 120), "hammer": (255, 110, 210), "scythe": (190, 180, 225),
 }
 # 속성탄 색 (화염 / 얼음 / 전기)
 ELEMENT_COLORS = {
@@ -1970,7 +1971,7 @@ def draw_player_sprite(surface, camera, player):
     aim_x, aim_y = mx - sx, my - body_y
     dist = math.hypot(aim_x, aim_y) or 1
     ux, uy = aim_x / dist, aim_y / dist
-    held_rel = weapon_art_rel(player.weapon.weapon_type) if player.weapon is not None else None
+    held_rel = player_weapon_art_rel(player)
     if held_rel is not None:
         # 도트 무기 그림 (오른쪽을 향한 그림): 왼쪽을 조준하면 위아래를 뒤집어서 거꾸로 들지 않게
         raw = load_asset(held_rel)
@@ -2267,7 +2268,8 @@ class Player(pygame.sprite.Sprite):
             "axe": {"damage": 0},
             "spear": {"damage": 0},
             "hammer": {"damage": 0},
-            "gloves": {"damage": 0}
+            "gloves": {"damage": 0},
+            "scythe": {"damage": 0}
         }
 
         self.levels = {
@@ -2323,6 +2325,12 @@ class Player(pygame.sprite.Sprite):
         self.last_judged_beat = None   # 판정한 박자 번호 (박자 하나에 판정 한 번)
         self.invuln_time = 0     # 무적 남은 시간 (카타나 일섬 직후)
         self.overshield = 0.0    # 흡혈 보호막 (도끼 대회전 베기로 넘친 회복량)
+        self.scythe_kills = 0        # 낫: 처치 스택 (무한)
+        self.scythe_route = 0        # 낫 진화 루트: 0 진화 전 / 1 처형 / 2 선혈
+        self.scythe_stage = 0        # 낫 진화 단계: 0 / 1 (루트 선택) / 2 (2차 진화)
+        self.scythe_blood = 0        # 낫 선혈 루트: 혈기 스택
+        self.scythe_frenzy_time = 0  # 낫 선혈 루트: 평타 강화 남은 프레임
+        self.scythe_offered = False  # 멀티: 진화 선택지를 이미 띄웠는지
         self.overshield_time = 0
         self.katana_chain = 0    # 일섬 연속 처치 횟수 (처치 실패 시 0으로)
         self.katana_chain_timer = 0  # 연참 유지 남은 시간 (0이 되면 스택 초기화)
@@ -2340,6 +2348,7 @@ class Player(pygame.sprite.Sprite):
             "spear": 0,
             "hammer": 0,
             "gloves": 0,
+            "scythe": 0,
             "glock": 0,
             "shotgun": 0,
             "sniper": 0,
@@ -2368,6 +2377,7 @@ class Player(pygame.sprite.Sprite):
             "spear": {"pierces": 0, "speed": 0, "range": 0, "damage": 0},  # 관통 수, 공격속도, 사거리, 데미지
             "hammer": {"range": 0, "damage": 0, "cooldown": 0, "stun": 0, "beat": 0, "beat_time": 0, "judge": 0},  # 앙코르 시간, 앙코르 방어, 쿨타임, (안 씀), 박자 버프 증가
             "gloves": {"strikes": 0, "speed": 0, "damage": 0, "combo": 0},  # 연격 수, 공격속도, 데미지, 콤보 게이지
+            "scythe": {"range": 0},  # 크게 베기 범위
             # 원거리 무기
             "glock": {"burst": 0, "damage": 0, "fire_rate": 0, "accuracy": 0},  # 연사 탄수, 데미지, 발사 속도, 정확도
             "shotgun": {"range": 0, "damage": 0, "spread": 0, "pellets": 3},  # 범위, 데미지, 퍼짐, 펠릿 수(기본 3발)
@@ -2572,6 +2582,9 @@ class Zombie(pygame.sprite.Sprite):
         self.discord_time = 0   # 방어력 깎기 (불협화음 등): 방어가 있으면 방어 무시, 없으면 받는 피해 +25%
         self.burn_damage_cooldown = 0
         self.burn_stacks = 0      # 화염탄 중첩 (불타는 중에 또 맞으면 쌓임, 제한 없음)
+        self.bleed_time = 0       # 낫 출혈 남은 프레임
+        self.bleed_damage = 0.0   # 낫 출혈 0.5초마다 피해
+        self.bleed_owner = None
         self.burn_hits = 0        # 다음 중첩까지 모은 타격 수
 
         # 소환자 좀비 추적 (왕좀비가 소환한 좀비 등)
@@ -2921,6 +2934,16 @@ class Zombie(pygame.sprite.Sprite):
                 DAMAGE_OWNER[0] = owner_before
             if self.grimoire_poison_time <= 0:
                 self.grimoire_poison_stacks = 0
+
+        if self.bleed_time > 0:   # 낫 출혈: 0.5초마다 피해
+            self.bleed_time -= 1
+            if self.bleed_time % 30 == 0:
+                owner_before = DAMAGE_OWNER[0]
+                DAMAGE_OWNER[0] = self.bleed_owner or owner_before
+                self.health -= self.bleed_damage * get_damage_multiplier(self)
+                DAMAGE_OWNER[0] = owner_before
+            if self.bleed_time % 24 == 0 and not fx.anim("effects/scythe_bleed.png", self.rect.centerx, self.rect.top + self.rect.height * 0.3, 1.5, 5):
+                fx.burst(self.rect.centerx, self.rect.centery, (220, 30, 40), 2, speed=(0.5, 2), size=(2, 4), life=(10, 18), gravity=0.15)
 
         # 돌좀비: 화상·둔화 면역
         if self.zombie_type == "stone":
@@ -3686,13 +3709,213 @@ def gloves_extra_hits(player):
     return next((extra for need, extra in GLOVES_EXTRA_HIT_STEPS if aps >= need), 0)
 
 
+# ----- 낫: 처치 스택 + 1000스택에 두 루트 중 하나로 진화, 3000스택에 2차 진화 (선택 없음) -----
+SCYTHE_SKILL_STACK = 0.001        # 처치 스택 1개당 우클릭 스킬 +0.1% (평타에는 적용 안 됨)
+SCYTHE_EVOLVE_STACKS = 1000       # 이 스택에서 루트 선택
+SCYTHE_EVOLVE2_STACKS = 3000      # 이 스택에서 2차 진화
+SCYTHE_SKILL_MULT = 3.5           # 크게 베기 · 처형 베기: 공격력 배율
+SCYTHE_SLASH_RADIUS, SCYTHE_SLASH_HALF = 240, 105   # 크게 베기: 반경, 반각(도)
+SCYTHE_EXEC_PICK = 280            # 처형: 클릭한 곳에서 이 거리 안의 가장 가까운 좀비를 노림
+SCYTHE_EXEC_PER_STACK = 0.0001    # 처형: 처치 스택 1개당 처형 체력선 +0.01% (1000스택 10%)
+SCYTHE_EXEC_MAX, SCYTHE_EXEC_BOSS_MAX = 0.5, 0.25   # 처형 체력선 상한 (일반 / 보스급)
+SCYTHE_EXEC_BOSS_RATIO = 0.5      # 보스급은 처형 체력선 절반
+SCYTHE_EXEC2_MULT, SCYTHE_EXEC2_RADIUS = 1.25, 170  # 2차 진화: 처형 체력선 x1.25, 대상 주변도 함께 벰
+SCYTHE_BLEED_FRAMES = 180         # 출혈 3초
+SCYTHE_BLEED_RATIO = (0.10, 0.15) # 출혈 0.5초마다: 평타 피해의 비율 (1차 / 2차 진화)
+SCYTHE_BLOOD_MAX = (500, 1000)    # 혈기 스택 상한 (1차 / 2차 진화)
+SCYTHE_BLOOD_DAMAGE = 0.002       # 강화 중 혈기 1개당 평타 피해 +0.2% (처치 스택으로 더 커짐)
+SCYTHE_BLOOD_SPEED = 0.001        # 강화 중 혈기 1개당 공격 속도 +0.1%
+SCYTHE_FRENZY_FRAMES = (300, 360) # 평타 강화 지속 (1차 / 2차 진화)
+SCYTHE_LIFESTEAL = (0.05, 0.08)   # 강화 중 평타 흡혈 (보호막은 생기지 않음)
+SCYTHE_NAMES = {(0, 0): "낫", (1, 1): "처형의 낫", (1, 2): "종말의 낫", (2, 1): "선혈의 낫", (2, 2): "혈왕의 낫"}
+SCYTHE_COLORS = {0: (190, 180, 225), 1: (185, 150, 255), 2: (255, 80, 80)}
+
+
+def is_scythe(player):
+    return player.weapon is not None and player.weapon.weapon_type == "scythe"
+
+
+def scythe_skill_mult(player):
+    """처치 스택이 우클릭 스킬에 주는 배율"""
+    return 1 + SCYTHE_SKILL_STACK * player.scythe_kills
+
+
+def scythe_art_rel(player):
+    """지금 진화 단계의 낫 그림"""
+    route, stage = player.scythe_route, player.scythe_stage
+    name = "scythe" if route == 0 else f"scythe_{'execute' if route == 1 else 'blood'}{'2' if stage >= 2 else ''}"
+    rel = f"weapons/{name}.png"
+    return rel if load_asset(rel) is not None else weapon_art_rel("scythe")
+
+
+def player_weapon_art_rel(player):
+    if player.weapon is None:
+        return None
+    return scythe_art_rel(player) if is_scythe(player) else weapon_art_rel(player.weapon.weapon_type)
+
+
+def scythe_gain_kill(zombie, fallback=None):
+    """처치 스택: 마지막으로 때린 사람이 낫을 들고 있으면 +1 (1인·멀티 공용)"""
+    killer = zombie.__dict__.get("last_attacker") or fallback
+    if killer is not None and is_scythe(killer):
+        killer.scythe_kills += 1
+
+
+def scythe_route_ready(player):
+    return is_scythe(player) and player.scythe_route == 0 and player.scythe_kills >= SCYTHE_EVOLVE_STACKS
+
+
+def scythe_route_cards():
+    """1000스택 진화 선택지"""
+    return [{"name": "처형의 낫", "desc": "클릭한 곳의 적 뒤로 이동해 벰. 스택 비례 체력선 아래면 처형",
+             "type": "scythe_route_1", "color": SCYTHE_COLORS[1], "evolve": True},
+            {"name": "선혈의 낫", "desc": "평타에 출혈과 혈기 스택. 스킬로 혈기만큼 평타 강화 + 흡혈",
+             "type": "scythe_route_2", "color": SCYTHE_COLORS[2], "evolve": True}]
+
+
+def scythe_blood_power(player):
+    """강화 중일 때 적용되는 혈기 스택 수 (강화 중이 아니면 0)"""
+    if player.scythe_route != 2 or player.scythe_frenzy_time <= 0:
+        return 0
+    return min(player.scythe_blood, SCYTHE_BLOOD_MAX[player.scythe_stage - 1])
+
+
+def tick_scythe(player):
+    """낫: 2차 진화 확인, 이름, 평타 강화 시간 (프레임 기준, 1인·멀티 공용)"""
+    if not is_scythe(player):
+        return
+    if player.scythe_route and player.scythe_stage < 2 and player.scythe_kills >= SCYTHE_EVOLVE2_STACKS:
+        player.scythe_stage = 2
+        color = SCYTHE_COLORS[player.scythe_route]
+        name = SCYTHE_NAMES[(player.scythe_route, 2)]
+        cx, cy = player.rect.center
+        fx.add_text(cx, player.rect.top - 40, f"2차 진화: {name}!", color, big=True, life=120)
+        fx.wave(cx, cy, color, 30, 320, life=30, width=12)
+        fx.burst(cx, cy, color, 60, speed=(3, 11), size=(3, 7), life=(18, 40))
+    player.weapon.name = SCYTHE_NAMES[(player.scythe_route, player.scythe_stage)]
+    if player.scythe_frenzy_time > 0:
+        player.scythe_frenzy_time -= 1
+        if player.scythe_frenzy_time % 5 == 0:
+            fx.burst(player.rect.centerx, player.rect.centery, SCYTHE_COLORS[2], 2, speed=(1, 3), size=(2, 4), life=(10, 20))
+    player.weapon.rush_mult = 1 + scythe_blood_power(player) * SCYTHE_BLOOD_SPEED
+
+
+def scythe_basic_mult(player):
+    """낫 평타 피해 배율: 선혈 루트의 강화 중에만 (강화는 스킬이므로 처치 스택도 적용)"""
+    power = scythe_blood_power(player) if is_scythe(player) else 0
+    return 1 + power * SCYTHE_BLOOD_DAMAGE * scythe_skill_mult(player) if power else 1
+
+
+def scythe_on_basic_hit(player, zombie, total):
+    """선혈 루트: 평타가 맞으면 출혈 + 혈기 +1, 강화 중이면 흡혈 (넘친 회복은 버림, 보호막 없음)"""
+    if not is_scythe(player) or player.scythe_route != 2:
+        return
+    stage = player.scythe_stage - 1
+    tick = total * SCYTHE_BLEED_RATIO[stage]
+    zombie.bleed_damage = max(tick, zombie.bleed_damage) if zombie.bleed_time > 0 else tick
+    zombie.bleed_time = SCYTHE_BLEED_FRAMES
+    zombie.bleed_owner = player
+    player.scythe_blood = min(player.scythe_blood + 1, SCYTHE_BLOOD_MAX[1])
+    if player.scythe_frenzy_time > 0:
+        player.health = min(player.max_health, player.health + total * SCYTHE_LIFESTEAL[stage])
+        fx.burst(player.rect.centerx, player.rect.centery, (120, 255, 140), 2, speed=(1, 3), size=(2, 3), life=(8, 16))
+
+
+def scythe_exec_ratio_text(player):
+    """표시용: 일반 좀비 처형 체력선"""
+    ratio = SCYTHE_EXEC_PER_STACK * player.scythe_kills * (SCYTHE_EXEC2_MULT if player.scythe_stage >= 2 else 1)
+    return f"{min(ratio, SCYTHE_EXEC_MAX) * 100:.0f}%"
+
+
+def scythe_exec_target(zombies, x, y):
+    """클릭한 곳에서 가장 가까운 좀비 (범위 안에 없으면 None)"""
+    best, best_dist = None, SCYTHE_EXEC_PICK
+    for zombie in zombies:
+        if zombie.health <= 0:
+            continue
+        dist = math.hypot(zombie.rect.centerx - x, zombie.rect.centery - y)
+        if dist < best_dist:
+            best, best_dist = zombie, dist
+    return best
+
+
+def scythe_exec_ratio(player, zombie):
+    """처형 체력선 (최대 체력 대비): 처치 스택 비례, 보스급은 절반"""
+    boss = getattr(zombie, "wave_boss", False) or zombie.zombie_type in GUARANTEED_DROP_TYPES
+    ratio = SCYTHE_EXEC_PER_STACK * player.scythe_kills * (SCYTHE_EXEC2_MULT if player.scythe_stage >= 2 else 1)
+    return min(ratio * SCYTHE_EXEC_BOSS_RATIO, SCYTHE_EXEC_BOSS_MAX) if boss else min(ratio, SCYTHE_EXEC_MAX)
+
+
+def scythe_strike(player, zombie, damage):
+    """처형 베기 한 번: 피해를 준 뒤 체력선 아래면 처형"""
+    skill_damage(zombie, roll_crit_damage(player, damage, zombie))
+    x, y = zombie.rect.center
+    size = max(zombie.rect.width, zombie.rect.height) * 0.9
+    color = SCYTHE_COLORS[1]
+    fx.hit_spark(x, y, color)
+    if 0 < zombie.health <= zombie.max_health * scythe_exec_ratio(player, zombie):
+        zombie.health = 0
+        fx.add_text(x, y - 46, "처형!", color, big=True, life=50)
+        if not fx.anim("effects/scythe_execute.png", x, y, max(1.5, size / 24), 3):
+            fx.beam(x - size, y - size, x + size, y + size, color, width=10, life=12)
+            fx.beam(x - size, y + size, x + size, y - size, color, width=10, life=12)
+
+
+def scythe_skill(player, x, y, aim, base, zombies, all_sprites):
+    """낫 우클릭: 진화 전 크게 베기 / 처형 루트 순간이동 베기 / 선혈 루트 평타 강화"""
+    cx, cy = player.rect.center
+    if player.scythe_route == 2:
+        stage = player.scythe_stage - 1
+        player.scythe_frenzy_time = SCYTHE_FRENZY_FRAMES[stage]
+        fx.add_text(cx, player.rect.top - 34, f"선혈 강화! 혈기 {player.scythe_blood}", SCYTHE_COLORS[2], big=True, life=60)
+        fx.wave(cx, cy, SCYTHE_COLORS[2], 20, 170 + stage * 70, life=20, width=8)
+        fx.disc(cx, cy, SCYTHE_COLORS[2], 120 + stage * 50, life=16, alpha=120)
+        return
+    damage = base * SCYTHE_SKILL_MULT * scythe_skill_mult(player)
+    if player.scythe_route == 1:
+        target = scythe_exec_target(zombies, x, y)
+        tx, ty = target.rect.center
+        dx, dy = tx - cx, ty - cy
+        dist = math.hypot(dx, dy) or 1
+        reach = target.size * 0.5 + 40
+        end_x, end_y = tx + dx / dist * reach, ty + dy / dist * reach   # 대상의 뒤쪽
+        for i in range(10):   # 잔상
+            t = i / 9
+            fx.trail(cx + (end_x - cx) * t, cy + (end_y - cy) * t, SCYTHE_COLORS[1], 6, 16)
+        player.rect.center = (round(end_x), round(end_y))   # Player.update가 실수 좌표를 다시 맞춤
+        player.invuln_time = KATANA_DASH_INVULN_FRAMES
+        size = max(target.rect.width, target.rect.height) * 1.1
+        all_sprites.add(LineFlash(tx - size, ty - size * 0.6, tx + size, ty + size * 0.6, SCYTHE_COLORS[1], width=12, duration=16))
+        scythe_strike(player, target, damage)
+        if player.scythe_stage >= 2:   # 2차 진화: 주변도 함께 베고 처형
+            fx.wave(tx, ty, SCYTHE_COLORS[1], 30, SCYTHE_EXEC2_RADIUS, life=18, width=10)
+            fx.disc(tx, ty, SCYTHE_COLORS[1], SCYTHE_EXEC2_RADIUS, life=14, alpha=110)
+            for other in list(zombies):
+                if other is not target and other.health > 0 and math.hypot(other.rect.centerx - tx, other.rect.centery - ty) < SCYTHE_EXEC2_RADIUS:
+                    scythe_strike(player, other, damage)
+        fx.add_shake(4 + player.scythe_stage * 2)
+        return
+    radius = SCYTHE_SLASH_RADIUS + player.skill_upgrades["scythe"]["range"]
+    half = math.radians(SCYTHE_SLASH_HALF)
+    all_sprites.add(ConeFlash(cx, cy, aim, half, radius, SCYTHE_COLORS[0]))
+    fx.anim("effects/scythe_slash.png", cx, cy, radius / 46, 3, -math.degrees(aim))
+    for zombie in zombies_in_cone(zombies, cx, cy, aim, half, radius):
+        skill_damage(zombie, roll_crit_damage(player, damage, zombie))
+        push_zombie(zombie, cx, cy, 14 * get_knockback_multiplier(player))
+        fx.hit_spark(zombie.rect.centerx, zombie.rect.centery, SCYTHE_COLORS[0])
+    fx.add_text(cx, player.rect.top - 30, "크게 베기!", SCYTHE_COLORS[0], big=True)
+    fx.add_shake(4)
+
+
 def melee_strike_damage(player, damage, zombie):
     """근접 기본 공격 1회 피해 (치명타 + 방어 감소, 글로브는 공격 속도가 빠르면 추가 타격)"""
+    damage *= scythe_basic_mult(player)
     total = roll_crit_damage(player, damage, zombie) * get_damage_multiplier(zombie)
     extra = gloves_extra_hits(player)
     for i in range(extra):
         total += roll_crit_damage(player, damage * GLOVES_EXTRA_HIT_RATIO, zombie) * get_damage_multiplier(zombie)
         fx.hit_spark(zombie.rect.centerx + fx_random.uniform(-12, 12), zombie.rect.centery + fx_random.uniform(-12, 12), (255, 150, 110))
+    scythe_on_basic_hit(player, zombie, total)
     return total
 
 
@@ -4590,6 +4813,37 @@ def get_spear_speed_factor(player):
 def skill_cd_factor(player):
     """스킬 쿨타임 배율 (쿨타임 감소 업그레이드)"""
     return 1 - player.skill_cooldown_reduction
+
+
+# 기관총 패시브 "탄약 폭주": 평타 한 발마다 1% 확률로 +1, 100이 차면 무한 탄약 30초 (무한 탄약 중에는 안 쌓임)
+BELT_MIN_LEVEL = 6
+BELT_MAX_STACKS = 100
+BELT_STACK_CHANCE = 0.01
+INFINITY_AMMO_FRAMES = 30 * 60
+
+
+def infinity_ammo_on(player):
+    return player.skills.get("skill_infinity_ammo", False) and player.infinity_ammo_time > 0
+
+
+def machinegun_belt_roll(player):
+    """기관총 평타를 쏠 때마다 호출 (난수는 게임 난수: 멀티에서 모두 같은 결과)"""
+    if player.weapon.weapon_type != "machinegun" or infinity_ammo_on(player):
+        return
+    up = player.skill_upgrades["machinegun"]
+    if not up.get("belt", 0) or random.random() >= BELT_STACK_CHANCE:
+        return
+    up["belt_stacks"] = up.get("belt_stacks", 0) + 1
+    cx, cy = player.rect.center
+    if up["belt_stacks"] < BELT_MAX_STACKS:
+        fx.burst(cx, cy, (255, 215, 90), 6, speed=(1, 3), size=(2, 3), life=(8, 16))
+        return
+    up["belt_stacks"] = 0
+    player.skills["skill_infinity_ammo"] = True
+    player.infinity_ammo_time = INFINITY_AMMO_FRAMES
+    fx.add_text(cx, player.rect.top - 40, "탄약 폭주! 무한 탄약 30초", (255, 215, 90), big=True, life=90)
+    fx.wave(cx, cy, (255, 215, 90), 20, 220, life=22, width=8)
+    fx.burst(cx, cy, (255, 215, 90), 40, speed=(3, 9), size=(2, 5), life=(14, 30))
 
 
 def get_weapon_damage(player):
@@ -6430,6 +6684,9 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
             return
     elif player.skill_cooldowns[weapon_type] > current_time:
         return
+    if weapon_type == "scythe" and player.scythe_route == 1 and scythe_exec_target(zombies, mouse_world_x, mouse_world_y) is None:
+        fx.add_text(player.rect.centerx, player.rect.top - 30, "처형할 대상 없음", (170, 170, 190))
+        return   # 대상이 없으면 쿨타임을 쓰지 않음
     if weapon_type != "hammer":   # 앙코르는 파워 코드 소리가 따로 남
         sfx("skill", player.rect.centerx, player.rect.centery)
 
@@ -6474,6 +6731,9 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
         elif hit:
             fx.add_text(cx, player.rect.top - 30, "홈런!", (255, 220, 120), big=True)
         fx.add_shake(4 + 8 * power)
+
+    elif weapon_type == "scythe":
+        scythe_skill(player, mouse_world_x, mouse_world_y, aim, base, zombies, all_sprites)
 
     elif weapon_type == "katana":
         # 일섬: 마우스 방향으로 순간 돌진하며 지나간 길의 좀비를 벰
@@ -7431,11 +7691,11 @@ class SpawnEffect(pygame.sprite.Sprite):
 # 근접 무기 (나무 방망이)
 class Melee(pygame.sprite.Sprite):
     # 무기별 휘두르기 방식: swing(빠르게 휘두르고 감속) / heavy(천천히 들었다 내려찍기) / thrust(앞으로 찌르기)
-    SWING_STYLES = {"melee": "swing", "katana": "swing", "axe": "heavy", "hammer": "swing", "spear": "thrust", "gloves": "thrust"}
+    SWING_STYLES = {"melee": "swing", "katana": "swing", "axe": "heavy", "hammer": "swing", "spear": "thrust", "gloves": "thrust", "scythe": "swing"}
     TRAIL_COLORS = {"melee": (230, 170, 90), "katana": (200, 225, 255), "axe": (255, 110, 110),
-                    "hammer": (255, 90, 200), "spear": (120, 200, 255), "gloves": (255, 140, 100)}
+                    "hammer": (255, 90, 200), "spear": (120, 200, 255), "gloves": (255, 140, 100), "scythe": (190, 180, 225)}
     # 공격이 맞는 부채꼴의 반각(도): 조준 방향 ± 이 각도, 반경 attack_range (그려지는 범위와 동일)
-    HIT_HALF_ARCS = {"melee": 80, "katana": 90, "axe": 70, "hammer": 75, "spear": 30, "gloves": 45}
+    HIT_HALF_ARCS = {"melee": 80, "katana": 90, "axe": 70, "hammer": 75, "spear": 30, "gloves": 45, "scythe": 95}
     # 이 거리 안에 붙은 좀비는 방향과 상관없이 맞음 (몸에 붙은 좀비를 못 때리는 일 방지)
     CLOSE_HIT_RADIUS = 45
 
@@ -7514,6 +7774,15 @@ class Melee(pygame.sprite.Sprite):
             self.knockback_power = 700
             self.swing_angle = 90
             self.attack_range = 100  # 근접 중 짧은 편
+        elif weapon_type == "scythe":
+            # 낫 - 서양 사신의 낫 (그림은 아래에서 진화 단계에 맞춰 넣음)
+            evolved = owner is not None and owner.scythe_stage >= 2
+            self.base_image = pygame.Surface((176, 110) if evolved else (150, 94), pygame.SRCALPHA)
+            pygame.draw.line(self.base_image, (92, 66, 48), (0, 20), (140, 12), 5)
+            self.duration = 24
+            self.knockback_power = 800
+            self.swing_angle = 190
+            self.attack_range = 155
         else:
             # 기본값
             self.base_image = pygame.Surface((80, 20))
@@ -7529,7 +7798,8 @@ class Melee(pygame.sprite.Sprite):
             "axe": 70,
             "spear": 95,
             "hammer": 70,
-            "gloves": 45
+            "gloves": 45,
+            "scythe": 75
         }
         self.offset_distance = attack_offset.get(weapon_type, 60)
 
@@ -7537,6 +7807,8 @@ class Melee(pygame.sprite.Sprite):
         self.base_image = self.base_image.convert_alpha()
         self.style = self.SWING_STYLES.get(weapon_type, "swing")
         self.trail_color = self.TRAIL_COLORS.get(weapon_type, (230, 230, 230))
+        if weapon_type == "scythe" and owner is not None:
+            self.trail_color = SCYTHE_COLORS[owner.scythe_route]
         self.weapon_length = max(self.base_image.get_size())
         self.hit_half_arc = self.HIT_HALF_ARCS.get(weapon_type, 70)
         # 무기 끝이 정확히 공격 범위(attack_range)에 닿도록 위치/휘두르는 각도를 맞춤
@@ -7549,7 +7821,7 @@ class Melee(pygame.sprite.Sprite):
         self.impact_done = False
 
         self.has_hit = set()  # 이미 공격한 좀비들을 추적
-        rel = weapon_art_rel(weapon_type)
+        rel = scythe_art_rel(owner) if weapon_type == "scythe" and owner is not None else weapon_art_rel(weapon_type)
         if rel is not None:   # 도트 무기 그림을 원래 무기 그림 크기 안에 맞춰 넣음 (휘두르는 범위/판정은 그대로)
             self.base_image = art_fit(rel, self.base_image.get_size())
         self._render(0.0)
@@ -7769,6 +8041,21 @@ def get_player_buffs(player):
     if player.katana_chain > 0:
         bonus = int(round(get_katana_chain_bonus(player) * player.katana_chain * 100))
         buffs.append((f"연참 x{player.katana_chain} (다음 일섬 +{bonus}%)", "chain", player.katana_chain_timer, (150, 230, 255)))
+    if player.weapon is not None and player.weapon.weapon_type == "machinegun" and player.skill_upgrades["machinegun"].get("belt", 0):
+        if infinity_ammo_on(player):
+            buffs.append(("탄약 폭주 - 무한 탄약", "belt_on", player.infinity_ammo_time, (255, 215, 90)))
+        else:
+            buffs.append((f"탄약 폭주 {player.skill_upgrades['machinegun'].get('belt_stacks', 0)}/{BELT_MAX_STACKS}", "belt", 1, (255, 215, 90)))
+    if player.weapon is not None and is_scythe(player):
+        percent = player.scythe_kills * SCYTHE_SKILL_STACK * 100
+        goal = SCYTHE_EVOLVE_STACKS if player.scythe_route == 0 else SCYTHE_EVOLVE2_STACKS if player.scythe_stage < 2 else None
+        buffs.append((f"처치 스택 {player.scythe_kills}" + (f"/{goal}" if goal else "") + f" (스킬 +{percent:.0f}%)", "scythe", 1, SCYTHE_COLORS[player.scythe_route]))
+        if player.scythe_route == 1:
+            buffs.append((f"처형 체력선 {scythe_exec_ratio_text(player)}", "scythe_exec", 1, SCYTHE_COLORS[1]))
+        elif player.scythe_route == 2:
+            buffs.append((f"혈기 {player.scythe_blood}", "scythe_blood", 1, SCYTHE_COLORS[2]))
+            if player.scythe_frenzy_time > 0:
+                buffs.append(("선혈 강화", "scythe_frenzy", player.scythe_frenzy_time, SCYTHE_COLORS[2]))
     if getattr(player, "encore_time", 0) > 0:
         regen = int(ENCORE_REGEN * 100)
         for text, key in ((f"앙코르 - 재생 (초당 {regen}%)", "encore_regen"),
@@ -7880,7 +8167,7 @@ def draw_player_status(surface, player, x=14, y=14):
     for label, key, frames, color in buffs:
         active.add(key)
         maxes[key] = max(maxes.get(key, 0), frames)
-        buff_text = label if key in ("rage", "groove", "phoenix_ready") else f"{label}  {frames / FPS:.1f}초"
+        buff_text = label if key in ("rage", "groove", "phoenix_ready", "scythe", "scythe_exec", "scythe_blood", "belt") else f"{label}  {frames / FPS:.1f}초"
         ui_text(surface, buff_text, ui_fit_font(font_tiny, buff_text, w - 106), ui_bright(color), (x + 14, by), shadow=False)
         ui_bar(surface, (x + w - 84, by + 6, 72, 8), frames / max(maxes[key], 1), ui_bright(color, 150), back=(30, 30, 40), radius=4)
         by += 24
@@ -8092,6 +8379,7 @@ def select_weapon():
         {"name": "창", "desc": "빠를수록 강함, 달리면 돌진", "skill": "물보라", "type": "spear", "color": (200, 200, 70)},
         {"name": "일렉 기타", "desc": "박자 맞춰 치면 강해짐 (리듬)", "skill": "앙코르 (팀 버프)", "type": "hammer", "color": (220, 60, 150)},
         {"name": "글로브", "desc": "초고속 연타, 짧은 사거리", "skill": "백열권 (연타)", "type": "gloves", "color": (220, 60, 70)},
+        {"name": "낫", "desc": "처치할수록 스킬 강화", "skill": "크게 베기 (진화)", "type": "scythe", "color": (150, 140, 175)},
     ]
     pygame.event.clear(pygame.MOUSEBUTTONDOWN)
     card_h = 172
@@ -8100,8 +8388,8 @@ def select_weapon():
         top = ui_title(screen, "무기를 선택하세요", 24, "게임 시작 후에는 바꿀 수 없음 · 우클릭으로 무기 전용 스킬 사용")
         first = max(top + 46, (SCREEN_HEIGHT - (card_h * 2 + 58)) // 2 - 20)
         rows_y = [first, first + card_h + 58]
-        rects = _card_row(7, 210, card_h, rows_y[0], gap=16) + _card_row(6, 210, card_h, rows_y[1], gap=16)
-        for label, y, rect, last in (("원거리", rows_y[0], rects[0], rects[6]), ("근접", rows_y[1], rects[7], rects[12])):
+        rects = _card_row(7, 210, card_h, rows_y[0], gap=16) + _card_row(7, 210, card_h, rows_y[1], gap=16)
+        for label, y, rect, last in (("원거리", rows_y[0], rects[0], rects[6]), ("근접", rows_y[1], rects[7], rects[13])):
             ui_text(screen, label, font_hud, UI_ACCENT, (rect.x, y - 30))
             pygame.draw.line(screen, UI_BORDER, (rect.x + 60, y - 18), (last.right, y - 18))
         mouse_pos = pygame.mouse.get_pos()
@@ -8137,7 +8425,8 @@ WEAPON_HELP = {
               ["항공 폭격: 조준 방향에 예고선이 뜨고 비행기가 날아와 그 직선에 폭탄을 떨어뜨림.",
                "폭탄 1발 기본 1000 피해 (반경 75), 공격력이 오르면 같은 비율로 증가.",
                "업그레이드 \"폭격 범위 증가\": 길이 +100px, 폭 +15px. 쿨타임 80초."]),
-    "machinegun": (["누르고 있으면 연사. 한 발은 약하지만 매우 빠름."],
+    "machinegun": (["누르고 있으면 연사. 한 발은 약하지만 매우 빠름.",
+                    "레벨 6부터 \"탄약 폭주\" (패시브): 쏠 때 1% 확률로 스택 +1, 100이 차면 자동으로 무한 탄약 30초 (무한 탄약 중에는 안 쌓임)."],
                    ["포탑 설치 (충전식): 마우스 쪽(최대 220px)에 10초 동안 가까운 좀비를 자동으로 쏘는 포탑 (한 발 = 지금 공격력 x1.5).",
                     "충전 최대 3개 - 모아 뒀다가 연달아 여러 개 설치 가능, 12초마다 1개 충전 (업그레이드 \"포탑 최대 충전 +1\", 최대 5개).",
                     "포탑 총알은 기본 공격과 똑같이 치명타 · 화염 · 얼음 · 전기탄 · 폭발 공격 · 관통 적용, 무한탄약 동안은 쉬지 않고 사격."]),
@@ -8191,6 +8480,12 @@ WEAPON_HELP = {
                 "10콤보마다 강타 충격파 (2.5배), 25콤보 이상 폭주 (주먹마다 앞으로 주먹 파동)."],
                ["백열권: 1.2초 동안 앞쪽을 마구 두드린 뒤 어퍼컷 (4배, 멀리 날림, 1초 기절).",
                 "콤보당 +3% (최대 +60%) 강해지고 어퍼컷에서 콤보를 모두 터뜨림. 쿨타임 15초."]),
+    "scythe": (["처치할 때마다 처치 스택 +1 (무한). 1000스택에 처형 / 선혈 중 하나로 진화, 3000스택에 2차 진화.",
+                "처형: 평타는 그대로. 선혈: 평타에 출혈 (3초) + 혈기 스택. 방어막 업그레이드는 나오지 않음."],
+               ["크게 베기: 앞쪽 넓은 부채꼴을 공격력 x3.5로 벰. 처치 스택 1개당 +0.1%. 쿨타임 10초.",
+                "처형: 클릭한 곳에서 가장 가까운 좀비 뒤로 이동해 베고, 처치 스택 비례 체력선 아래면 즉사 (1000스택 10%, 보스급 절반). 자동조준 안 받음.",
+                "선혈: 5초 동안 혈기만큼 평타 피해 · 공격 속도 증가 + 평타 흡혈 5%.",
+                "2차 진화: 처형은 체력선 x1.25 + 주변도 함께 베기, 선혈은 출혈 · 흡혈 · 혈기 상한 · 지속 시간 증가."]),
 }
 
 
@@ -8213,6 +8508,8 @@ def class_live_lines(player):
         lines.append(f"콤보 {player.glove_combo} · 한 번에 추가 타격 {gloves_extra_hits(player)}대")
     elif weapon.weapon_type == "katana":
         lines.append(f"연참 x{player.katana_chain}")
+    elif weapon.weapon_type == "scythe":
+        lines.append(f"{weapon.name} · 처치 스택 {player.scythe_kills} (스킬 +{player.scythe_kills * SCYTHE_SKILL_STACK * 100:.0f}%)")
     elif weapon.weapon_type == "grimoire":
         names = " · ".join(GRIMOIRE_ELEMENTS[key][0] for key in grimoire_elements(player))
         lines.append(f"지금 형태: {grimoire_form(player)[1]} · 스킬: {GRIMOIRE_SKILLS[grimoire_skill_stage(player)][1]}")
@@ -8487,6 +8784,7 @@ def build_cumulative_upgrade_lines(player):
         "spear": 4,
         "hammer": 10,
         "gloves": 2,
+        "scythe": 4,
     }
 
     for entry in player.obtained_upgrades:
@@ -8578,6 +8876,8 @@ def build_cumulative_upgrade_lines(player):
 
     if counts.get("melee_skill_range", 0) > 0:
         lines.append(f"홈런 범위: +{counts['melee_skill_range'] * 12}px")
+    if counts.get("scythe_skill_range", 0) > 0:
+        lines.append(f"크게 베기 범위: +{counts['scythe_skill_range'] * 25}px")
     if counts.get("axe_skill_range", 0) > 0:
         lines.append(f"대회전 베기 범위: +{counts['axe_skill_range'] * 25}px")
     if counts.get("hammer_skill_range", 0) > 0:
@@ -8701,6 +9001,8 @@ def show_obtained_upgrades(player, background=None):
 
 def is_upgrade_at_limit(player, upgrade_type):
     """업그레이드가 최대치(또는 1회성 획득 완료)인지 판별"""
+    if upgrade_type == "skill_shield" and player.weapon is not None and player.weapon.weapon_type == "scythe":
+        return True   # 낫은 방어막 업그레이드를 받을 수 없음
     # 명시적 횟수 제한
     if upgrade_type == "crit":
         return player.levels.get("crit", 0) >= 16  # 최대 80%
@@ -8742,6 +9044,8 @@ def is_upgrade_at_limit(player, upgrade_type):
         return True   # 넉백은 근접 무기와 로켓 폭발에만 있음
 
     # 오의 연섬: 카타나 레벨 6부터, 한 번만
+    if upgrade_type == "machinegun_skill_belt":
+        return player.level < BELT_MIN_LEVEL or player.skill_upgrades["machinegun"].get("belt", 0) >= 1
     if upgrade_type == "katana_skill_ougi":
         return player.level < KATANA_OUGI_MIN_LEVEL or player.skill_upgrades["katana"].get("ougi", 0) >= 1
 
@@ -9132,7 +9436,7 @@ def build_upgrade_choices(player, level=None):
         {"name": "자동조준", "desc": "가까운 좀비를 자동으로 조준", "type": "skill_auto_aim", "color": (150, 255, 100), "min_level": 4},
         {"name": "방어막 강화", "desc": f"방어막 +{int(SHIELD_STACK_RATIO * 100)}% (지금 최대 체력의 {round(shield_ratio(player) * 100)}%)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3}
         if player.shield_active else
-        {"name": "방어막", "desc": "최대 체력 30%만큼 피해를 막음 (4초 안 맞으면 다시 참, 또 찍으면 늘어남)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3},
+        {"name": "방어막", "desc": "최대 체력 20%만큼 피해를 막음 (4초 안 맞으면 다시 참, 또 찍으면 늘어남)", "type": "skill_shield", "color": (200, 200, 100), "min_level": 3},
         {"name": "순간이동", "desc": "마우스 위치로 즉시 이동", "type": "skill_teleport", "color": (200, 100, 255), "min_level": 4},
         {"name": "시간감속", "desc": "주변 좀비를 느리게 함", "type": "skill_slowdown", "color": (100, 255, 255), "min_level": 5},
         {"name": "폭발 공격", "desc": f"공격 시 작은 폭발 (주변 {int((EXPLOSION_SKILL_RATIO_MELEE if player.weapon.weapon_type in MELEE_WEAPONS else EXPLOSION_SKILL_RATIO) * 100)}%)",
@@ -9191,6 +9495,13 @@ def build_upgrade_choices(player, level=None):
             {"name": f"{player.weapon.name} 공격력 +2", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 2},
             {"name": "공격 속도 +10%", "desc": "더 빠른 펀치", "type": f"melee_skill_speed_{weapon_type}", "color": (200, 150, 150)},
         ]
+    elif weapon_type == "scythe":
+        weapon_upgrades = [
+            {"name": f"{player.weapon.name} 공격력 +4", "desc": "공격력 증가", "type": f"melee_damage_{weapon_type}", "color": player.weapon.color, "value": 4},
+            {"name": "공격 속도 +8%", "desc": "더 빠른 베기", "type": f"melee_skill_speed_{weapon_type}", "color": (200, 150, 150)},
+        ]
+        if player.scythe_route == 0:   # 진화하면 크게 베기가 다른 스킬로 바뀜
+            weapon_upgrades.append({"name": "크게 베기 범위 +25px", "desc": "크게 베기 범위 확대", "type": "scythe_skill_range", "color": (190, 180, 225)})
     elif weapon_type == "glock":
         weapon_upgrades = [
             {"name": "폭격 범위 증가", "desc": "항공 폭격 길이 +100px, 폭 +15px", "type": "glock_skill_burst", "color": (255, 200, 100)},
@@ -9212,6 +9523,7 @@ def build_upgrade_choices(player, level=None):
         weapon_upgrades = [
             {"name": "포탑 지속 +1초", "desc": "포탑이 더 오래 유지", "type": "machinegun_skill_burst", "color": (150, 150, 200)},
             {"name": "포탑 최대 충전 +1", "desc": "포탑을 하나 더 모아 둘 수 있음", "type": "machinegun_skill_charge", "color": (170, 200, 230)},
+            {"name": "탄약 폭주 (패시브)", "desc": "쏠 때 1% 확률로 스택 +1, 100이 차면 자동으로 무한 탄약 30초", "type": "machinegun_skill_belt", "color": (255, 215, 90)},
             {"name": "공격력 +1", "desc": "공격력 증가", "type": "weapon_damage", "color": RED, "value": 1},
         ]
     elif weapon_type == "plasma":
@@ -9255,9 +9567,9 @@ def build_upgrade_choices(player, level=None):
     return random.sample(all_upgrades, min(3, len(all_upgrades)))
 
 
-def show_upgrade_menu(player, camera, level=None):
+def show_upgrade_menu(player, camera, level=None, choices=None):
     level = player.level if level is None else level
-    selected_upgrades = build_upgrade_choices(player, level)
+    selected_upgrades = choices if choices is not None else build_upgrade_choices(player, level)
     special = bool(selected_upgrades) and selected_upgrades[0].get("special", False)
     background = ui_snapshot()     # 멈춘 게임 화면을 뒤에 보여줌
 
@@ -9273,7 +9585,9 @@ def show_upgrade_menu(player, camera, level=None):
 
         # 카드가 아래에서 살짝 떠오르며 나타남
         rise = max(0, 40 - elapsed // 5)
-        if special:   # 50레벨: 특수 업그레이드
+        if choices is not None:   # 낫 진화: 두 루트 중 하나
+            top = ui_title(screen, f"낫 진화! ({player.scythe_kills}스택)", SCREEN_HEIGHT // 2 - 230, "두 루트 중 하나를 선택하세요 · 다시 고를 수 없음", color=UI_ACCENT)
+        elif special:   # 50레벨: 특수 업그레이드
             top = ui_title(screen, f"LV.{level} 특수 업그레이드!", SCREEN_HEIGHT // 2 - 230, "아주 강력한 보상 · 한 가지를 선택하세요", color=SPECIAL_COLOR)
         else:
             top = ui_title(screen, "레벨업!", SCREEN_HEIGHT // 2 - 230, f"LV.{level} · 한 가지를 선택하세요", color=UI_ACCENT)
@@ -9431,10 +9745,22 @@ def apply_upgrade(player, selected_upgrade):
         player.skill_upgrades["melee"]["range"] += 12
     elif selected_upgrade["type"] == "katana_skill_strikes":
         player.skill_upgrades["katana"]["strikes"] += 1
+    elif selected_upgrade["type"] == "machinegun_skill_belt":
+        player.skill_upgrades["machinegun"]["belt"] = 1
     elif selected_upgrade["type"] == "katana_skill_ougi":
         player.skill_upgrades["katana"]["ougi"] = 1
     elif selected_upgrade["type"] == "katana_skill_chain":
         player.skill_upgrades["katana"]["chain"] = player.skill_upgrades["katana"].get("chain", 0) + 1
+    elif selected_upgrade["type"] == "scythe_skill_range":
+        player.skill_upgrades["scythe"]["range"] += 25
+    elif selected_upgrade["type"] in ("scythe_route_1", "scythe_route_2"):
+        player.scythe_route = int(selected_upgrade["type"][-1])
+        player.scythe_stage = 1
+        color = SCYTHE_COLORS[player.scythe_route]
+        cx, cy = player.rect.center
+        fx.add_text(cx, player.rect.top - 40, f"진화: {selected_upgrade['name']}!", color, big=True, life=120)
+        fx.wave(cx, cy, color, 30, 260, life=26, width=10)
+        fx.burst(cx, cy, color, 40, speed=(3, 9), size=(3, 6), life=(16, 34))
     elif selected_upgrade["type"] == "axe_skill_range":
         player.skill_upgrades["axe"]["range"] += 25
     elif selected_upgrade["type"] == "axe_skill_knockback":
@@ -9532,9 +9858,15 @@ def get_upgrade_name(upgrade_type):
         "katana_skill_strikes": "일섬 거리 +40px",
         "katana_skill_chain": "연참 피해 +3%",
         "katana_skill_ougi": "오의 연섬",
+        "machinegun_skill_belt": "탄약 폭주",
         "melee_damage_katana": "카타나 공격력 +3",
         "melee_skill_speed_katana": "카타나 속도 +12%",
         "axe_skill_range": "대회전 범위 +25px",
+        "scythe_skill_range": "크게 베기 범위 +25px",
+        "melee_damage_scythe": "낫 공격력 +4",
+        "melee_skill_speed_scythe": "낫 속도 +8%",
+        "scythe_route_1": "처형의 낫",
+        "scythe_route_2": "선혈의 낫",
         "melee_damage_axe": "도끼 공격력 +8",
         "axe_skill_knockback": "대회전 넉백 +12%",
         "spear_skill_pierces": "물보라 범위 +30px",
@@ -10368,6 +10700,7 @@ PLAYER_SAVE_FIELDS = [
     "levels", "skills", "pierce_level", "skill_upgrades", "weapon_upgrades", "obtained_upgrades",
     "shield_active", "skill_cooldown_reduction", "infinity_ammo_time", "teleport_cooldown_max",
     "special_upgrades", "damage_dealt", "best_hit", "grimoire_order",
+    "scythe_kills", "scythe_route", "scythe_stage", "scythe_blood",
 ]
 WEAPON_SAVE_FIELDS = ["weapon_type", "damage", "fire_rate", "attack_speed"]
 
@@ -10446,7 +10779,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102151          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102152          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -10697,6 +11030,7 @@ def main():
                         can_fire = True
                         player.weapon.last_shot_time = pygame.time.get_ticks()
                     if can_fire:
+                        machinegun_belt_roll(player)
                         if player.weapon.weapon_type in MELEE_WEAPONS:
                             # 근접 무기 - 범위 공격
                             dx = mouse_world_x - player.rect.centerx
@@ -10851,6 +11185,8 @@ def main():
                 elif player.weapon.weapon_type == "melee":   # 나무 방망이: 누르고 있으면 힘 모으기
                     bat_charge_start(player)
                 else:  # 무기 스킬 (기본: 우클릭 / Q)
+                    if is_scythe(player) and player.scythe_route == 1:   # 처형은 자동조준을 받지 않고 실제로 클릭한 곳을 씀
+                        mouse_world_x, mouse_world_y = mouse_screen_x + camera.x, mouse_screen_y + camera.y
                     execute_weapon_skill(player.weapon.weapon_type, player, mouse_world_x, mouse_world_y,
                                        zombies, bullets, all_sprites, explosions)
 
@@ -10935,6 +11271,7 @@ def main():
 
             # 글로브 콤보 (유지 시간 + 공격 속도 보너스)
             tick_glove_combo(player)
+            tick_scythe(player)   # 글로브 콤보 뒤에 (공격 속도 배율을 덮어쓰지 않게)
             if player.bat_charging:   # 나무 방망이 풀스윙: 누르는 동안 모으고 떼면 휘두름
                 mouse_screen_x, mouse_screen_y = pygame.mouse.get_pos()
                 bat_charge_tick(player, binding_held("skill"), mouse_screen_x + camera.x, mouse_screen_y + camera.y,
@@ -10975,6 +11312,15 @@ def main():
                 if selected_upgrade:
                     apply_upgrade(player, selected_upgrade)
 
+            # 낫 1000스택: 진화 루트 선택
+            if scythe_route_ready(player):
+                menu_start = pygame.time.get_ticks()
+                selected_upgrade = show_upgrade_menu(player, camera, choices=scythe_route_cards())
+                paused_ms = pygame.time.get_ticks() - menu_start
+                wave_timer_start += paused_ms
+                compensate_paused_time(player, paused_ms)
+                apply_upgrade(player, selected_upgrade)
+
             # 기관총 연발 처리 (마우스 꾹 누르고 있을 때)
             if not game_over:
                 if binding_held("attack"):  # 공격 키/버튼을 누르고 있음
@@ -10995,6 +11341,7 @@ def main():
                             can_fire = True
                             player.weapon.last_shot_time = pygame.time.get_ticks()
                         if can_fire:
+                            machinegun_belt_roll(player)
                             bullet_type = "normal"
                             bullet = Bullet(player.rect.centerx, player.rect.centery, mouse_world_x, mouse_world_y, get_weapon_damage(player), bullet_type, "machinegun")
                             bullet.speed = player.weapon.bullet_speed
@@ -11611,6 +11958,7 @@ def main():
                 # 점수/경험치 (부활하는 좀비도 처치 1회로 인정, 자폭한 임프는 제외)
                 if not zombie.no_reward:
                     score += 10
+                    scythe_gain_kill(zombie, player)
                     exp_gain = get_exp_reward(player, wave) * kill_exp_mult(zombie)
                     if getattr(zombie, "dash_kill", False):   # 카타나 일섬으로 처치: 경험치 75%
                         exp_gain = int(exp_gain * KATANA_DASH_EXP_RATIO)
