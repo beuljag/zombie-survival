@@ -8173,6 +8173,9 @@ def draw_player_status(surface, player, x=14, y=14):
         else:
             ui_bar(surface, skill_rect, 1 - remain / total, (106, 155, 204), back=(44, 41, 38),
                    label=f"포탑 충전 {remain / 1000:.1f}초", font=font_tiny)
+    elif weapon_type == "scythe" and player.scythe_route == 2 and player.scythe_blood < SCYTHE_BLOOD_COST:   # 선혈: 혈기가 차야 준비 완료
+        ui_bar(surface, skill_rect, player.scythe_blood / SCYTHE_BLOOD_COST, (190, 50, 60), back=(44, 24, 28),
+               label=f"혈기 {player.scythe_blood}/{SCYTHE_BLOOD_COST}", font=font_tiny)
     elif remain <= 0:
         pulse = 0.5 + 0.5 * math.sin(now / 180)
         ui_bar(surface, skill_rect, 1, (int(70 + 50 * pulse), 210, int(110 + 40 * pulse)), back=(20, 40, 28),
@@ -10801,7 +10804,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102157          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102158          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
