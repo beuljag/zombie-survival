@@ -511,7 +511,7 @@ WEAPON_STATS = {
     "spear":  {"name": "창",          "dmg": 36, "rate": 2.0,  "color": (128, 128, 0)},  # DPS 72   범위 165 (가장 김)
     "hammer": {"name": "일렉 기타",   "dmg": 22, "rate": 2.5,  "color": (220, 60, 150)},  # 박자에 맞춰 치면 강해짐 (PERFECT 2배) - 내부 이름은 예전 해머 그대로
     "gloves": {"name": "글로브",      "dmg": 15, "rate": 5.0,  "color": (255, 192, 203)},  # DPS 90   범위 100
-    "scythe": {"name": "낫",          "dmg": 42, "rate": 2.2,  "color": (150, 140, 175)},  # DPS 92   범위 155, 영혼 + 진화
+    "scythe": {"name": "낫",          "dmg": 32, "rate": 2.2,  "color": (150, 140, 175)},  # DPS 70   범위 155, 영혼 + 진화
 }
 
 # 우클릭 스킬 기본 쿨타임(ms) - "스킬 쿨타임 감소" 업그레이드가 모든 무기에 똑같이 적용됨
@@ -3714,7 +3714,7 @@ def gloves_extra_hits(player):
 SCYTHE_SKILL_STACK = 0.001        # 영혼 1개당 우클릭 스킬 +0.1% (평타에는 적용 안 됨)
 SCYTHE_EVOLVE_STACKS = 1000       # 이 스택에서 루트 선택
 SCYTHE_EVOLVE2_STACKS = 3000      # 이 스택에서 2차 진화
-SCYTHE_SKILL_MULT = 3.5           # 크게 베기 · 처형 베기: 공격력 배율
+SCYTHE_SKILL_MULT = 4.6           # 크게 베기 · 처형 베기: 공격력 배율 (평타를 줄여도 스킬은 그대로가 되게 올림)
 SCYTHE_SLASH_RADIUS, SCYTHE_SLASH_HALF = 240, 105   # 크게 베기: 반경, 반각(도)
 SCYTHE_EXEC_PICK = 280            # 처형: 클릭한 곳에서 이 거리 안의 가장 가까운 좀비를 노림
 SCYTHE_EXEC_PER_STACK = 0.0001    # 처형: 영혼 1개당 처형 체력선 +0.01% (영혼 1000에 10%)
@@ -8493,7 +8493,7 @@ WEAPON_HELP = {
                 "콤보당 +3% (최대 +60%) 강해지고 어퍼컷에서 콤보를 모두 터뜨림. 쿨타임 15초."]),
     "scythe": (["스킬로 처치할 때마다 영혼 +1 (무한, 평타 처치는 안 쌓임). 영혼 1000에 처형 / 선혈 중 하나로 진화, 3000에 2차 진화.",
                 "처형: 평타는 그대로. 선혈: 평타에 출혈 (3초) + 혈기 스택. 방어막 업그레이드는 나오지 않음."],
-               ["크게 베기: 앞쪽 넓은 부채꼴을 공격력 x3.5로 벰. 영혼 1개당 +0.1%. 쿨타임 10초.",
+               ["크게 베기: 앞쪽 넓은 부채꼴을 공격력 x4.6으로 벰. 영혼 1개당 +0.1%. 쿨타임 10초.",
                 "처형: 클릭한 곳에서 가장 가까운 좀비 뒤로 이동해 베고, 영혼 비례 체력선 아래면 즉사 (영혼 1000에 10%, 보스급 절반). 자동조준 안 받음.",
                 "선혈: 5초 동안 혈기만큼 평타 피해 · 공격 속도 증가 + 평타 흡혈 5%. 이 동안 평타로 처치하면 영혼 +1.",
                 "2차 진화: 처형은 체력선 x1.25 + 주변도 함께 베기, 선혈은 출혈 · 흡혈 · 혈기 상한 · 지속 시간 증가."]),
@@ -10790,7 +10790,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102155          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102156          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
