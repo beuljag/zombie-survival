@@ -10003,11 +10003,11 @@ def get_zombie_type_by_wave(wave):
 # 10의 배수 웨이브: 잡몹 대신 체력이 아주 높은 보스 1마리만 나옴 (보스가 소환하는 부하는 그대로)
 BOSS_WAVE_EVERY = 10
 BOSS_WAVE_HEALTH_MULT = 50      # 같은 웨이브 일반 보스 체력의 50배
-WAVE_BOSS_EXP_MULT = 50         # 웨이브 보스를 쓰러뜨리면 경험치 50배
+WAVE_BOSS_EXP_MULT = 100        # 웨이브 보스를 쓰러뜨리면 경험치 100배
 
 
 def kill_exp_mult(zombie):
-    """처치 경험치 배율: 웨이브 보스는 마지막으로 쓰러질 때만 50배 (기사단장은 처음 쓰러지면 부활하므로 그때는 1배)"""
+    """처치 경험치 배율: 웨이브 보스는 마지막으로 쓰러질 때만 100배 (기사단장은 처음 쓰러지면 부활하므로 그때는 1배)"""
     if not getattr(zombie, "wave_boss", False):
         return 1
     if zombie.zombie_type == "paladin" and not zombie._paladin_resurrected:
@@ -10779,7 +10779,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102152          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102153          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
