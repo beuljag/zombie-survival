@@ -1138,7 +1138,7 @@ class MatchState:
                 continue
             if not zombie.no_reward:
                 self.score += 10
-                scythe_gain_kill(zombie)   # 낫 처치 스택은 마지막으로 때린 사람만
+                scythe_gain_kill(zombie)   # 낫 영혼: 스킬로 쓰러뜨린 사람만
                 for p in members:   # 경험치 공유
                     gain = get_exp_reward(p, self.wave) * kill_exp_mult(zombie)
                     if getattr(zombie, "dash_kill", False):
