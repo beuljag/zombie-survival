@@ -2326,13 +2326,14 @@ class Player(pygame.sprite.Sprite):
         self.invuln_time = 0     # 무적 남은 시간 (카타나 일섬 직후)
         self.overshield = 0.0    # 흡혈 보호막 (도끼 대회전 베기로 넘친 회복량)
         self.scythe_kills = 0        # 낫: 영혼 (스킬 처치 수, 무한)
-        self.scythe_route = 0        # 낫 진화 루트: 0 진화 전 / 1 처형 / 2 선혈
+        self.scythe_route = 0        # 낫 진화 루트: 0 진화 전 / 1 처형 / 2 선혈 / 3 사신 (★ 사신의 낫을 찍으면 두 루트를 합침)
         self.scythe_stage = 0        # 낫 진화 단계: 0 / 1 (루트 선택) / 2 (2차 진화)
         self.scythe_blood = 0        # 낫 선혈 루트: 혈기 스택
         self.scythe_frenzy_time = 0  # 낫 선혈 루트: 평타 강화 남은 프레임
         self.scythe_frenzy = []      # 낫 선혈 루트: 평타 강화 중첩 [남은 프레임, 위력]
         self.scythe_executed = False # 낫 처형 루트: 이번 스킬이 처형에 성공했는지
         self.scythe_offered = False  # 멀티: 진화 선택지를 이미 띄웠는지
+        self.scythe_reaper_offered = False  # 멀티: 사신의 낫 선택지를 이미 띄웠는지
         self.overshield_time = 0
         self.katana_chain = 0    # 일섬 연속 처치 횟수 (처치 실패 시 0으로)
         self.katana_chain_timer = 0  # 연참 유지 남은 시간 (0이 되면 스택 초기화)
@@ -3489,9 +3490,39 @@ class Bullet(pygame.sprite.Sprite):
         self.vel_x = self.dir_x * value
         self.vel_y = self.dir_y * value
 
+    def _dragon_hunt(self):
+        """마법서 300레벨 드래곤: 사거리(지나온 길이)가 다할 때까지 주변의 아직 안 문 좀비를 쫓아다님"""
+        target = getattr(self, "hunt_target", None)
+        if target is not None and (target.health <= 0 or not target.alive() or target in self.hit_targets):
+            target = None
+        if target is None or self.lifetime % 6 == 0:   # 가까운 새 먹잇감 (게임 판정과 같은 순서라 멀티에서도 같음)
+            best, best_d = None, GRIMOIRE_HUNT_RANGE
+            for zombie in self.hunt_group:
+                if zombie.health <= 0 or zombie in self.hit_targets:
+                    continue
+                d = math.hypot(zombie.rect.centerx - self.pos_x, zombie.rect.centery - self.pos_y)
+                if d < best_d:
+                    best, best_d = zombie, d
+            target = best
+        self.hunt_target = target
+        if target is not None:
+            want = math.atan2(target.rect.centery - self.pos_y, target.rect.centerx - self.pos_x)
+            now = math.atan2(self.dir_y, self.dir_x)
+            diff = (want - now + math.pi) % (2 * math.pi) - math.pi
+            now += max(-GRIMOIRE_HUNT_TURN, min(GRIMOIRE_HUNT_TURN, diff))
+            self.dir_x, self.dir_y = math.cos(now), math.sin(now)
+            self.speed = self._speed
+            if abs(diff) > 0.02:   # 머리 그림을 나는 방향으로 (판정 rect는 그대로)
+                self.image = _grimoire_image("dragon", self.grimoire_glow, self.grimoire_element, math.degrees(now))
+        self.hunt_travel += self._speed
+        if self.hunt_travel > self.max_range:
+            self.kill()
+
     def update(self):
         if self.weapon_type == "rocket" and hasattr(self, "home_target"):
             self._home()
+        if getattr(self, "hunt_group", None) is not None:
+            self._dragon_hunt()
         self.pos_x += self.vel_x
         self.pos_y += self.vel_y
         self.rect.center = (round(self.pos_x), round(self.pos_y))
@@ -3540,8 +3571,8 @@ class Bullet(pygame.sprite.Sprite):
         # (예전에는 월드 원점 기준 ±10000이라, 플레이어가 원점에서 멀리 가면 쏘자마자 총알이 사라졌음)
         travel_x = self.pos_x - self.start_x
         travel_y = self.pos_y - self.start_y
-        if travel_x * travel_x + travel_y * travel_y > self.max_range * self.max_range:
-            self.kill()
+        if travel_x * travel_x + travel_y * travel_y > self.max_range * self.max_range and getattr(self, "hunt_group", None) is None:
+            self.kill()   # 쫓아다니는 드래곤은 지나온 길이로 따로 셈
 
         # 로켓은 일정 시간 후 사라짐
         if (self.bullet_type == "rocket" or self.weapon_type == "rocket") and self.lifetime > 120:
@@ -3741,8 +3772,18 @@ SCYTHE_FRENZY_FRAMES = (300, 360) # 평타 강화 지속 (1차 / 2차 진화)
 SCYTHE_FRENZY_LAYERS = (3, 5)     # 평타 강화 중첩 상한 (1차 / 2차 진화): 넘치면 가장 오래된 것부터 사라짐
 SCYTHE_FRENZY_POWER_MAX = 2       # 중첩을 합친 위력 상한 = 혈기 상한의 2배
 SCYTHE_LIFESTEAL = (0.05, 0.08)   # 강화 중 평타 흡혈 (보호막은 생기지 않음)
-SCYTHE_NAMES = {(0, 0): "낫", (1, 1): "처형의 낫", (1, 2): "종말의 낫", (2, 1): "선혈의 낫", (2, 2): "혈왕의 낫"}
-SCYTHE_COLORS = {0: (190, 180, 225), 1: (185, 150, 255), 2: (255, 80, 80)}
+SCYTHE_NAMES = {(0, 0): "낫", (1, 1): "처형의 낫", (1, 2): "종말의 낫", (2, 1): "선혈의 낫", (2, 2): "혈왕의 낫", (3, 1): "사신의 낫", (3, 2): "명계의 낫"}
+SCYTHE_COLORS = {0: (190, 180, 225), 1: (185, 150, 255), 2: (255, 80, 80), 3: (235, 80, 190)}
+
+
+def scythe_exec_route(player):
+    """처형 스킬을 쓰는 루트 (처형 · 사신)"""
+    return player.scythe_route in (1, 3)
+
+
+def scythe_blood_route(player):
+    """출혈 · 혈기 · 선혈 강화를 쓰는 루트 (선혈 · 사신)"""
+    return player.scythe_route in (2, 3)
 
 
 def is_scythe(player):
@@ -3757,7 +3798,7 @@ def scythe_skill_mult(player):
 def scythe_art_rel(player):
     """지금 진화 단계의 낫 그림"""
     route, stage = player.scythe_route, player.scythe_stage
-    name = "scythe" if route == 0 else f"scythe_{'execute' if route == 1 else 'blood'}{'2' if stage >= 2 else ''}"
+    name = "scythe" if route == 0 else f"scythe_{('execute', 'blood', 'reaper')[route - 1]}{'2' if stage >= 2 else ''}"
     rel = f"weapons/{name}.png"
     return rel if load_asset(rel) is not None else weapon_art_rel("scythe")
 
@@ -3785,6 +3826,16 @@ def scythe_route_ready(player):
     return is_scythe(player) and player.scythe_route == 0 and player.scythe_kills >= SCYTHE_EVOLVE_STACKS
 
 
+def scythe_reaper_ready(player):
+    """낫을 들고 ★ 사신의 낫을 가졌으면 사신 루트 선택지를 띄움"""
+    return is_scythe(player) and "special_reaper" in player.special_upgrades and player.scythe_route != 3
+
+
+def scythe_reaper_cards():
+    return [{"name": "사신의 낫", "desc": "처형의 낫과 선혈의 낫을 합침: 적 뒤로 이동해 크게 벰 + 처형, 혈기 100이 있으면 선혈 강화도", "type": "scythe_route_3",
+             "color": SCYTHE_COLORS[3], "evolve": True}]
+
+
 def scythe_route_cards():
     """1000스택 진화 선택지"""
     return [{"name": "처형의 낫", "desc": "클릭한 곳의 적 뒤로 이동해 크게 벰. 영혼 비례 체력선 아래면 처형",
@@ -3795,7 +3846,7 @@ def scythe_route_cards():
 
 def scythe_blood_power(player):
     """강화 중일 때 적용되는 혈기 스택 수 (강화 중이 아니면 0)"""
-    if player.scythe_route != 2 or player.scythe_frenzy_time <= 0:
+    if not scythe_blood_route(player) or player.scythe_frenzy_time <= 0:
         return 0
     return min(sum(power for _time, power in player.scythe_frenzy), SCYTHE_BLOOD_MAX[player.scythe_stage - 1] * SCYTHE_FRENZY_POWER_MAX)   # 중첩마다 쓰기 전 혈기만큼
 
@@ -3829,7 +3880,7 @@ def scythe_basic_mult(player):
 
 def scythe_on_basic_hit(player, zombie, total):
     """선혈 루트: 평타가 맞으면 출혈 + 혈기 +1, 강화 중이면 흡혈 (넘친 회복은 버림, 보호막 없음)"""
-    if not is_scythe(player) or player.scythe_route != 2:
+    if not is_scythe(player) or not scythe_blood_route(player):
         return
     stage = player.scythe_stage - 1
     tick = total * SCYTHE_BLEED_RATIO[stage]
@@ -3897,7 +3948,7 @@ def scythe_strike(player, zombie, damage, execute=True):
 def scythe_skill(player, x, y, aim, base, zombies, all_sprites):
     """낫 우클릭: 진화 전 크게 베기 / 처형 루트 순간이동 베기 / 선혈 루트 평타 강화"""
     cx, cy = player.rect.center
-    if player.scythe_route == 2:
+    if player.scythe_route == 2 or (player.scythe_route == 3 and player.scythe_blood >= SCYTHE_BLOOD_COST):   # 사신은 혈기가 있을 때만
         stage = player.scythe_stage - 1
         player.scythe_frenzy.append([SCYTHE_FRENZY_FRAMES[stage], min(player.scythe_blood, SCYTHE_BLOOD_MAX[stage])])
         del player.scythe_frenzy[:-SCYTHE_FRENZY_LAYERS[stage]]   # 상한을 넘으면 가장 오래된 중첩부터 버림
@@ -3907,9 +3958,9 @@ def scythe_skill(player, x, y, aim, base, zombies, all_sprites):
         fx.wave(cx, cy, SCYTHE_COLORS[2], 20, 170 + stage * 70, life=20, width=8)
         fx.disc(cx, cy, SCYTHE_COLORS[2], 120 + stage * 50, life=16, alpha=120)
     damage = base * SCYTHE_SKILL_MULT * scythe_skill_mult(player)
-    if player.scythe_route == 1:
+    if scythe_exec_route(player):
         damage *= SCYTHE_EXEC_DAMAGE_MULT
-    if player.scythe_route == 1:
+    if scythe_exec_route(player):
         target = scythe_exec_target(zombies, x, y)
         tx, ty = target.rect.center
         dx, dy = tx - cx, ty - cy
@@ -4853,7 +4904,7 @@ def get_spear_speed_factor(player):
 
 def skill_cooldown_ms(player, weapon_type):
     """무기 스킬 기본 쿨타임 (처형의 낫은 더 짧음)"""
-    if weapon_type == "scythe" and player.scythe_route == 1:
+    if weapon_type == "scythe" and scythe_exec_route(player):
         return SCYTHE_EXEC_COOLDOWN
     return SKILL_COOLDOWNS[weapon_type]
 
@@ -5910,13 +5961,13 @@ GRIMOIRE_FORMS = [
     (75, "거대 구체", "orb", 50, 1, 1.25, 75, 0.4, 1, 11),
     (100, "쌍둥이 구체", "orb", 38, 2, 0.8, 80, 0.4, 1, 12),
     (125, "삼중 구체", "orb", 36, 3, 0.65, 85, 0.4, 1, 12),
-    (150, "삼중 창", "lance", 70, 3, 0.55, 90, 0.45, 3, 15),
-    (175, "사중 창", "lance", 70, 4, 0.5, 95, 0.45, 4, 15),
-    (200, "오중 창", "lance", 76, 5, 0.5, 100, 0.5, 6, 16),
-    (225, "삼두 새끼 드래곤", "dragon", 64, 3, 0.6, 105, 0.5, 9999, 13),
-    (250, "삼두 드래곤", "dragon", 84, 3, 0.7, 115, 0.5, 9999, 13),
-    (275, "사두 드래곤", "dragon", 90, 4, 0.8, 125, 0.55, 9999, 14),
-    (300, "오두 드래곤", "dragon", 100, 5, 0.84, 130, 0.6, 9999, 14),
+    (150, "삼두 새끼 드래곤", "dragon", 64, 3, 0.6, 90, 0.45, 9999, 13),
+    (175, "삼두 드래곤", "dragon", 84, 3, 0.7, 95, 0.45, 9999, 13),
+    (200, "사두 드래곤", "dragon", 88, 4, 0.62, 100, 0.5, 9999, 13),
+    (225, "사두 고룡", "dragon", 92, 4, 0.72, 105, 0.5, 9999, 14),
+    (250, "오두 드래곤", "dragon", 94, 5, 0.66, 115, 0.5, 9999, 14),
+    (275, "오두 고룡", "dragon", 98, 5, 0.75, 125, 0.55, 9999, 14),
+    (300, "오두 용왕", "dragon", 104, 5, 0.84, 130, 0.6, 9999, 14),
 ]
 GRIMOIRE_SKILL_POWER = 3.0   # 스킬 피해 x3 (기본 공격력이 낮아서 스킬로 한 방을 냄)
 GRIMOIRE_DRAGON_MULT, GRIMOIRE_DRAGON_REACH = 5.0, 100   # 스킬 드래곤: 닿는 좀비에게 공격력 배율, 닿는 거리
@@ -6042,7 +6093,13 @@ def _grimoire_image(shape, size, element, angle):
     return image
 
 
-def fire_grimoire(player, aim_x, aim_y, bullets, all_sprites):
+GRIMOIRE_HUNT_LEVEL = 300      # 이 레벨부터 기본 공격 드래곤이 주변 좀비를 쫓아다님
+GRIMOIRE_HUNT_RANGE = 600      # 이 거리 안의 좀비를 노림
+GRIMOIRE_HUNT_TURN = 0.14      # 프레임마다 꺾는 각도 (라디안)
+GRIMOIRE_HUNT_DISTANCE = 2400  # 쫓아다니며 날 수 있는 거리 (사거리)
+
+
+def fire_grimoire(player, aim_x, aim_y, bullets, all_sprites, zombies=None):
     """마법서 기본 공격: 무작위 속성 + 레벨에 따른 형태 (1인·멀티 공용)"""
     _level, name, shape, size, count, mult, radius, ratio, pierce, speed = grimoire_form(player)
     cx, cy = player.rect.center
@@ -6073,6 +6130,8 @@ def fire_grimoire(player, aim_x, aim_y, bullets, all_sprites):
         bullet.splash_kind = grimoire_explosion_kind(element)
         bullet.grimoire_color = info[1]
         bullet.grimoire_dragon = shape == "dragon"
+        if shape == "dragon" and player.level >= GRIMOIRE_HUNT_LEVEL and zombies is not None:   # 300레벨: 먹잇감을 쫓아다님
+            bullet.hunt_group, bullet.hunt_travel, bullet.max_range = zombies, 0.0, GRIMOIRE_HUNT_DISTANCE
         bullet.grimoire_glow = size
         bullet.grimoire_level = player.level   # 꾸미기 단계 (그리기 전용)
         bullet.grimoire_share = len(shots)     # 탄이 많으면 탄마다 장식을 나눠서 줄임 (그리기 전용)
@@ -6732,7 +6791,7 @@ def execute_weapon_skill(weapon_type, player, mouse_world_x, mouse_world_y, zomb
             return
     elif player.skill_cooldowns[weapon_type] > current_time:
         return
-    if weapon_type == "scythe" and player.scythe_route == 1 and scythe_exec_target(zombies, mouse_world_x, mouse_world_y) is None:
+    if weapon_type == "scythe" and scythe_exec_route(player) and scythe_exec_target(zombies, mouse_world_x, mouse_world_y) is None:
         fx.add_text(player.rect.centerx, player.rect.top - 30, "처형할 대상 없음", (170, 170, 190))
         return   # 대상이 없으면 쿨타임을 쓰지 않음
     if weapon_type == "scythe" and player.scythe_route == 2 and player.scythe_blood < SCYTHE_BLOOD_COST:
@@ -8105,9 +8164,9 @@ def get_player_buffs(player):
         percent = player.scythe_kills * SCYTHE_SKILL_STACK * 100
         goal = SCYTHE_EVOLVE_STACKS if player.scythe_route == 0 else SCYTHE_EVOLVE2_STACKS if player.scythe_stage < 2 else None
         buffs.append((f"영혼 {player.scythe_kills}" + (f"/{goal}" if goal else "") + f" (스킬 +{percent:.0f}%)", "scythe", 1, SCYTHE_COLORS[player.scythe_route]))
-        if player.scythe_route == 1:
+        if scythe_exec_route(player):
             buffs.append((f"처형 체력선 {scythe_exec_ratio_text(player)}", "scythe_exec", 1, SCYTHE_COLORS[1]))
-        elif player.scythe_route == 2:
+        if scythe_blood_route(player):
             buffs.append((f"혈기 {player.scythe_blood}", "scythe_blood", 1, SCYTHE_COLORS[2]))
             if player.scythe_frenzy_time > 0:
                 buffs.append((f"선혈 강화 x{len(player.scythe_frenzy)}", "scythe_frenzy", player.scythe_frenzy_time, SCYTHE_COLORS[2]))
@@ -8541,7 +8600,8 @@ WEAPON_HELP = {
     "scythe": (["스킬로 처치할 때마다 영혼 +1 (무한, 평타 처치는 안 쌓임, 선혈 강화 중 평타 처치는 쌓임). 영혼 1000에 처형 / 선혈 중 하나로 진화, 3000에 2차 진화.",
                 "★ 사신의 낫과 함께: 그 처형도 영혼 +1, 처형할 때마다 최대 체력 1% 회복, 선혈은 혈기 +1, 처형의 낫은 영혼 비례 체력선을 ★ 처형 체력선에 더함.",
                 "처형: 평타는 그대로. 선혈: 평타에 출혈 (3초, 최대 5중첩) + 혈기 스택. 방어막 업그레이드는 나오지 않음."],
-               ["크게 베기: 앞쪽 넓은 부채꼴을 공격력 x4.6으로 벰. 영혼 1개당 +0.1%. 쿨타임 10초.",
+               ["★ 사신의 낫을 찍으면 \"사신의 낫\" 선택지가 나옴: 처형의 낫 스킬 (이동 · 크게 베기 · 처형 · 무적) + 혈기 100 이상이면 선혈 강화까지, 평타 출혈 · 혈기도 그대로.",
+                "크게 베기: 앞쪽 넓은 부채꼴을 공격력 x4.6으로 벰. 영혼 1개당 +0.1%. 쿨타임 10초.",
                 "처형: 클릭한 곳에서 가장 가까운 좀비 뒤로 이동해 크게 베기 (같은 범위), 그 좀비가 영혼 비례 체력선 아래면 즉사 (영혼 1000에 20%, 보스급 절반). 스킬 피해 x1.75, 쿨타임 6초 (처형 성공 시 절반), 처형은 영혼을 하나 더 줌. 자동조준 안 받음. 쓰면 1초 무적.",
                 "선혈: 쿨타임 없이 혈기 100 소모 (100 미만이면 사용 불가), 크게 베기 그대로 + 5초 동안 쓰기 전 혈기만큼 평타 피해 · 공격 속도 증가 + 평타 흡혈 5%. 강화는 3번까지 중첩 (위력 합산, 흡혈은 그대로). 강화 중 평타로 처치해도 영혼 +1.",
                 "2차 진화: 처형은 체력선 x1.25 + 크게 베기에 맞은 좀비 전부 처형 판정, 선혈은 출혈 · 출혈 중첩 (8) · 강화 중첩 (5) · 흡혈 · 혈기 상한 · 지속 시간 증가."]),
@@ -9236,7 +9296,7 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
             if zombie.health <= 0 or zombie.max_health <= 0:
                 continue
             ratio = SPECIAL_REAPER_BOSS_RATIO if zombie.zombie_type in GUARANTEED_DROP_TYPES else SPECIAL_REAPER_RATIO
-            if is_scythe(player) and player.scythe_route == 1:   # 처형의 낫: 영혼 비례 처형 체력선을 더함
+            if is_scythe(player) and scythe_exec_route(player):   # 처형 · 사신의 낫: 영혼 비례 처형 체력선을 더함
                 ratio += scythe_exec_ratio(player, zombie)
             # 멀티: 내가 마지막으로 때린 좀비만 (예전에는 근처 팀원이 때린 좀비도 처형돼서 모두에게 적용되는 것처럼 보였음)
             if zombie.health < zombie.max_health * ratio and getattr(zombie, "last_attacker", player) is player and \
@@ -9244,7 +9304,7 @@ def tick_specials(player, zombies, bullets, all_sprites, explosions):
                 zombie.health = 0
                 if is_scythe(player):   # 낫을 들고 있으면: 영혼 +1, 선혈 루트는 혈기 +1, 체력 회복
                     zombie.scythe_soul_owner = player
-                    if player.scythe_route == 2:
+                    if scythe_blood_route(player):
                         player.scythe_blood = min(player.scythe_blood + 1, SCYTHE_BLOOD_MAX[1])
                     player.health = min(player.max_health, player.health + player.max_health * SCYTHE_REAPER_HEAL)
                 size = max(zombie.rect.width, zombie.rect.height) * 0.8
@@ -9651,7 +9711,8 @@ def show_upgrade_menu(player, camera, level=None, choices=None):
         # 카드가 아래에서 살짝 떠오르며 나타남
         rise = max(0, 40 - elapsed // 5)
         if choices is not None:   # 낫 진화: 두 루트 중 하나
-            top = ui_title(screen, f"낫 진화! (영혼 {player.scythe_kills})", SCREEN_HEIGHT // 2 - 230, "두 루트 중 하나를 선택하세요 · 다시 고를 수 없음", color=UI_ACCENT)
+            top = ui_title(screen, f"낫 진화! (영혼 {player.scythe_kills})", SCREEN_HEIGHT // 2 - 230,
+                           "★ 사신의 낫과 하나가 됨" if len(choices) == 1 else "두 루트 중 하나를 선택하세요 · 다시 고를 수 없음", color=UI_ACCENT)
         elif special:   # 50레벨: 특수 업그레이드
             top = ui_title(screen, f"LV.{level} 특수 업그레이드!", SCREEN_HEIGHT // 2 - 230, "아주 강력한 보상 · 한 가지를 선택하세요", color=SPECIAL_COLOR)
         else:
@@ -9818,14 +9879,16 @@ def apply_upgrade(player, selected_upgrade):
         player.skill_upgrades["katana"]["chain"] = player.skill_upgrades["katana"].get("chain", 0) + 1
     elif selected_upgrade["type"] == "scythe_skill_range":
         player.skill_upgrades["scythe"]["range"] += 25
-    elif selected_upgrade["type"] in ("scythe_route_1", "scythe_route_2"):
-        player.scythe_route = int(selected_upgrade["type"][-1])
-        player.scythe_stage = 1
-        color = SCYTHE_COLORS[player.scythe_route]
-        cx, cy = player.rect.center
-        fx.add_text(cx, player.rect.top - 40, f"진화: {selected_upgrade['name']}!", color, big=True, life=120)
-        fx.wave(cx, cy, color, 30, 260, life=26, width=10)
-        fx.burst(cx, cy, color, 40, speed=(3, 9), size=(3, 6), life=(16, 34))
+    elif selected_upgrade["type"] in ("scythe_route_1", "scythe_route_2", "scythe_route_3"):
+        route = int(selected_upgrade["type"][-1])
+        if not (player.scythe_route == 3 and route != 3):   # 이미 사신의 낫이면 늦게 온 1000영혼 선택지는 무시
+            player.scythe_route = route
+            player.scythe_stage = max(1, player.scythe_stage)   # 이미 2차 진화했으면 그대로
+            color = SCYTHE_COLORS[player.scythe_route]
+            cx, cy = player.rect.center
+            fx.add_text(cx, player.rect.top - 40, f"진화: {selected_upgrade['name']}!", color, big=True, life=120)
+            fx.wave(cx, cy, color, 30, 260, life=26, width=10)
+            fx.burst(cx, cy, color, 40, speed=(3, 9), size=(3, 6), life=(16, 34))
     elif selected_upgrade["type"] == "axe_skill_range":
         player.skill_upgrades["axe"]["range"] += 25
     elif selected_upgrade["type"] == "axe_skill_knockback":
@@ -9932,6 +9995,7 @@ def get_upgrade_name(upgrade_type):
         "melee_skill_speed_scythe": "낫 속도 +8%",
         "scythe_route_1": "처형의 낫",
         "scythe_route_2": "선혈의 낫",
+        "scythe_route_3": "사신의 낫",
         "melee_damage_axe": "도끼 공격력 +8",
         "axe_skill_knockback": "대회전 넉백 +12%",
         "spear_skill_pierces": "물보라 범위 +30px",
@@ -10844,7 +10908,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102159          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102160          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
@@ -11224,7 +11288,7 @@ def main():
                             fire_muzzle_flash(player, mouse_world_x, mouse_world_y, kick=2.5)
 
                         elif player.weapon.weapon_type == "grimoire":
-                            fire_grimoire(player, mouse_world_x, mouse_world_y, bullets, all_sprites)
+                            fire_grimoire(player, mouse_world_x, mouse_world_y, bullets, all_sprites, zombies)
 
                         elif player.weapon.weapon_type == "rocket":
                             rocket = Bullet(player.rect.centerx, player.rect.centery, mouse_world_x, mouse_world_y, get_weapon_damage(player), "rocket", "rocket")
@@ -11250,7 +11314,7 @@ def main():
                 elif player.weapon.weapon_type == "melee":   # 나무 방망이: 누르고 있으면 힘 모으기
                     bat_charge_start(player)
                 else:  # 무기 스킬 (기본: 우클릭 / Q)
-                    if is_scythe(player) and player.scythe_route == 1:   # 처형은 자동조준을 받지 않고 실제로 클릭한 곳을 씀
+                    if is_scythe(player) and scythe_exec_route(player):   # 처형은 자동조준을 받지 않고 실제로 클릭한 곳을 씀
                         mouse_world_x, mouse_world_y = mouse_screen_x + camera.x, mouse_screen_y + camera.y
                     execute_weapon_skill(player.weapon.weapon_type, player, mouse_world_x, mouse_world_y,
                                        zombies, bullets, all_sprites, explosions)
@@ -11378,9 +11442,9 @@ def main():
                     apply_upgrade(player, selected_upgrade)
 
             # 낫 1000스택: 진화 루트 선택
-            if scythe_route_ready(player):
+            if scythe_route_ready(player) or scythe_reaper_ready(player):
                 menu_start = pygame.time.get_ticks()
-                selected_upgrade = show_upgrade_menu(player, camera, choices=scythe_route_cards())
+                selected_upgrade = show_upgrade_menu(player, camera, choices=scythe_reaper_cards() if scythe_reaper_ready(player) else scythe_route_cards())
                 paused_ms = pygame.time.get_ticks() - menu_start
                 wave_timer_start += paused_ms
                 compensate_paused_time(player, paused_ms)

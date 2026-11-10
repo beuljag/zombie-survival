@@ -1858,5 +1858,27 @@
     "fps": 8,
     "loop": false,
     "animationMethod": "sequence"
+  },
+  "weapons/scythe_reaper.png": {
+    "frameWidth": 64,
+    "frameHeight": 40,
+    "frames": 1,
+    "sheetWidth": 64,
+    "sheetHeight": 40,
+    "layout": "horizontal",
+    "fps": 7,
+    "loop": true,
+    "animationMethod": "static"
+  },
+  "weapons/scythe_reaper2.png": {
+    "frameWidth": 64,
+    "frameHeight": 40,
+    "frames": 1,
+    "sheetWidth": 64,
+    "sheetHeight": 40,
+    "layout": "horizontal",
+    "fps": 7,
+    "loop": true,
+    "animationMethod": "static"
   }
 }

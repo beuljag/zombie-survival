@@ -652,7 +652,7 @@ class MatchState:
         if inp["r"] and p.weapon.weapon_type == "melee":   # 나무 방망이: 누르고 있으면 힘 모으기
             bat_charge_start(p)
         elif inp["r"]:
-            if is_scythe(p) and p.scythe_route == 1:   # 처형은 자동조준을 받지 않고 실제로 클릭한 곳을 씀
+            if is_scythe(p) and scythe_exec_route(p):   # 처형은 자동조준을 받지 않고 실제로 클릭한 곳을 씀
                 aim_x, aim_y = inp["x"], inp["y"]
             execute_weapon_skill(p.weapon.weapon_type, p, aim_x, aim_y, zombies, bullets, all_sprites, explosions)
         if p.bat_charging:
@@ -736,7 +736,7 @@ class MatchState:
                 all_sprites.add(bullet)
             fire_muzzle_flash(p, mouse_world_x, mouse_world_y, kick=2.5 if p.pid == self.local_pid else 0)
         elif p.weapon.weapon_type == "grimoire":
-            fire_grimoire(p, mouse_world_x, mouse_world_y, self.bullets, self.all_sprites)
+            fire_grimoire(p, mouse_world_x, mouse_world_y, self.bullets, self.all_sprites, self.zombies)
         elif p.weapon.weapon_type == "rocket":
             rocket = Bullet(p.rect.centerx, p.rect.centery, mouse_world_x, mouse_world_y, get_weapon_damage(p), "rocket", "rocket")
             rocket.lock_on(zombies, mouse_world_x, mouse_world_y)   # 유도 로켓
@@ -796,6 +796,9 @@ class MatchState:
         if scythe_route_ready(p) and not p.scythe_offered:   # 1000스택: 진화 루트 선택
             p.scythe_offered = True
             p.pending_choices.append(scythe_route_cards())
+        if scythe_reaper_ready(p) and not p.scythe_reaper_offered:   # ★ 사신의 낫: 사신 루트 선택
+            p.scythe_reaper_offered = True
+            p.pending_choices.append(scythe_reaper_cards())
         tick_katana_chain(p)   # 연참: 3초 안에 다시 안 쓰면 스택 초기화
         tick_overshield(p)     # 흡혈 보호막 3초
         tick_shield(p)         # 방어막 충전
