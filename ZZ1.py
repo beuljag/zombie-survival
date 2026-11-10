@@ -3772,7 +3772,7 @@ SCYTHE_FRENZY_FRAMES = (300, 360) # 평타 강화 지속 (1차 / 2차 진화)
 SCYTHE_FRENZY_LAYERS = (3, 5)     # 평타 강화 중첩 상한 (1차 / 2차 진화): 넘치면 가장 오래된 것부터 사라짐
 SCYTHE_FRENZY_POWER_MAX = 2       # 중첩을 합친 위력 상한 = 혈기 상한의 2배
 SCYTHE_LIFESTEAL = (0.05, 0.08)   # 강화 중 평타 흡혈 (보호막은 생기지 않음)
-SCYTHE_NAMES = {(0, 0): "낫", (1, 1): "처형의 낫", (1, 2): "종말의 낫", (2, 1): "선혈의 낫", (2, 2): "혈왕의 낫", (3, 1): "사신의 낫", (3, 2): "명계의 낫"}
+SCYTHE_NAMES = {(0, 0): "낫", (1, 1): "처형의 낫", (1, 2): "종말의 낫", (2, 1): "선혈의 낫", (2, 2): "혈왕의 낫", (3, 1): "사신의 낫", (3, 2): "데스 싸이드"}
 SCYTHE_COLORS = {0: (190, 180, 225), 1: (185, 150, 255), 2: (255, 80, 80), 3: (235, 80, 190)}
 
 
@@ -5933,7 +5933,7 @@ class BombardmentSkill(ActiveSkill):
 #  원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 반응이 터짐 (GRIMOIRE_REACTIONS)
 #  기본 공격과 스킬은 레벨에 따라 진화 (최대 300레벨)
 GRIMOIRE_EXP_MULT = 2.0
-GRIMOIRE_WISDOM_MULT = 3.0   # 마법서는 ★ 현자가 3배 (패시브 2배와 합쳐서 6배)
+GRIMOIRE_WISDOM_MULT = 5.0   # 마법서는 ★ 현자가 5배 (패시브 2배와 합쳐서 10배)
 GRIMOIRE_HEALTH_MULT, GRIMOIRE_MOVE_MULT = 0.5, 0.8   # 마법서를 들고 시작하면 최대 체력 x0.5, 이동 속도 x0.8 (공격력은 WEAPON_STATS)
 # 전용 업그레이드: 카드 종류 -> (저장 이름, 최대 횟수, 0이면 제한 없음)
 GRIMOIRE_UPGRADE_KEYS = {"grimoire_power": ("power", 0), "grimoire_blast": ("blast", 10), "grimoire_resonance": ("resonance", 8),
@@ -8555,7 +8555,7 @@ WEAPON_HELP = {
                 "업그레이드 \"도탄 +3회\", 전용 \"치명타 피해 +25%\" (최대 380%). 쿨타임 12초."]),
     "plasma": (["맞으면 작은 폭발 (주변 40%)."],
                ["블랙홀: 3초 동안 모든 좀비를 빨아들이고 범위 안의 좀비에게 피해, 사라질 때 안에서 죽은 좀비 수만큼 강해지는 붕괴 폭발. 쿨타임 18초."]),
-    "grimoire": (["패시브 현자의 지식: 최종 경험치 2배 (★ 현자를 찍으면 합쳐서 6배). 속성탄 업그레이드는 나오지 않음.",
+    "grimoire": (["패시브 현자의 지식: 최종 경험치 2배 (★ 현자를 찍으면 합쳐서 10배). 속성탄 업그레이드는 나오지 않음.",
                   "기본 스탯이 매우 낮음: 공격력 12, 최대 체력 절반, 이동 속도 -20%. 대신 스킬 피해 3배.",
                   "쏠 때마다 가진 속성 중 하나가 무작위로 나감: 시작 속성은 무작위, 50레벨마다 무작위 속성 하나, 300레벨에 전부 (9속성).",
                   "원소 반응: 좀비에게 3초 안에 다른 속성이 이어서 맞으면 터짐 (2속성 36종). 서로 다른 3속성이면 3중 반응 (84종, 조합마다 고유 효과). 3초 안에 또 반응하면 원소 공명도 터짐.",
@@ -9215,7 +9215,7 @@ SPECIAL_UPGRADES = [
     {"name": "★ 불사조", "desc": "쓰러질 피해를 받으면 체력 가득 부활 + 3초 무적 (90초에 한 번)", "type": "special_phoenix", "color": (255, 170, 50)},
     {"name": "★ 신의 가호", "desc": "20초마다 3초 동안 무적", "type": "special_aegis", "color": (255, 250, 200)},
     {"name": "★ 가시 갑옷", "desc": "받는 피해 -30%, 붙어 있는 좀비에게 0.5초마다 반격 (최대 체력의 75%)", "type": "special_thorns", "color": (150, 200, 90)},
-    {"name": "★ 현자", "desc": "경험치 2배 (마법서는 패시브와 합쳐서 6배)", "type": "special_wisdom", "color": (255, 255, 140)},
+    {"name": "★ 현자", "desc": "경험치 2배 (마법서는 패시브와 합쳐서 10배)", "type": "special_wisdom", "color": (255, 255, 140)},
 ]
 SPECIAL_ORBIT_COUNT, SPECIAL_ORBIT_RADIUS, SPECIAL_ORBIT_PERIOD = 3, 125, 90   # 구슬 3개, 반경 125, 1.5초에 한 바퀴
 SPECIAL_ORBIT_MULT, SPECIAL_ORBIT_HIT_EVERY = 1.5, 20                         # 같은 좀비는 0.33초에 한 번
@@ -10908,7 +10908,7 @@ def show_continue_menu(data):
 
 # ---------- 자동 업데이트 (exe로 실행할 때만) ----------
 #  시작할 때 GitHub 릴리스의 version.json을 확인 → 더 새 빌드가 있으면 물어보고 내려받아 exe를 바꾼 뒤 다시 실행
-GAME_BUILD = 2026102160          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
+GAME_BUILD = 2026102161          # 새로 배포할 때마다 올림 (version.json의 build와 비교)
 UPDATE_BASE = "https://github.com/beuljag/zombie-survival/releases/download/v1.0/"
 UPDATE_ASSET = "ZombieGame.exe"  # 멀티 exe는 ZombieMulti.exe로 바꿔서 씀
 _update_info = {"state": "idle"}  # idle / checking / none / available / failed
