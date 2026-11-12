@@ -110,11 +110,11 @@
     "animationMethod": "static"
   },
   "weapons/bat.png": {
-    "frameWidth": 52,
-    "frameHeight": 12,
+    "frameWidth": 84,
+    "frameHeight": 14,
     "frames": 1,
-    "sheetWidth": 52,
-    "sheetHeight": 12,
+    "sheetWidth": 84,
+    "sheetHeight": 14,
     "layout": "horizontal",
     "fps": 7,
     "loop": true,
